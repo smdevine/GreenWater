@@ -1,3 +1,4 @@
+#see "Daily reference evapotranspiration for California using satellite imagery and weather station measurement interpolation" by Hart et al. 2009
 library(raster)
 library(rgdal)
 library(XML)
@@ -8,11 +9,13 @@ spatialCIMISdir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/SpatialCIMIS'
 cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold'
 ca_ta <- showP4(showWKT("+init=epsg:3310"))
 startyear <- '2003'
-endyear <- '2003'
-startdate <- strptime(paste0("7/8/", startyear), '%m/%d/%Y')
-enddate <- strptime(paste0("12/31/", endyear), '%m/%d/%Y')
+endyear <- '2017'
+startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
+enddate <- strptime(paste0("06/01/", endyear), '%m/%d/%Y')
 datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
 base_url <- 'http://cimis.casil.ucdavis.edu/cimis/'
+varofinterest <- 'ETO.asc.gz'
+varDir <- 'ETo'
 i <- 1
 for (i in 1:length(datesequence)) {
   day <- format.Date(datesequence[i], '%d')
@@ -22,8 +25,8 @@ for (i in 1:length(datesequence)) {
     dir.create(file.path(spatialCIMISdir, yr))
   }
   url_download <- paste0(base_url, yr, '/', mnth, '/', day, '/', 'ETo.asc.gz')
-  setwd(file.path(spatialCIMISdir, yr))
-  error_catch <- try(download.file(url_download, destfile = "ETO.asc.gz", quiet = TRUE, mode = 'wb'))
+  setwd(file.path(spatialCIMISdir, varDir, yr))
+  error_catch <- try(download.file(url_download, destfile = varofinterest, quiet = TRUE, mode = 'wb'))
   if (class(error_catch)=='try-error') {
     next
   }
@@ -32,8 +35,8 @@ for (i in 1:length(datesequence)) {
   cimis_table <- t(cimis_table)
   cimis_values <- as.vector(cimis_table)
   cimis_raster <- raster(ncol=510, nrow=560, xmx=610000, xmn=-410000, ymn=-660000, ymx=460000, crs=ca_ta, vals=cimis_values)
-  writeRaster(cimis_raster, filename = paste0('ETo_', yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE) #each Gtiff will be 1092 KB
-  file.remove("ETo.asc.gz")
+  writeRaster(cimis_raster, filename = paste0(varDir, yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE) #each Gtiff will be 1092 KB
+  file.remove(varofinterest)
 }
 
 #plot some files to check
@@ -92,3 +95,33 @@ write.csv(cimis_data, 'SpatialCIMIS_data.csv', row.names = F)
 cimis_data <- read.csv('SpatialCIMIS_data.csv') #this has 86,600,954 cells
 cimis_data2 <- cbind(cimis_data['cell_number'], round(cimis_data[ ,2:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
 write.csv(cimis_data2, 'SpatialCIMIS_data_rounded.csv', row.names=F)
+
+#explore other datasets in the Spatial CIMIS database
+setwd(californiaDir)
+california <- shapefile("california_CA_TA.shp")
+i <- 1
+day <- format.Date(datesequence[i], '%d')
+mnth <- format.Date(datesequence[i], '%m')
+yr <- format.Date(datesequence[i], '%Y')
+fname <- 'U2.asc.gz'
+url_download <- paste0(base_url, yr, '/', mnth, '/', day, '/', fname)
+setwd(file.path(spatialCIMISdir, 'testing'))
+download.file(url_download, destfile = fname, quiet = TRUE, mode = 'wb')
+cimis_table <- read.table(fname, skip=6, na.strings="-9999") 
+#this two step operation is much faster than the "for loop" solution
+cimis_table <- t(cimis_table)
+cimis_values <- as.vector(cimis_table)
+cimis_raster <- raster(ncol=510, nrow=560, xmx=610000, xmn=-410000, ymn=-660000, ymx=460000, crs=ca_ta, vals=cimis_values)
+summary(cimis_raster)
+plot(cimis_raster)
+plot(california, add=T)
+writeRaster(cimis_raster, filename = paste0(fname, yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE) #each Gtiff will be 1092 KB
+file.remove(fname)
+#'K.asc.gz' is on a 0-1 scale (#clear sky factor)
+#'Rnl.asc.gz' is -8.66 - 1.26 scale for 1/1/2016 #net long wave radiation
+#'Rs.asc.gz' is 1.03-14.05 scale for 1/1/2016 #solar radiation
+#'Rso.asc.gz' is 8.48-14.24 scale for 1/1/2016 #clear sky solar radiation
+#'Tdew.asc.gz' is -28.5 - 4.9 scale for 1/1/2016 #dew point temperature at 1.5m
+#'Tn.asc.gz' is -36.2 - 18.3 scale for 1/1/2016 #daily minimum air temperature at 1.5m
+#'Tx.asc.gz' is -15.8 - 22.8 scale for 1/1/2016 #daily maximum air temperature at 1.5m
+#'U2.asc.gz" is 0 - 3.46 m/s #wind speed at 2m
