@@ -59,20 +59,20 @@ california <- shapefile("california_CA_TA.shp")
 plot(california, add=T)
 
 #calculate relative humidity
-if (file.exists(file.path(spatialCIMISdir, 'RH')) == FALSE) {
-  dir.create(file.path(spatialCIMISdir, 'RH'))
+if (file.exists(file.path(spatialCIMISdir, 'minRH')) == FALSE) {
+  dir.create(file.path(spatialCIMISdir, 'minRH'))
 }
 startyear <- '2003'
 endyear <- '2017'
 startdate <- strptime(paste0("10/01/", startyear), '%m/%d/%Y')
 enddate <- strptime(paste0("06/13/", endyear), '%m/%d/%Y')
 datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
-#i <- 310
+i <- 90
 for (i in 1:length(datesequence)) {
   day <- format.Date(datesequence[i], '%d')
   mnth <- format.Date(datesequence[i], '%m')
   yr <- format.Date(datesequence[i], '%Y')
-  setwd(file.path(spatialCIMISdir, 'Tmin', yr))
+  #setwd(file.path(spatialCIMISdir, 'Tmin', yr))
   #Tmin <- raster(paste0('Tmin', yr, mnth, day, '.tif'))
   setwd(file.path(spatialCIMISdir, 'Tmax', yr))
   Tmax <- raster(paste0('Tmax', yr, mnth, day, '.tif'))
@@ -86,31 +86,35 @@ for (i in 1:length(datesequence)) {
     dir.create(file.path(spatialCIMISdir, 'minRH', yr))
   }
   setwd(file.path(spatialCIMISdir, 'minRH', yr))
-  writeRaster(RH, filename = paste0('minRH_', yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE)
+  writeRaster(minRH, filename = paste0('minRH_', yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE)
 }
 
 #get SpatialCIMIS into matrix for cells of interest
 setwd(cellsofinterestDir)
 cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
 cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
-varname <- 'U2'
+cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
+varname <- 'minRH'
 startyear <- '2003'
 endyear <- '2017'
 startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
 enddate <- strptime(paste0("6/13/", endyear), '%m/%d/%Y')
 datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
-datesequence_colnames <- format.Date(datesequence, '%b_%d_%Y')
-cimis_data <- as.data.frame(matrix(nrow=length(cellsofinterest), ncol=(length(datesequence)+1)))
-colnames(cimis_data) <- c('cell_number', datesequence_colnames)
-cimis_data$cell_number <- cellsofinterest
+cimis_data <- as.data.frame(matrix(nrow=length(datesequence), ncol=(length(cellsofinterest)+5)))
+colnames(cimis_data) <- c('dates', 'month', 'day', 'year', 'DOY', cellsofinterest_names)
+cimis_data$dates <- format.Date(datesequence, '%m_%d_%Y')
+cimis_data$month <- as.integer(format.Date(datesequence, '%m'))
+cimis_data$day <- as.integer(format.Date(datesequence, '%d'))
+cimis_data$year <- as.integer(format.Date(datesequence, '%Y'))
+cimis_data$DOY <- as.integer(format.Date(datesequence, '%j'))
 #i <- 1
 for (i in 1:length(datesequence)) {
   day <- format.Date(datesequence[i], '%d')
   mnth <- format.Date(datesequence[i], '%m')
   yr <- format.Date(datesequence[i], '%Y')
   setwd(file.path(spatialCIMISdir, varname, yr))
-  spCIMIS <- raster(paste0(varname, yr, mnth, day, '.tif'))
-  cimis_data[ ,i+1] <- extract(spCIMIS, cellsofinterest)
+  spCIMIS <- raster(paste0(varname, '_', yr, mnth, day, '.tif'))
+  cimis_data[i, 6:ncol(cimis_data)] <- extract(spCIMIS, cellsofinterest)
   print(i)
 }
 setwd(cellsofinterestDir)
