@@ -94,7 +94,7 @@ setwd(cellsofinterestDir)
 cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
 cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
 cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
-varname <- 'minRH'
+varname <- 'ETo'
 startyear <- '2003'
 endyear <- '2017'
 startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
@@ -120,7 +120,7 @@ for (i in 1:length(datesequence)) {
 setwd(cellsofinterestDir)
 #write.csv(cimis_data, paste0('SpatialCIMIS_', varname, '_data.csv'), row.names = F)
 #cimis_data <- read.csv('SpatialCIMIS_data.csv') #this has 86,600,954 cells
-cimis_data2 <- cbind(cimis_data['cell_number'], round(cimis_data[ ,2:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
+cimis_data2 <- cbind(cimis_data[ ,1:5], round(cimis_data[ ,6:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
 write.csv(cimis_data2, paste0('SpatialCIMIS_', varname, '_rounded.csv'), row.names=F)
 
 #explore other datasets in the Spatial CIMIS database
