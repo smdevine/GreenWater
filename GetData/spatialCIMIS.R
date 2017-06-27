@@ -90,11 +90,12 @@ for (i in 1:length(datesequence)) {
 }
 
 #get SpatialCIMIS into matrix for cells of interest
+#file naming convention for U2 rasters forgot '_' between 'U2' and date; hence the if/else statement below
 setwd(cellsofinterestDir)
 cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
 cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
 cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
-varname <- 'ETo'
+varname <- 'U2'
 startyear <- '2003'
 endyear <- '2017'
 startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
@@ -113,7 +114,9 @@ for (i in 1:length(datesequence)) {
   mnth <- format.Date(datesequence[i], '%m')
   yr <- format.Date(datesequence[i], '%Y')
   setwd(file.path(spatialCIMISdir, varname, yr))
-  spCIMIS <- raster(paste0(varname, '_', yr, mnth, day, '.tif'))
+  if (varname == 'U2') {
+    spCIMIS <- raster(paste0(varname, yr, mnth, day, '.tif'))
+  } else {spCIMIS <- raster(paste0(varname, '_', yr, mnth, day, '.tif'))}
   cimis_data[i, 6:ncol(cimis_data)] <- extract(spCIMIS, cellsofinterest)
   print(i)
 }
