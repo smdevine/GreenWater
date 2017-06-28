@@ -1,33 +1,28 @@
 #script to implement the FAO56 dual crop coefficient ET routine
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold' #location of input data
 setwd(modelscaffoldDir)
+irrigation_parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
 crop_parameters <- read.csv('crop_parameters.csv', stringsAsFactors = F) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
 PRISMprecip <- read.csv('PRISM_precip_data.csv') #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download); blanks checked for in 'data_QA_QC.R'
 U2 <- read.csv('SpatialCIMIS_U2_rounded.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
 RHmin <- read.csv('SpatialCIMIS_minRH_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
 ETo <- read.csv('SpatialCIMIS_ETo_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
 
-#get doys for the model
-ifelse(length(U2$DOY)==length(RHmin$DOY) & length(U2$DOY)==length(ETo$DOY), doys_model <- U2$DOY, print('There are differing temporal coverages in the Spatial CIMIS data.'))
-#trim the PRISM data
+#get doys [days of years] for the model and ensure SpatialCIMIS coverages match
+if (length(U2$DOY)==length(RHmin$DOY) & length(U2$DOY)==length(ETo$DOY)){
+  doys_model <- U2$DOY
+  print('Temporal coverages match in Spatial CIMIS.')
+} else { print('There are differing temporal coverages in the Spatial CIMIS data.')
+}
+#
+#trim the PRISM data to the Spatial CIMIS temporal coverage
 
 crop_parameters_define <- function(crop_parameters) {
-  #crop <- 'almond'
-  # crop_parameters_selection <- crop_parameters[which(crop_parameters$crop==crop),]
   bloom_date <- strptime(paste0(as.character(crop_parameters$bloom_mo), '/', as.character(crop_parameters$bloom_day)), '%m/%d')
-  # height <-crop_parameters$height[crop_row]
-  # fc_ini <- crop_parameters$fc.ini[crop_row]
-  # fc_mid <- crop_parameters$fc.mid[crop_row]
-  # fc_end <- crop_parameters$fc.end[crop_row]
-  # Kcb_ini <- crop_parameters$Kcb.ini[crop_row]
-  # Kcb_mid <- crop_parameters$Kcb.mid[crop_row]
-  # Kcb_end <- crop_parameters$Kcb.end[crop_row]
   crop_parameters$Jdev <- as.integer(format.Date(bloom_date, '%j'))
   crop_parameters$Jmid <- crop_parameters$Jdev+crop_parameters$Ldev
   crop_parameters$Jlate <- crop_parameters$Jmid+crop_parameters$Lmid
   crop_parameters$Jharv <- crop_parameters$Jlate+crop_parameters$Llate
-  # return_list <- list(fc_ini, fc_mid, fc_end, Kcb_ini, Kcb_mid, Kcb_end, Jdev, Jmid, Jlate, Jharv, height)
-  # names(return_list) <- c('fc_ini', 'fc_mid', 'fc_end', 'Kcb_ini', 'Kcb_mid', 'Kcb_end', 'Jdev', 'Jmid', 'Jlate', 'Jharv', 'height')
   return(crop_parameters)
 }
 crop_parameters <- crop_parameters_define(crop_parameters)
@@ -39,7 +34,7 @@ Kc_act <- function(Ks, Kcb, Ke) {#equation 4 in Allen et al. 2005
   Ks*Kcb+Ke
 } 
 
-Kcb <- function(doy, parameters, crop) { #find standard value of Kcb by doy relative to three reference Kcb points defined by crop
+Kcb <- function(doy, parameters, crop) { #find standard value of Kcb by day of year relative to three reference Kcb points defined by crop parameters
   parameters <- crop_parameters[which(crop_parameters$crop==crop), ]
   ifelse(doy < parameters[['Jdev']], parameters[['Kcb_ini']], ifelse(doy < parameters[['Jmid']], parameters[['Kcb_ini']] + (doy-parameters[['Jdev']])/parameters[['Ldev']]*(parameters[['Kcb_mid']]-parameters[['Kcb_ini']]), ifelse(doy < parameters[['Jlate']], parameters[['Kcb_mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb_mid']]+(doy-parameters[['Jlate']])/parameters[['Llate']]*(parameters[['Kcb_end']]-parameters[['Kcb_mid']]), parameters[['Kcb_ini']]))))
 }
@@ -52,22 +47,81 @@ Kcb_adj <- function(Kcb_daily, crop_parameters, crop, U2, RHmin, SpCIMIScell){
   RHmin_daily <- RHmin[ ,which(colnames(RHmin)==column_name)]
   Kcb_climate_adj <- Kcb_daily + (0.04*(U2_daily-2)-0.004*(RHmin_daily-45))*(height/3)^0.3
   Kcb_climate_adj[which(Kcb_climate_adj<0)] <- 0
-  Kc_max <- pmax((0.04*(U2_daily-2)-0.004*(RHmin_daily-45))*(height/3)^0.3, Kcb_climate_adj+0.05)
-  return(cbind(Kcb_climate_adj, Kc_max))
+  Kc_max <- pmax(1.2+(0.04*(U2_daily-2)-0.004*(RHmin_daily-45))*(height/3)^0.3, Kcb_climate_adj+0.05)
+  return(as.data.frame(cbind(Kcb_climate_adj, Kc_max)))
 }
 #test the Kcb functions
-Kcb_std <- Kcb(doys_model, crop_parameters, 'almond_mature') #this will be substituted with a code
+Kcb_std <- Kcb(doys_model, crop_parameters, 'almond_mature') #this will be substituted with a crop code
+plot(Kcb_std, type='l')
 Kcb_df <- Kcb_adj(Kcb_std, crop_parameters, 'almond_mature', U2, RHmin, 86833) #last number is the Spatial CIMIS cell number, which will be retrieved from the model scaffold
+plot(Kcb_df$Kcb_climate_adj, type='l')
+plot(Kcb_df$Kc_max, type='p')
 
-fc_calc <- function(doy, parameters, crop) { #find standard value of Kcb by doy relative to three reference Kcb points defined by crop
+#calculate fraction of cover ('fc') for specific day of year relative to three points defined in crop parameters
+fc_calc <- function(doy, parameters, crop) {
   parameters <- crop_parameters[which(crop_parameters$crop==crop), ]
   ifelse(doy < parameters[['Jdev']], parameters[['fc_ini']], ifelse(doy < parameters[['Jmid']], parameters[['fc_ini']] + (doy-parameters[['Jdev']])/parameters[['Ldev']]*(parameters[['fc_mid']]-parameters[['fc_ini']]), ifelse(doy < parameters[['Jlate']], parameters[['fc_mid']], ifelse(doy < parameters[['Jharv']], parameters[['fc_mid']]+(doy-parameters[['Jlate']])/parameters[['Llate']]*(parameters[['fc_end']]-parameters[['fc_mid']]), parameters[['fc_ini']]))))
 }
 #test the fc_calc function
-fc_allyrs <- fc_calc(doys_model, crop_parameters, 'almond_mature')
+fc_alldays <- fc_calc(doys_model, crop_parameters, 'almond_mature')
+plot(fc_alldays, type='l')
 
-#upper soil water balance
+#TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
 
+#calculate fraction of soil wetted by both irrigation and precipitation and exposed to rapid drying (fewi) and fraction of soil exposed to rapid drying and is wetted by precipitation only (fewp).  These are dependent upon fraction of cover calculation above
+fewi_calc <- function(fc, irr_parameters, irr_type) {
+  fw <- irr_parameters$fw[which(irr_parameters$irrigation_type==irr_type)]
+  fewi_temp <- pmin(1-fc,fw)
+  fewi_temp[which(fewi_temp<0.01)] <- 0.01 #lower limit on fewi for numeric stability
+  fewi_temp[which(fewi_temp>1)] <- 1 #upper limit on fewi for numeric stability
+  return(fewi_temp)
+}
+print(irrigation_parameters$irrigation_type)
+fewi_alldays <- fewi_calc(fc_alldays, irrigation_parameters, "Microspray, orchards")
+plot(fewi_alldays, type='l')
+
+fewp_calc <- function(fc, fewi) {
+  fewp_temp <- 1-fc-fewi
+  fewp_temp[which(fewp_temp < 0.01)] <- 0.01 #lower limit on fewp for numeric stability
+  fewp_temp[which(fewp_temp>1)] <- 1 #upper limit on fewp for numeric stability
+  return(fewp_temp)
+}
+fewp_alldays <- fewp_calc(fc_alldays, fewi_alldays)
+class(fewp_alldays)
+plot(fewp_alldays, type='l')
+plot(fewp_alldays+fewi_alldays, type='l')
+summary(fewp_alldays+fewi_alldays)
+
+#calculate Kri and Krp; now dependent on daily soil water balance
+#Kri=(TEW-De,j-1)/(TEW-REW) (eqn. 22)
+#Krp=(TEW-Dep,j-1)/(TEW-REW) (eqn. 23)
+
+#pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach
+#Ke = Kei + Kep (eqn. 14)
+#where Kei=evaporation coefficient for the exposed fraction of the soil wetted by both irrigation and by precipitation and Kep=evaporation coefficient for the exposed fraction of the soil wetted by precipitation only
+#Kei = Kri*W*(Kcmax-Kcb) <= fewi*Kcmax (eqn. 15)
+#Kep = Krp*(1-W)*(Kcmax-Kcb) <= fewp*Kcmax (eqn. 16)
+#where fewi=fraction of soil wetted by both irrigation and precipitation and is exposed to rapid drying due to exposure to solar radiation and/or ventilation and is calculated as: min(1-fc, fw) (eqn. 18);
+#where fewp=fraction of soil exposed to rapid drying and is wetted by precipitation only and is calculated as: 1-fc-fewi (eqn. 17)
+#where Kri and Krp=evaporation reduction coefficients for the fewi and fewp fractions, respectively
+#where W=weighting coefficient for partitioning the energy available for evaporation in the fewi and fewp soil fractions, depending on water availability, and is calculated as: 1/(1+(fewp/fewi)*(TEW-Dep)/(TEW-De)) (eqn. 19);
+#where De=cumulative depletion depth (mm) from the evaporating layer for the fewi fraction of soil
+#where Dep=cumulative depletion depth (mm) from the evaporating layer for the fewp fraction of soil
+#finally, the water balance formation for fraction of soil only wetted by precipitation:
+#Dep,j=Dep,j-1 - Pj + Ep,j/fewp + DPep,j (ignoring transpiration from upper 10 cm and runoff, eqn. 20)
+#where Dep,j-1 and Dep,j are the cumulative depletion depths at the ends of days j-1 and j in the fewp fraction of the surface (mm)
+#where Ep,j=evaporation from kewp fraction on day j and is calculated as: Kep*ETo in mm
+#where DPep,j=deep percolation from the fewp fraction of the evaporation layer on day j if soil water content exceeds field capacity
+#where 0 <= Dep, j <= TEW
+#TEW=total evaporable water in upper layer and is calculated as: 1000*(field_capacity-0.5*wilting_point)*Ze
+#where Ze=effective depth of wetting and field capacity and wilting point is assumed to be moisture content at 1/3 and 15 bars, respectively, determined from the SSURGO database
+#and the water balance formulation for the fraction of soil wetted by both precipitation and irrigation
+#De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
+#where 0 <= De,j <= TEW
+#where Kri=(TEW-De,j-1)/(TEW-REW) (eqn. 22)
+#where Krp=(TEW-Dep,j-1)/(TEW-REW) (eqn. 23)
+#where Dpei,j=Pj + Ij/fw - Dei,j-1 >= 0
+#where DPep,j=Pj-Dep,j-1 >= 0
 
 Ke <- function(Kr, Kc_max, Kcb, Few) #Kr depends on daily water balance of surface layer (upper 10-15 cm); Few will also depend on daily water balance if separate calculations are done for soil wetted by precipitation vs. by both precip and irrigation (see "Separate Prediction of Evaporation from Soil Wetted by Precipitation Only" in Allen et al. 2005)
 
@@ -81,7 +135,7 @@ for (i in 1:length(model_scaffold_fnames)) {
   #save results file after each model_scaffold_fname is complete; these could be combined later using rbind
 }
 
-#alternative approach using means for different periods of the Kc curve
+#alternative approach using means for different periods of the Kc curve.  This was used in the FAO56 spreadsheet program.
 #calculate U2 and minRH by year for mid to late period for each cell of interest; this is used by Kcb function.  Should just use average of years for 2017
 U2_mid <- function(U2, col_index, Jmid, Jlate) {
   U2_temp <- U2[which(U2$DOY >= Jmid & U2$DOY <= Jlate), ]
