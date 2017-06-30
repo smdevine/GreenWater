@@ -83,6 +83,19 @@ for (i in 1:maxcomps) {
 }
 
 summary(model_scaffold2$allowable_depletion)
+setwd(file.path(model_scaffoldDir, 'paw_check/mean_root_depth'))
+fnames <- list.files(pattern = glob2rx('*csv'))
+for (i in 1:length(fnames)) {
+  if (i==1) {
+    master.file <- read.csv(fnames[i])
+  } else {
+    master.file <- rbind(master.file, read.csv(fnames[i]))
+  }
+}
+
+#1,177,027 unique soil components, climate, and crop
+j <- which(master.file$comppct_r >= 15)
+length(j) #but only 277,477 are major components
 
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
