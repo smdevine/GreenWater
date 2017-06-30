@@ -7,20 +7,8 @@ P.df <- read.csv('PRISM_precip_data.csv', stringsAsFactors = F) #this is a daily
 U2.df <- read.csv('SpatialCIMIS_U2_rounded.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
 RHmin.df <- read.csv('SpatialCIMIS_minRH_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
 ETo.df <- read.csv('SpatialCIMIS_ETo_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
-
-#get doys [days of years] for the model and ensure SpatialCIMIS coverages match
-if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
-  doys.model <- U2.df$DOY
-  print('Temporal coverages match in Spatial CIMIS.')
-} else { 
-  print('There are differing temporal coverages in the Spatial CIMIS data.')
-}
-#get precip and spatial CIMIS data to same temporal end point
-last.date <- ETo.df$dates[nrow(ETo.df)]
-P.df <- P.df[1:which(P.df$dates==last.date), ]
-
-#trim the PRISM data to the Spatial CIMIS temporal coverage
-
+#define functions implement FA56 dual crop coefficients
+#includes subroutine that separates evaporable water as P vs. Irr sourced
 CropParametersDefine <- function(crop.parameters) {
   bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
   crop.parameters$Jdev <- as.integer(format.Date(bloom.date, '%j'))
@@ -29,13 +17,10 @@ CropParametersDefine <- function(crop.parameters) {
   crop.parameters$Jharv <- crop.parameters$Jlate + crop.parameters$Llate
   return(crop.parameters)
 }
-crop.parameters <- CropParametersDefine(crop.parameters)
-
 KcbDefine <- function(doy, parameters, crop) { #find standard value of Kcb by day of year relative to three reference Kcb points defined by crop parameters
   parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
   ifelse(doy < parameters[['Jdev']], parameters[['Kcb.ini']], ifelse(doy < parameters[['Jmid']], parameters[['Kcb.ini']] + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb.mid']] + (doy - parameters[['Jlate']]) / parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), parameters[['Kcb.ini']]))))
 }
-
 #adjust standard Kcb values by daily climate according to equation #5 in Allen et al. 2005 and calculate Kc max at the same time
 KcbAdj <- function(Kcb.daily, crop.parameters, crop, U2.df, RHmin.df, SpCIMIScell){
   column.name <- paste0('cell_', as.character(SpCIMIScell))
@@ -47,45 +32,147 @@ KcbAdj <- function(Kcb.daily, crop.parameters, crop, U2.df, RHmin.df, SpCIMIScel
   Kc.max <- pmax(1.2 + (0.04 * (U2 - 2) - 0.004 * (RHmin - 45)) * (height / 3)^0.3, Kcb.climate.adj + 0.05)
   return(as.data.frame(cbind(Kcb.climate.adj, Kc.max)))
 }
-#test the Kcb functions
-Kcb.std <- KcbDefine(doys.model, crop.parameters, 'almond.mature') #this will be substituted with a crop code
-plot(Kcb.std, type='l')
-Kcb.df <- KcbAdj(Kcb.std, crop.parameters, 'almond.mature', U2.df, RHmin.df, 86833) #last number is the Spatial CIMIS cell number, which will be retrieved from the model scaffold
-plot(Kcb.df$Kcb.climate.adj, type='l')
-plot(Kcb.df$Kc.max, type='p')
-
 #calculate fraction of cover ('fc') for specific day of year relative to three points defined in crop parameters
 fcCalc <- function(doy, parameters, crop) {
   parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
   ifelse(doy < parameters[['Jdev']], parameters[['fc.ini']], ifelse(doy < parameters[['Jmid']], parameters[['fc.ini']] + (doy-parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['fc.mid']] - parameters[['fc.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['fc.mid']], ifelse(doy < parameters[['Jharv']], parameters[['fc.mid']] + (doy-parameters[['Jlate']]) / parameters[['Llate']] * (parameters[['fc.end']] - parameters[['fc.mid']]), parameters[['fc.ini']]))))
 }
-#test the fcCalc function
-fc <- fcCalc(doys.model, crop.parameters, 'almond.mature')
-plot(fc, type='l')
-
-#TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
-
 #calculate fraction of soil wetted by both irrigation and precipitation and exposed to rapid drying (fewi) and fraction of soil exposed to rapid drying and is wetted by precipitation only (fewp).  These are dependent upon fraction of cover calculation above
 fwSelect <- function(irr.parameters, irr.type) {
   irr.parameters$fw[which(irr.parameters$irrigation.type==irr.type)]
 }
-print(irrigation.parameters$irrigation.type)
-fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
 fewiCalc <- function(fc, fw) { #see p.147 of FAO-56 Chp.7 re: drip
   fewi.temp <- pmin(1 - fc, fw)
   fewi.temp[which(fewi.temp < 0.001)] <- 0.001 #lower limit on fewi for numeric stability
   fewi.temp[which(fewi.temp > 1)] <- 1 #upper limit on fewi for numeric stability
   return(fewi.temp)
 }
-fewi <- fewiCalc(fc, fw)
-plot(fewi, type='l')
-
 fewpCalc <- function(fc, fewi) {
   fewp.temp <- 1 - fc - fewi
   fewp.temp[which(fewp.temp < 0.001)] <- 0.001 #lower limit on fewp for numeric stability
   fewp.temp[which(fewp.temp > 1)] <- 1 #upper limit on fewp for numeric stability
   return(fewp.temp)
 }
+TEWCalc <- function(ThetaFC, ThetaWP, REW, Ze=0.10) { #Ze is depth of upper soil 
+  #layer where evaporation occurs in meters
+  result <- 1000 * (ThetaFC - 0.5 * ThetaWP) * Ze
+  if (result < REW) {
+    stop(print('Hay una problema con TEW')) #could change to next and print or 
+    #save model code
+  } 
+  return(result)
+}
+DepInitialCalc <- function(Dep.end, P) {
+  max(Dep[i-1] - P[i], 0) # DON'T RUN THIS IF i=1
+}
+DeiInitialCalc <- function(Dei.end, P, Ir, fw) { #DON'T RUN THIS WHEN i=1
+  max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw, 0) #have to use irrigation from 
+  #previous day because current day irrigation decision is dependent on this calc
+}
+KrCalc <- function(TEW, REW, De.initial) { #can be used to calculate Kri or Krp
+  max(0, if(De.initial[i] < REW) { #could initialize this in vector above
+    1
+  } else {
+    (TEW - De.initial[i]) / (TEW - REW)
+  })
+}
+WCalc <- function(TEW, Dei.initial, Dep.initial, fewp, fewi) {
+  1 / (1 + (fewp[i] / fewi[i]) * (TEW - Dep.initial[i]) / (TEW - Dei.initial[i]))
+}
+KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi) {
+  min(Kri[i] * W[i] * (Kcmax[i] - Kcb[i]), fewi[i] * Kcmax[i])
+}
+KepCalc <- function(Krp, W, Kcmax, Kcb, fewp) {
+  min(Krp[i] * (1 - W[i]) * (Kcmax[i] - Kcb[i]), fewp[i] * Kcmax[i])
+}
+EpCalc <- function(ETo, Kep) {
+  ETo[i] * Kep[i]
+}
+EiCalc <- function(ETo, Kei) {
+  ETo[i] * Kei[i]
+}
+DPepCalc <- function(P, Dep.initial) {
+  max(P[i] - Dep.initial[i], 0)
+}
+DepEndCalc <- function(Dep.initial, P, Ep, fewp, DPep) {
+  Dep.initial[i] - P[i] + Ep[i] / fewp[i] + DPep[i]
+}
+DPeiCalc <- function(P, Ir, fw, Dei.initial) { #DON'T RUN THIS FOR i=1
+  max(0, P[i] + Ir[i - 1] / fw - Dei.initial[i])
+}
+KcnsCalc <- function(Kcb, Kei, Kep) {
+  Kcb[i] + Kei[i] + Kep[i]
+}
+ETcnsCalc <- function(Kc.ns, ETo) {
+  Kc.ns[i] * ETo[i]
+}
+DrInitialCalc <- function(Dr.end, ETc.ns, P) { #don't run this for i=1
+  Dr.end[i - 1] - P[i] + ETc.ns[i]
+}
+IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr=21) {
+  if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
+    return(0)
+  } else if (Dr.initial[i] > AD) {
+    return(AD)
+  } else {
+    return(0)
+  }
+}
+DPrCalc <- function(P, Ir, ETc.ns, Dr.end) { #NOT TO BE USED for i=1
+  max(P[i] + Ir[i] - ETc.ns[i] - Dr.end[i - 1], 0)
+}
+KsCalc <- function(Dr.initial, PAW, AD) {
+  if (Dr.initial[i] > AD) {
+    (PAW - Dr.initial[i])/(PAW - AD)
+  } else { 
+    return(1)
+  }
+}
+KcactCalc <- function(Ks, Kcb, Kei, Kep) {#equation 4 in Allen et al. 2005
+  Ks[i] * Kcb[i] + Kei[i] + Kep[i]
+}
+ETcactCalc <- function(Kc.act, ETo) {#equation 3 in Allen et al. 2005
+  Kc.act[i] * ETo[i]
+}
+DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr) { #NOT TO BE USED for i=1
+  Dr[i - 1] - P[i] - Ir[i] + Kc.act[i] * ETo[i] + DPr[i]
+}
+
+#only done once per run
+#get doys [days of years] for the model and ensure SpatialCIMIS coverages match
+if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
+  doys.model <- U2.df$DOY
+  print('Temporal coverages match in Spatial CIMIS.')
+} else { 
+  print('There are differing temporal coverages in the Spatial CIMIS data.')
+}
+#get precip and spatial CIMIS data to same temporal end point
+last.date <- ETo.df$dates[nrow(ETo.df)]
+P.df <- P.df[1:which(P.df$dates==last.date), ]
+crop.parameters <- CropParametersDefine(crop.parameters)
+
+#this could be done once for each crop
+Kcb.std <- KcbDefine(doys.model, crop.parameters, 'almond.mature') #this will be substituted with a crop code
+plot(Kcb.std, type='l')
+Kcb.df <- KcbAdj(Kcb.std, crop.parameters, 'almond.mature', U2.df, RHmin.df, 86833) #last number is the Spatial CIMIS cell number, which will be retrieved from the model scaffold
+plot(Kcb.df$Kcb.climate.adj, type='l')
+plot(Kcb.df$Kc.max, type='p')
+
+
+#test the fcCalc function
+fc <- fcCalc(doys.model, crop.parameters, 'almond.mature')
+plot(fc, type='l')
+
+#TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
+
+
+print(irrigation.parameters$irrigation.type)
+fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
+
+fewi <- fewiCalc(fc, fw)
+plot(fewi, type='l')
+
+
 fewp <- fewpCalc(fc, fewi)
 plot(fewp, type='l')
 plot(fewp + fewi, type='l')
@@ -105,15 +192,7 @@ AD.percentange <- 50
 PAW <- 80.35/(AD.percentange/100)
 Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==crop)]
 Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==crop)]
-TEWCalc <- function(ThetaFC, ThetaWP, REW, Ze=0.10) { #Ze is depth of upper soil 
-#layer where evaporation occurs in meters
-  result <- 1000 * (ThetaFC - 0.5 * ThetaWP) * Ze
-  if (result < REW) {
-    stop(print('Hay una problema con TEW')) #could change to next and print or 
-#save model code
-  } 
-  return(result)
-}
+
 TEW.parameter <- TEWCalc(0.336, 0.211, REW.parameter) #these will need to be 
 #taken from model scaffold
 model.length <- nrow(ETo.df)
@@ -153,108 +232,29 @@ ETc.act <- numeric(length = model.length)
 P <- P.df[ , which(colnames(P.df)=='cell_365380')] #this can be automated based 
 #on the model_scaffold.csv that defines all the spatial parameters
 ETo <- ETo.df[ , which(colnames(ETo.df)=='cell_86833')]
-DepInitialCalc <- function(Dep.end, P) {
-  max(Dep[i-1] - P[i], 0) # DON'T RUN THIS IF i=1
-}
+
 Dep.initial[i] <- DepInitialCalc(Dep.end, P)
-DeiInitialCalc <- function(Dei.end, P, Ir, fw) { #DON'T RUN THIS WHEN i=1
-  max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw, 0) #have to use irrigation from 
-  #previous day because current day irrigation decision is dependent on this calc
-}
 Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw)
-KrCalc <- function(TEW, REW, De.initial) { #can be used to calculate Kri or Krp
-  max(0, if(De.initial[i] < REW) { #could initialize this in vector above
-    1
-  } else {
-    (TEW - De.initial[i]) / (TEW - REW)
-  })
-}
-#test Krp calc
 Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
-#test Kri calc
 Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
-WCalc <- function(TEW, Dei.initial, Dep.initial, fewp, fewi) {
-  1 / (1 + (fewp[i] / fewi[i]) * (TEW - Dep.initial[i]) / (TEW - Dei.initial[i]))
-}
 W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
-KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi) {
-  min(Kri[i] * W[i] * (Kcmax[i] - Kcb[i]), fewi[i] * Kcmax[i])
-}
 Kei[i] <- KeiCalc(Kri, W, Kcb.df$Kc.max, Kcb.df$Kcb.climate.adj, fewi)
-KepCalc <- function(Krp, W, Kcmax, Kcb, fewp) {
-  min(Krp[i] * (1 - W[i]) * (Kcmax[i] - Kcb[i]), fewp[i] * Kcmax[i])
-}
 Kep[i] <- KepCalc(Krp, W, Kcb.df$Kc.max, Kcb.df$Kcb.climate.adj, fewp)
-EpCalc <- function(ETo, Kep) {
-  ETo[i] * Kep[i]
-}
-EiCalc <- function(ETo, Kei) {
-  ETo[i] * Kei[i]
-}
 Ep[i] <- EpCalc(ETo, Kep)
 Ei[i] <- EiCalc(ETo, Kei)
-DPepCalc <- function(P, Dep.initial) {
-  max(P[i] - Dep.initial[i], 0)
-}
 DPep[i] <- DPepCalc(P, Dep.initial)
-DepEndCalc <- function(Dep.initial, P, Ep, fewp, DPep) {
-  Dep.initial[i] - P[i] + Ep[i] / fewp[i] + DPep[i]
-}
 Dep.end[i] <- DepEndCalc(Dep.initial, P, Ep, fewp, DPep)
 # now calculate irrigation needs to be able to finish water balance for fewi 
-# portion of upper layer
-DPeiCalc <- function(P, Ir, fw, Dei.initial) { #DON'T RUN THIS FOR i=1
-  max(0, P[i] + Ir[i - 1] / fw - Dei.initial[i])
-}
+
 DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial)
-KcnsCalc <- function(Kcb, Kei, Kep) {
-  Kcb[i] + Kei[i] + Kep[i]
-}
 Kc.ns[i] <- KcnsCalc(Kcb.df$Kcb.climate.adj, Kei, Kep)
-ETcnsCalc <- function(Kc.ns, ETo) {
-  Kc.ns[i] * ETo[i]
-}
 ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-DrInitialCalc <- function(Dr.end, ETc.ns, P) { #don't run this for i=1
-  Dr.end[i - 1] - P[i] + ETc.ns[i]
-}
 Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P)
-IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr=21) {
-  if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
-    return(0)
-  } else if (Dr.initial[i] > AD) {
-    return(AD)
-  } else {
-    return(0)
-  }
-}
 Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv)
-DPrCalc <- function(P, Ir, ETc.ns, Dr.end) { #NOT TO BE USED for i=1
-  max(P[i] + Ir[i] - ETc.ns[i] - Dr.end[i - 1], 0)
-}
 DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end)
-KsCalc <- function(Dr.initial, PAW, AD) {
-  if (Dr.initial[i] > AD) {
-    (PAW - Dr.initial[i])/(PAW - AD)
-  } else { 
-    return(1)
-  }
-}
 Ks[i] <- KsCalc(Dr.initial, PAW, AD)
-
-KcactCalc <- function(Ks, Kcb, Kei, Kep) {#equation 4 in Allen et al. 2005
-  Ks[i] * Kcb[i] + Kei[i] + Kep[i]
-}
 Kc.act[i] <- KcactCalc(Ks, Kcb.df$Kcb.climate.adj, Kei, Kep)
-
-ETcactCalc <- function(Kc.act, ETo) {#equation 3 in Allen et al. 2005
-  Kc.act[i] * ETo[i]
-}
 ETc.act[i] <- ETcactCalc(Kc.act, ETo)
-DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr) { #NOT TO BE USED for i=1
-  Dr[i - 1] - P[i] - Ir[i] + Kc.act[i] * ETo[i] + DPr[i]
-}
-
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
 #pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach
 #Ke = Kei + Kep (eqn. 14)
