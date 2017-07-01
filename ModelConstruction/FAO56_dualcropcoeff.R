@@ -64,7 +64,7 @@ TEWCalc <- function(ThetaFC, ThetaWP, REW, Ze=0.10) { #Ze is depth of upper soil
   return(result)
 }
 DepInitialCalc <- function(Dep.end, P) {
-  max(Dep[i-1] - P[i], 0) # DON'T RUN THIS IF i=1
+  max(Dep.end[i-1] - P[i], 0) # DON'T RUN THIS IF i=1
 }
 DeiInitialCalc <- function(Dei.end, P, Ir, fw) { #DON'T RUN THIS WHEN i=1
   max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw, 0) #have to use irrigation from 
@@ -103,7 +103,7 @@ DPeiCalc <- function(P, Ir, fw, Dei.initial) { #DON'T RUN THIS FOR i=1
 }
 DeiEndCalc <- function(Dei.end, P, Ir, fw, fewi, Ei, DPei) { #DON'T RUN THIS FOR i=1
   Dei.end[i - 1] - P[i] + Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i]
-}#De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
+} #again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
 KcnsCalc <- function(Kcb, Kei, Kep) {
   Kcb[i] + Kei[i] + Kep[i]
 }
@@ -155,6 +155,10 @@ cropname <- 'almond.mature'
 #get doys [days of years] for the model and ensure SpatialCIMIS coverages match
 if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
   doys.model <- U2.df$DOY
+  dates <- U2.df$dates
+  days <- U2.df$day
+  months <- U2.df$month
+  year <- U2.df$year
   print('Temporal coverages match in Spatial CIMIS.')
 } else { 
   print('There are differing temporal coverages in the Spatial CIMIS data.')
@@ -203,7 +207,7 @@ for (n in 1:nrow(model_scaffold)) {
   ETo <- ETo.df[ , which(colnames(ETo.df)==paste0('cell_', as.character(spCIMIScell)))]
   U2 <- U2.df[ ,which(colnames(U2.df)==paste0('cell_', as.character(spCIMIScell)))]
   RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
-  Kcb.df <- KcbAdj(Kcb.std, crop.parameters, cropname, U2, RHmin, spCIMIScell)
+  Kcb.df <- KcbAdj(Kcb.std, crop.parameters, cropname, U2, RHmin)
   Kcb.adjusted <- Kcb.df$Kcb.climate.adj
   Kcmax <- Kcb.df$Kc.max
   PAW <- AD/(AD.percentange/100)
@@ -245,13 +249,14 @@ for (n in 1:nrow(model_scaffold)) {
   Ep[i] <- EpCalc(ETo, Kep)
   Ei[i] <- EiCalc(ETo, Kei)
   DPep[i] <- DPepCalc(P, Dep.initial)
-  Dep.end[i] <- DepEndCalc(Dep.initial, P, Ep, fewp, DPep)
-  DPei[i] <- max(P[1] - Dei.initial[1], 0) #initial estimate that essentially assumes irrigation is zero on first day
-  Dei.end[i] <- DeiEndCalc()
+  Dep.end[i] <- Dep.initial[i] - P[i] + Ep[i] / fewp[i] + DPep[i] #replaces Dep.end[i-1] with Dep.intial[i]
+  DPei[i] <- max(P[1] - Dei.initial[1], 0) #initial estimate assumes irrigation is zero on previous day
+  #initial estimate for Dei.end assumes irrigation is zero on previous day
+  Dei.end[i] <- Dei.initial[i] - P[i] + Ei[i] / fewi[i] + DPei[i] #replaces Dei.end[i-1] with Dei.intial[i]
   Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
   ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
   Dr.initial[i] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
-  Ir[i] <- first_irrigation
+  Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv)
   DPr[i] <- max(max(P[1] + Ir[i] - TEW.parameter * TEW.fraction - ETc.ns[1], 0)) #initial calc
   Ks[i] <- KsCalc(Dr.initial, PAW, AD)
   Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
@@ -267,9 +272,9 @@ for (n in 1:nrow(model_scaffold)) {
     Ep[i] <- EpCalc(ETo, Kep)
     Ei[i] <- EiCalc(ETo, Kei)
     DPep[i] <- DPepCalc(P, Dep.initial)
-    Dep.end[i] <- DepEndCalc(Dep.initial, P, Ep, fewp, DPep)
-    Dei.end[i] <- DeiEndCalc()
+    Dep.end[i] <- DepEndCalc(Dep.end, P, Ep, fewp, DPep)
     DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial)
+    Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei)
     Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
     ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
     Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P)
@@ -279,7 +284,8 @@ for (n in 1:nrow(model_scaffold)) {
     Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
     ETc.act[i] <- ETcactCalc(Kc.act, ETo)
   }
-  result <- data.frame(P, ETo, RHmin, U2, Kcb.std, Kcb.adjusted, Kcmax, Dei.initial, Dep.initial, Kri, Krp, W, Kei, Kep, Ep, Ei, DPep, Dep.end, DPei, )
+  result <- data.frame(P, ETo, RHmin, U2, Kcb.std, Kcb.adjusted, Kcmax, Dei.initial, Dep.initial, Kri, Krp, W, Kei, Kep, Ep, Ei, DPep, Dep.end, DPei, Kc.ns, ETc.ns, Dr.initial, Ir, DPr, Ks, Kc.act, ETc.act)
+  write.csv(result, paste0('almond_root0.91m_', as.character(model_code), '_', as.character(cokey), '.csv'), row.names=F)
   print(n)
 }
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
