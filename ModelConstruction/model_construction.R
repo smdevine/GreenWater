@@ -92,10 +92,12 @@ for (i in 1:length(fnames)) {
     master.file <- rbind(master.file, read.csv(fnames[i]))
   }
 }
-
 #1,177,027 unique soil components, climate, and crop
 j <- which(master.file$comppct_r >= 15)
 length(j) #but only 277,477 are major components
+model_scaffold_majcomps <- master.file[j,]
+setwd(model_scaffoldDir)
+write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.csv', row.names = F)
 
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
