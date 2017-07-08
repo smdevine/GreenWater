@@ -1,6 +1,12 @@
+#TODO: #1 Track irrigation and precip T and E separately
+       #2 Read "Implementing the Dual Crop Coefficient Approach in Interactive
+        # Software"
+       #3 Revise "SSURGO_processing_awc_r.R"
+       #4 
 #script to implement the FAO56 dual crop coefficient ET routine
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold' #location of input data
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/trial6_30_2017/almonds_majcomps'
+rounding_digits <- 3
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
 crop.parameters <- read.csv('crop_parameters.csv', stringsAsFactors = F) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
@@ -78,7 +84,7 @@ KrCalc <- function(TEW, REW, De.initial) { #can be used to calculate Kri or Krp
   })
 }
 WCalc <- function(TEW, Dei.initial, Dep.initial, fewp, fewi) {
-  1 / (1 + (fewp[i] / fewi[i]) * (TEW - Dep.initial[i]) / (TEW - Dei.initial[i]))
+  1 / (1 + (fewp[i] / fewi[i]) * max(TEW - Dep.initial[i], 0.001) / max((TEW - Dei.initial[i]), 0.001))
 }
 KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi) {
   min(Kri[i] * W[i] * (Kcmax[i] - Kcb[i]), fewi[i] * Kcmax[i])
@@ -92,17 +98,17 @@ EpCalc <- function(ETo, Kep) {
 EiCalc <- function(ETo, Kei) {
   ETo[i] * Kei[i]
 }
-DPepCalc <- function(P, Dep.initial) {
-  max(P[i] - Dep.initial[i], 0)
+DPepCalc <- function(P, Dep.end) { #DON'T RUN THIS FOR i=1
+  max(P[i] - Dep.end[i-1], 0)
 }
 DepEndCalc <- function(Dep.end, P, Ep, fewp, DPep) { #DON'T RUN THIS FOR i=1
   Dep.end[i - 1] - P[i] + Ep[i] / fewp[i] + DPep[i]
 } #ignores transpiration and runoff from upper layer
-DPeiCalc <- function(P, Ir, fw, Dei.initial) { #DON'T RUN THIS FOR i=1
-  max(0, P[i] + Ir[i - 1] / fw - Dei.initial[i])
+DPeiCalc <- function(P, Ir, fw, Dei.end) { #DON'T RUN THIS FOR i=1
+  max(0, P[i] + Ir[i - 1] / fw - Dei.end[i-1])
 }
 DeiEndCalc <- function(Dei.end, P, Ir, fw, fewi, Ei, DPei) { #DON'T RUN THIS FOR i=1
-  Dei.end[i - 1] - P[i] + Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i]
+  Dei.end[i - 1] - P[i] - Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i]
 } #again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
 KcnsCalc <- function(Kcb, Kei, Kep) {
   Kcb[i] + Kei[i] + Kep[i]
@@ -110,20 +116,20 @@ KcnsCalc <- function(Kcb, Kei, Kep) {
 ETcnsCalc <- function(Kc.ns, ETo) {
   Kc.ns[i] * ETo[i]
 }
-DrInitialCalc <- function(Dr.end, ETc.ns, P) { #DON'T RUN THIS FOR i=1
-  Dr.end[i - 1] - P[i] + ETc.ns[i]
+DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir) { #DON'T RUN THIS FOR i=1
+  Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
 }
 IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr=21) {
   if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
     return(0)
   } else if (Dr.initial[i] > AD) {
-    return(AD)
+    return(Dr.initial[i])
   } else {
     return(0)
   }
 }
 DPrCalc <- function(P, Ir, ETc.ns, Dr.end) { #DON'T RUN THIS FOR i=1
-  max(P[i] + Ir[i] - ETc.ns[i] - Dr.end[i - 1], 0)
+  max(P[i] + Ir[i-1] - ETc.ns[i] - Dr.end[i - 1], 0)
 }
 KsCalc <- function(Dr.initial, PAW, AD) {
   if (Dr.initial[i] > AD) {
@@ -139,8 +145,30 @@ ETcactCalc <- function(Kc.act, ETo) {#equation 3 in Allen et al. 2005
   Kc.act[i] * ETo[i]
 }
 DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr) { #NOT TO BE USED for i=1
-  Dr[i - 1] - P[i] - Ir[i] + Kc.act[i] * ETo[i] + DPr[i]
+  Dr.end[i - 1] - P[i] - Ir[i-1] + Kc.act[i] * ETo[i] + DPr[i]
 }
+
+#results functions
+model_length_yrs <- max(ETo.df$year) - min(ETo.df$year)
+model_scaffold_results <- for (i in 1:nrow(model_scaffold)) { #this is slow
+  if (i==1) {
+    temp <- rep(model_scaffold[i,], model_length_yrs)
+    next
+  } else {
+    chunk <- rep(model_scaffold[i,], model_length_yrs)
+    temp <- rbind(temp, chunk)
+    print(i)
+  }
+}
+
+
+results_all <- data.frame(model_scaffold_results, Model.Year=rep(seq(from=(min(ETo.df$year)+1), to=max(ETo.df$year), by=1), times=nrow(model_scaffold)), Irr.1=NA, Irr.2=NA, Irr.3=NA, Irr.4=NA, Irr.5=NA, Irr.Last=NA, GreenWaterT=NA, GreenWaterE=NA, GreeWaterET=NA, DeepPercWinter=NA, DeepPercFall=NA, DeepPercSpring=NA, DeltaWinterDr=NA, EndSeasonDr=NA))
+#assumes ETo data starts at the beginning of a water year in the fall
+#DeepPercFall is from doy=Irr.Last to doy=355 (approx 12/21) 
+#DeepPercWinter is Irr.Last to flowering (Jini)
+#DeepPercSpring is flowering (Jini) to doy=152 (approx. 6/1)
+#DeltaWinterDr is change in soil root zone depletion from Jharv (leaf drop) to Jini (flowering) and is a measure of green water capture relative to winter precip and end of season soil water storage
+#EndSeasonDr is soil root zone depletion
 
 #all these tasks only done once per run where run is initialzing model and then looping through all rows in model_scaffold
 #ID crop codes
@@ -184,13 +212,14 @@ fewp <- fewpCalc(fc, fewi)
 REW.parameter <- 8 #temp definition for readily evaporable water
 TEW.fraction <- 0.5
 TEW.parameter <- TEWCalc(0.336, 0.211, REW.parameter) #temp definition for total evaporable water
+#also need to define z to set up water balance tracking and labels of different soil layers (n=4)
 
 #loop through all rows of model scaffold but only do these operations once for each row
 setwd(resultsDir)
 for (n in 1:nrow(model_scaffold)) {
-  n <- 3
+  n <- 1000
   model_code <- model_scaffold$unique_model_code[n]
-  AD <- 10*model_scaffold$allowable_depletion[n] #converts AD in cm to mm
+  AD <- 10*model_scaffold$allowable_depletion[n] #converts AD in cm to mm; can redefine this script based on PAW
   if (is.na(AD)) {
     next #TO-DO: write this result to separate file of NAs
   }
@@ -236,11 +265,11 @@ for (n in 1:nrow(model_scaffold)) {
   ETc.act <- numeric(length = model.length)
   #for i=1
   i <- 1
-  Dei.initial[i] <- TEW.parameter * TEW.fraction#this is an initial estimate of 
+  Dei.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0) #this is an initial estimate of 
   #the water balance for the exposed surface soil where irrigation is not applied 
   #that assumes all daily precip occurs early in the morning so as to estimate Ke 
   #and Kr.  Same done for Dep.initial
-  Dep.initial[i] <- TEW.parameter * TEW.fraction
+  Dep.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0)
   Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
   Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
   W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
@@ -249,18 +278,18 @@ for (n in 1:nrow(model_scaffold)) {
   Ep[i] <- EpCalc(ETo, Kep)
   Ei[i] <- EiCalc(ETo, Kei)
   DPep[i] <- DPepCalc(P, Dep.initial)
-  Dep.end[i] <- Dep.initial[i] - P[i] + Ep[i] / fewp[i] + DPep[i] #replaces Dep.end[i-1] with Dep.intial[i]
-  DPei[i] <- max(P[1] - Dei.initial[1], 0) #initial estimate assumes irrigation is zero on previous day
-  #initial estimate for Dei.end assumes irrigation is zero on previous day
-  Dei.end[i] <- Dei.initial[i] - P[i] + Ei[i] / fewi[i] + DPei[i] #replaces Dei.end[i-1] with Dei.intial[i]
+  Dep.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ep[i] / fewp[i] + DPep[i] #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
+  DPei[i] <- max(P[i] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
+  Dei.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ei[i] / fewi[i] + DPei[i] #replaces Dei.end[i-1] with Dei.intial[i]
   Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
   ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-  Dr.initial[i] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
+  Dr.initial[i] <- max(TEW.parameter * TEW.fraction - P[i] + ETc.ns[i], 0) #initial calc
   Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv)
-  DPr[i] <- max(max(P[1] + Ir[i] - TEW.parameter * TEW.fraction - ETc.ns[1], 0)) #initial calc
+  DPr[i] <- max(max(P[i] + Ir[i] - TEW.parameter * TEW.fraction - ETc.ns[i], 0)) #initial calc
   Ks[i] <- KsCalc(Dr.initial, PAW, AD)
   Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
   ETc.act[i] <- ETcactCalc(Kc.act, ETo)
+  Dr.end[i] <- TEW.parameter * TEW.fraction - P[i] + Kc.act[i] * ETo[i] + DPr[i] #initial calc
   for (i in 2:model.length) { #now for days 2...model.length after initialization
     Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw)
     Dep.initial[i] <- DepInitialCalc(Dep.end, P)
@@ -277,17 +306,36 @@ for (n in 1:nrow(model_scaffold)) {
     Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei)
     Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
     ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-    Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P)
+    Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir)
     Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv)
     DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end)
     Ks[i] <- KsCalc(Dr.initial, PAW, AD)
     Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
+    Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr)
     ETc.act[i] <- ETcactCalc(Kc.act, ETo)
   }
-  result <- data.frame(P, ETo, RHmin, U2, Kcb.std, Kcb.adjusted, Kcmax, Dei.initial, Dep.initial, Kri, Krp, W, Kei, Kep, Ep, Ei, DPep, Dep.end, DPei, Kc.ns, ETc.ns, Dr.initial, Ir, DPr, Ks, Kc.act, ETc.act)
-  write.csv(result, paste0('almond_root0.91m_', as.character(model_code), '_', as.character(cokey), '.csv'), row.names=F)
+  result <- data.frame(dates, months, days, year, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
+  write.csv(result, paste0('almond_root0.91m_', as.character(model_code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=F)
   print(n)
+  
+  
 }
+#for comparing result in Excel spreadsheet model
+writeClipboard(as.character(PRISMcell))
+writeClipboard(as.character(spCIMIScell))
+writeClipboard(as.character(cokey))
+writeClipboard(as.character(model_code))
+writeClipboard(as.character(ETo))
+writeClipboard(as.character(Kcb.adjusted))
+writeClipboard(as.character(Kcmax))
+writeClipboard(as.character(P))
+writeClipboard(as.character(RHmin))
+writeClipboard(as.character(U2))
+#print coords
+
+coords_data <- read.csv()
+model_scaffold$[n]
+n
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
 #pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach
 #Ke = Kei + Kep (eqn. 14)
