@@ -179,59 +179,90 @@ IrDateCalc <- function(df) {
 }
 do.call(rbind, lapply(split(result, result$year), IrDateCalc))
 
+IrrStorageCalc <- function(df) {
+  last_irr_index <- which(df$Ir > 0)[length(which(df$Ir>0))]
+  jharv_index <- which(df$doys.model==Jharv)
+  print(c(last_irr_index, jharv_index))
+  if (df$doys.model[nrow(df)] < Jharv | is.na(last_irr_index)) {
+    return(data.frame(irr.storage=NA))
+  } else {
+    irr_storage <-
+      if (AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index]) > 0) {
+        AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index])
+      } else {0}
+    return(data.frame(irr.storage = irr_storage))
+  }
+}
+do.call(rbind, lapply(split(result[which(result$doys.model>=Jdev & result$doys.model<=Jharv), ], result$year[which(result$doys.model>=Jdev & result$doys.model<=Jharv)]), IrrStorageCalc))
+
 #calculate Green Water utilized
 #this works, but what about residual water from previous fall contributing to next year's ET?  Have to assume that storage of irrigation water from previous year = 0
 WaterBalanceCalc <- function(df) { #concept is to run by year on a data.frame trimmed to Jdev-Jharv each year
   first_irr_index <- which(df$Ir>0)[1]
   if (df$doys.model[1] > Jdev | df$doys.model[nrow(df)] < Jharv) { 
-    return(data.frame(GW.ET.to.Irr1 = NA, GW.E.to.Irr1 = NA, GW.T.to.Irr1=NA, GW.ET.growing = NA, IrrApp = NA, ET.growing = NA, E.growing = NA, T.growing = NA))
+    return(data.frame(Irr_carryover= NA, GW.ET.to.Irr1 = NA, GW.E.to.Irr1 = NA, GW.T.to.Irr1=NA, GW.ET.growing = NA, IrrApp = NA, ET.growing = NA, E.growing = NA, T.growing = NA))
   }
   else if (AD > df$Dr.end[which(df$doys.model==Jharv)]) {
-    return(data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[1:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[1:first_irr_index] + df$Ep[1:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[1:first_irr_index] * df$Ks[1:first_irr_index] * df$ETo[1:first_irr_index]), GW.ET.growing = sum(df$ETc.act - df$Ir) + AD - df$Dr.end[nrow(df)], IrrApp = sum(df$Ir), ET.growing = sum(df$ETc.act), E.growing = sum(df$Ei, df$Ep), T.growing = sum(df$ETc.act - df$Ei - df$Ep)))
+    return(data.frame(Irr_carryover = NA, GW.ET.to.Irr1 = sum(df$ETc.act[1:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[1:first_irr_index] + df$Ep[1:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[1:first_irr_index] * df$Ks[1:first_irr_index] * df$ETo[1:first_irr_index]), GW.ET.growing = sum(df$ETc.act - df$Ir) + AD - df$Dr.end[nrow(df)], IrrApp = sum(df$Ir), ET.growing = sum(df$ETc.act), E.growing = sum(df$Ei, df$Ep), T.growing = sum(df$ETc.act - df$Ei - df$Ep)))
   }
-  else { #end season depletion is more than allowable depletion
+  else { #end season depletion is more than allowable depletion; assumes allowable depletion to wilting point is precip sourced
     return(data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[1:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[1:first_irr_index] + df$Ep[1:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[1:first_irr_index] * df$Ks[1:first_irr_index] * df$ETo[1:first_irr_index]), GW.ET.growing = sum(df$ETc.act - df$Ir) + df$Dr.end[nrow(df)] - AD, IrrApp = sum(df$Ir), ET.growing = sum(df$ETc.act), E.growing = sum(df$Ei + df$Ep), T.growing = sum(df$ETc.act - df$Ei - df$Ep)))
   }
 }
 #run function
 do.call(rbind, lapply(split(result[which(result$doys.model>=Jdev & result$doys.model<=Jharv), ], result$year[which(result$doys.model>=Jdev & result$doys.model<=Jharv)]), WaterBalanceCalc)) #this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is irrigation
 
+GreenWaterCalc <- function(df) { #works on a data.frame split by water.year and assumes start of water year is before leaf-drop
+  first_irr_index <- which(df$Ir > 0 & df$year == df$water.year)[1]
+  Jdev_index <- which(df$doys.model==Jdev)
+  Jharv_index <- which(df$doys.model==Jharv & df$year!=df$water.year)
+  if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
+    return(data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, Irr.carryover=NA))
+  } 
+  else if (first_irr_index==Jdev_index) {
+    GW_correction <- AD - df$Dr.end[Jharv_index]
+    return(data.frame(GW.ET.to.Irr1=0, GW.E.to.Irr1=0, GW.T.to.Irr1=0, Irr_carryover = AD - df$Dr.end[Jharv_index]))
+  } else {
+      Irr_carryover <- AD - df$Dr.end[Jharv_index]
+      return(data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[Jdev_index:first_irr_index]) - Irr_carryover, GW.E.to.Irr1 = sum(df$Ei[Jdev_index:first_irr_index] + df$Ep[Jdev_index:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[Jdev_index:first_irr_index] * df$Ks[Jdev_index:first_irr_index] * df$ETo[Jdev_index:first_irr_index]) - Irr_carryover, Irr_carryover=Irr_carryover))
+  }
+}
+do.call(rbind, lapply(split(result, result$water.year), GreenWaterCalc))
+
+#determine deep percolation and annual water balance using subsetting by water.year
+DeepPercCalc <- function(df) {
+  first_irr_index <- which(df$Ir > 0 & df$year == df$water.year)[1]
+  july1_index <- which(df$dates==as.Date(paste0(as.character(df$water.year[1]), '-07-01')))
+  if (df$dates[1] > as.Date(paste0(as.character(df$year[1]), '-10-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$year[nrow(df)]), '-09-30'))) {
+    return(data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc = NA, spring.deep.perc = NA))
+  } else {
+    return(data.frame(ET.WY = sum(df$ETc.act), E.WY = sum(df$Ei + df$Ep), T.WY = sum(df$ETc.act - df$Ei - df$Ep), deep.perc = sum(df$DPr), spring.deep.perc = sum(df$Dpr[first_irr_index:july1_index])))
+  }
+}
+do.call(rbind, lapply(split(result, result$water.year), DeepPercCalc))
+
 #determine end of growing season soil water depletion
 EndSeasonDrCalc <- function(df) {
   if (df$doys.model[nrow(df)] < Jharv) { 
-    return(data.frame(EndSeasonDr=NA)) 
+    return(data.frame(end.season.Dr=NA)) 
   } else {
-      return(data.frame(EndSeasonDr=df$Dr.end[which(df$doys.model==Jharv)]))
+      return(data.frame(end.season.Dr=df$Dr.end[which(df$doys.model==Jharv)]))
   }
 }
 #run function
 do.call(rbind, lapply(split(result, result$year), EndSeasonDrCalc))
 
-#determine deep percolation with subsetting by water.year
-DeepPercCalc <- function(df) {
-  first_irr_index <- which(df$Ir > 0 & df$year == df$water.year)[1]
-  print(df$dates[first_irr_index])
-  if (df$dates[1] > as.Date(paste0(as.character(df$year[1]), '-10-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$year[nrow(df)]), '-09-30'))) {
-    return(data.frame(DeepPerc = NA, SpringDeepPerc = NA, ET.WY = NA, E.WY = NA, T.WY = NA))
-  } else {
-      return(data.frame(DeepPerc = sum(df$DPr), SpringDeepPerc = sum(df$Dpr[first_irr_index:nrow(df)]), ET.WY = sum(df$ETc.act), E.WY = sum(df$Ei + df$Ep), T.WY = sum(df$ETc.act - df$Ei - df$Ep)))
-  }
-}
-do.call(rbind, lapply(split(result, result$water.year), DeepPercCalc))
-
 #determine green water capture from leaf-drop to flowering
 GreenWaterCaptureCalc <- function(df) {
-  if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jdev) {
-    return(GW.capture.net = NA)
+  if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
+    return(data.frame(GW.capture.net = NA))
   } else {
-      return(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)])
+      return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
   }
 }
 do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc))
 
 
-#check results
-model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code), ]
 #all these tasks only done once per run where run is initialzing model and then looping through all rows in model.scaffold and pasting results from all
 #ID crop codes
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
@@ -247,12 +278,19 @@ model.scaffold <- model.scaffold[which(model.scaffold$crop_code==almond_code), ]
 model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) - 1 #data starts 10/2003, which is beginning of WY 2004
 model.scaffold.results <- model.scaffold[rep(seq.int(1, nrow(model.scaffold)), model.length.yrs), 1:ncol(model.scaffold)] #makes a new data.frame with each row repeated model.length.yrs number of times
 model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code), ] #for some reason it is produced out of order
-model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=(min(ETo.df$year)+1), to=(max(ETo.df$year)-1), by=1), times=nrow(model.scaffold)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), GreenWaterT=NA, GreenWaterE=NA, GreeWaterET=NA, DeepPercWinter=NA, DeepPercFall=NA, DeepPercSpring=NA, DeltaWinterDr=NA, EndSeasonDr=NA)
+model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=(min(ETo.df$year)+1), to=(max(ETo.df$year)-1), by=1), times=nrow(model.scaffold)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, GW.ET.growing=NA, IrrApp=NA, ET.growing=NA, E.growing=NA, T.growing=NA, deep.perc=NA, spring.deep.perc=NA, end.season.Dr=NA, GW.capture.net=NA)
 
-#assumes ETo data starts at the beginning of a water year in the fall
-#DeepPercWinter is Irr.Last to flowering (Jini)
-#DeltaWinterDr is change in soil root zone depletion from Jharv (leaf drop) to Jini (flowering) and is a measure of green water capture relative to winter precip and end of season soil water storage
-#EndSeasonDr is soil root zone depletion at Jharv (leaf drop)
+#E=evaporation
+#T=transpiration
+#ET=evapotranspriation
+#Irr.1=first irrigation of year
+#Irr.Last=last irrigation of year
+#GW.ET.to.Irr1=ET sourced from green water from flowering to first irrigation (should subtract previous year's carryover irrigation storage)
+#ET.growing=total ET from flowering (Jdev) to leaf-drop (Jharv)
+#ET.WY=total annual ET on water-year basis
+#deep.perc is annual deep percolation ()
+#GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
+#end.season.Dr is soil root zone depletion at Jharv (leaf drop)
 
 #get doys [days of years] for the model and ensure SpatialCIMIS coverages match
 if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
@@ -279,6 +317,8 @@ AD.percentange <- 50 #crop and scenario dependent
 Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
 fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
 Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
+Jmid <- crop.parameters$Jmid[which(crop.parameters$crop==cropname)]
+Jlate <- crop.parameters$Jlate[which(crop.parameters$crop==cropname)]
 Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
 fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
 fewi <- fewiCalc(fc, fw)
