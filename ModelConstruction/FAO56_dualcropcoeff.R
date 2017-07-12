@@ -121,13 +121,29 @@ DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir) { #DON'T RUN THIS FOR i=1
   Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
 }
 #need to refine days.no.irr based on ETo data for a given location
-DaysNoIrr <- function(ETo, Kcb.adjusted, AD) {
-  
+DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jlate, Jharv) {
+  df <- data.frame(cbind(Kcb.adjusted, ETo, P, doys.model, years))
+  df <- df[which(df$doys.model >= Jlate & df$doys.model <= Jharv), ]
+  df$ETcb <- df$Kcb.adjusted * df$ETo
+  daily.ETcb <- tapply(df$ETcb, df$doys.model, mean)
+  daily.P <- tapply(df$P, df$doys.model, mean)
+  daily.WB <- daily.ETcb - daily.P
+  for (i in 1:length(daily.WB)) {
+    print(names(daily.WB[1]))
+    print(sum(daily.WB))
+    if (sum(daily.WB) < AD) {
+      return(Jharv - as.integer(names(daily.WB[1])))
+    } else {
+      daily.WB <- daily.WB[-1]
+    }
+  }
 } #create a fixed date based on climate and crop
-IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr=21) {
+IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr) {
   if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
     return(0)
   } else if (Dr.initial[i] > AD) {
+    return(Dr.initial[i])
+  } else if (doys.model[i] == Jharv - days.no.irr) {
     return(Dr.initial[i])
   } else {
     return(0)
@@ -153,104 +169,87 @@ DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr) { #NOT TO BE USED for i=1
   Dr.end[i - 1] - P[i] - Ir[i-1] + Kc.act[i] * ETo[i] + DPr[i]
 }
 
-#results function, loop through all model years, excluding first and last as default
-#years could be calculated outside of this to get out of loop
-#this might be helpful to condense the IrDates function:
-#First, you split the data using split:
-  #split(z,z$Group)
-#Then, for each chunk, select the row with max Score:
-  #lapply(split(z,z$Group),function(chunk) chunk[which.max(chunk$Score),])
-#Finally reduce back to a data.frame do.calling rbind:
-  #do.call(rbind,lapply(split(z,z$Group),function(chunk) chunk[which.max(chunk$Score),]))
-
+#results function to summarize each model's results
 #find time to first and last irrigation
-IrDateCalc <- function(df) {
+IrDateCalc <- function(df) { #as.Date('1900-01-01) is a proxy for NA
   if (df$doys.model[1] > Jdev & df$doys.model[nrow(df)] < Jharv) {
-    return(data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01')))
+    data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'))
   }
   else if (df$doys.model[1] > Jdev) {
-    return(data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=df$dates[which(df$Ir>0)[length(which(df$Ir>0))]]))
+   data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=df$dates[which(df$Ir>0)[length(which(df$Ir>0))]])
   }
   else if (df$doys.model[nrow(df)] < Jharv) {
-    return(data.frame(Irr.1=as.character(df$dates[which(df$Ir>0)[1]]), Irr.Last=as.Date('1900-01-01')))
+    data.frame(Irr.1=as.character(df$dates[which(df$Ir>0)[1]]), Irr.Last=as.Date('1900-01-01'))
   } else {
-      return(data.frame(Irr.1=df$dates[which(df$Ir>0)[1]], Irr.Last=df$dates[which(df$Ir>0)[length(which(df$Ir>0))]]))
+      data.frame(Irr.1=df$dates[which(df$Ir>0)[1]], Irr.Last=df$dates[which(df$Ir>0)[length(which(df$Ir>0))]])
   }
 }
 do.call(rbind, lapply(split(result, result$year), IrDateCalc))
 
-IrrStorageCalc <- function(df) {
-  last_irr_index <- which(df$Ir > 0)[length(which(df$Ir>0))]
-  jharv_index <- which(df$doys.model==Jharv)
-  print(c(last_irr_index, jharv_index))
-  if (df$doys.model[nrow(df)] < Jharv | is.na(last_irr_index)) {
-    return(data.frame(irr.storage=NA))
-  } else {
-    irr_storage <-
-      if (AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index]) > 0) {
-        AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index])
-      } else {0}
-    return(data.frame(irr.storage = irr_storage))
-  }
-}
-do.call(rbind, lapply(split(result[which(result$doys.model>=Jdev & result$doys.model<=Jharv), ], result$year[which(result$doys.model>=Jdev & result$doys.model<=Jharv)]), IrrStorageCalc))
-
 #calculate Green Water utilized
-#this works, but what about residual water from previous fall contributing to next year's ET?  Have to assume that storage of irrigation water from previous year = 0
+#this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  However a correction is applied to the growing season ET for residual irrigation water storage to correctly estimate green water utilization within the same year.
 WaterBalanceCalc <- function(df) { #concept is to run by year on a data.frame trimmed to Jdev-Jharv each year
   first_irr_index <- which(df$Ir>0)[1]
-  if (df$doys.model[1] > Jdev | df$doys.model[nrow(df)] < Jharv) { 
-    return(data.frame(Irr_carryover= NA, GW.ET.to.Irr1 = NA, GW.E.to.Irr1 = NA, GW.T.to.Irr1=NA, GW.ET.growing = NA, IrrApp = NA, ET.growing = NA, E.growing = NA, T.growing = NA))
-  }
-  else if (AD > df$Dr.end[which(df$doys.model==Jharv)]) {
-    return(data.frame(Irr_carryover = NA, GW.ET.to.Irr1 = sum(df$ETc.act[1:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[1:first_irr_index] + df$Ep[1:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[1:first_irr_index] * df$Ks[1:first_irr_index] * df$ETo[1:first_irr_index]), GW.ET.growing = sum(df$ETc.act - df$Ir) + AD - df$Dr.end[nrow(df)], IrrApp = sum(df$Ir), ET.growing = sum(df$ETc.act), E.growing = sum(df$Ei, df$Ep), T.growing = sum(df$ETc.act - df$Ei - df$Ep)))
-  }
-  else { #end season depletion is more than allowable depletion; assumes allowable depletion to wilting point is precip sourced
-    return(data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[1:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[1:first_irr_index] + df$Ep[1:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[1:first_irr_index] * df$Ks[1:first_irr_index] * df$ETo[1:first_irr_index]), GW.ET.growing = sum(df$ETc.act - df$Ir) + df$Dr.end[nrow(df)] - AD, IrrApp = sum(df$Ir), ET.growing = sum(df$ETc.act), E.growing = sum(df$Ei + df$Ep), T.growing = sum(df$ETc.act - df$Ei - df$Ep)))
-  }
-}
-#run function
-do.call(rbind, lapply(split(result[which(result$doys.model>=Jdev & result$doys.model<=Jharv), ], result$year[which(result$doys.model>=Jdev & result$doys.model<=Jharv)]), WaterBalanceCalc)) #this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is irrigation
-
-GreenWaterCalc <- function(df) { #works on a data.frame split by water.year and assumes start of water year is before leaf-drop
-  first_irr_index <- which(df$Ir > 0 & df$year == df$water.year)[1]
-  Jdev_index <- which(df$doys.model==Jdev)
-  Jharv_index <- which(df$doys.model==Jharv & df$year!=df$water.year)
-  if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
-    return(data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, Irr.carryover=NA))
-  } 
-  else if (first_irr_index==Jdev_index) {
-    GW_correction <- AD - df$Dr.end[Jharv_index]
-    return(data.frame(GW.ET.to.Irr1=0, GW.E.to.Irr1=0, GW.T.to.Irr1=0, Irr_carryover = AD - df$Dr.end[Jharv_index]))
+  last_irr_index <- which(df$Ir > 0)[length(which(df$Ir>0))]
+  jharv_index <- which(df$doys.model==Jharv)
+  jdev_index <- which(df$doys.model==Jdev)
+  if (df$doys.model[1] > Jdev | df$doys.model[nrow(df)] < Jharv) { #if there is not a complete growing season, don't report any data
+    if (length(jharv_index)==0) { #data begins after leaf-drop
+      data.frame(RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Irr.end.storage = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA)
+    }
+    else if (length(last_irr_index)==0) { #implies no data when last irrigation occurred
+      data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Irr.end.storage = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA)
+    } else { #implies data exists from when last irrigation occurred
+      data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last_irr_index:jharv_index]), Irr.end.storage = max(AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index]), 0), GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = df$Ir[last_irr_index], ET.growing = NA, E.growing = NA, T.growing = NA)
+    }
   } else {
-      Irr_carryover <- AD - df$Dr.end[Jharv_index]
-      return(data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[Jdev_index:first_irr_index]) - Irr_carryover, GW.E.to.Irr1 = sum(df$Ei[Jdev_index:first_irr_index] + df$Ep[Jdev_index:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[Jdev_index:first_irr_index] * df$Ks[Jdev_index:first_irr_index] * df$ETo[Jdev_index:first_irr_index]) - Irr_carryover, Irr_carryover=Irr_carryover))
+    irr_storage <- max(AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index]), 0)
+    data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last_irr_index:jharv_index]), Irr.end.storage = irr_storage, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_storage, Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last_irr_index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]))
   }
 }
-do.call(rbind, lapply(split(result, result$water.year), GreenWaterCalc))
+do.call(rbind, lapply(split(result, result$year), WaterBalanceCalc))
+
+##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
+
+GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
+  first_irr_index <- which(df$Ir > 0)[1]
+  jdev_index <- which(df$doys.model==Jdev)
+  if (df$doys.model[1] > Jdev | is.na(first_irr_index)) {
+    data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA)
+  } else {
+      data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first_irr_index] + df$Ep[jdev_index:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first_irr_index] * df$Ks[jdev_index:first_irr_index] * df$ETo[jdev_index:first_irr_index]))
+  }
+}
+do.call(rbind, lapply(split(result, result$year), GreenWaterIrr1Calc))
 
 #determine deep percolation and annual water balance using subsetting by water.year
-DeepPercCalc <- function(df) {
-  first_irr_index <- which(df$Ir > 0 & df$year == df$water.year)[1]
-  july1_index <- which(df$dates==as.Date(paste0(as.character(df$water.year[1]), '-07-01')))
+#TO-DO:review branching here
+DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
+  first.irr.index <- which(df$Ir > 0 & df$year == df$water.year)[1]
+  jharv.index <- which(df$doys.model==Jharv)
+  jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$water.year[1]), '-01-01')))
+  jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$water.year[1]), '-07-01')))
   if (df$dates[1] > as.Date(paste0(as.character(df$year[1]), '-10-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$year[nrow(df)]), '-09-30'))) {
-    return(data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc = NA, spring.deep.perc = NA))
+    if (length(jharv.index)==0) {
+      data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc.WY = NA, fall.deep.perc = NA, winter.deep.perc = NA, post.Irr.deep.perc=NA)
+    }
+    else if (length(jdev.index)==0) {
+      data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc.WY = NA, fall.deep.perc = NA, winter.deep.perc = NA, post.Irr.deep.perc=NA)
+    }
+    else if (length(first.irr.index)==0) {
+      data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc.WY = NA, fall.deep.perc =  sum(df$DPr[jharv.index:(jan.1.index-1)]), winter.deep.perc = NA, post.Irr.deep.perc=NA)
+    }
+    else if (length(jul.1.index)==0) {
+      data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc.WY = NA, fall.deep.perc =  sum(df$DPr[jharv.index:(jan.1.index-1)]), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr.deep.perc=NA)
+    }
+    else {
+      data.frame(ET.WY = NA, E.WY = NA, T.WY = NA, deep.perc.WY = NA, fall.deep.perc =  sum(df$DPr[jharv.index:(jan.1.index-1)]), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr.deep.perc=sum(df$DPr[(first.irr.index+1):jul.1.index]))
+    }
   } else {
-    return(data.frame(ET.WY = sum(df$ETc.act), E.WY = sum(df$Ei + df$Ep), T.WY = sum(df$ETc.act - df$Ei - df$Ep), deep.perc = sum(df$DPr), spring.deep.perc = sum(df$Dpr[first_irr_index:july1_index])))
+    data.frame(ET.WY = sum(df$ETc.act), E.WY = sum(df$Ei + df$Ep), T.WY = sum(df$ETc.act - df$Ei - df$Ep), deep.perc.WY = sum(df$DPr), fall.deep.perc = sum(df$DPr[jharv.index:(jan.1.index-1)]), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr.deep.perc = sum(df$DPr[(first.irr.index+1):jul.1.index]))
   }
 }
 do.call(rbind, lapply(split(result, result$water.year), DeepPercCalc))
-
-#determine end of growing season soil water depletion
-EndSeasonDrCalc <- function(df) {
-  if (df$doys.model[nrow(df)] < Jharv) { 
-    return(data.frame(end.season.Dr=NA)) 
-  } else {
-      return(data.frame(end.season.Dr=df$Dr.end[which(df$doys.model==Jharv)]))
-  }
-}
-#run function
-do.call(rbind, lapply(split(result, result$year), EndSeasonDrCalc))
 
 #determine green water capture from leaf-drop to flowering
 GreenWaterCaptureCalc <- function(df) {
@@ -298,7 +297,7 @@ if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$D
   dates <- as.Date(U2.df$dates, format='%m_%d_%Y')
   days <- U2.df$day
   months <- U2.df$month
-  year <- U2.df$year
+  years <- U2.df$year
   water.year <- year
   water.year[which(months >= 10)] <- year[which(months >= 10)] + 1
   print('Temporal coverages match in Spatial CIMIS.')
@@ -333,7 +332,7 @@ TEW.parameter <- TEWCalc(0.336, 0.211, REW.parameter) #temp definition for total
 #loop through all rows of model scaffold but only do these operations once for each row
 setwd(resultsDir)
 for (n in 1:nrow(model.scaffold)) {
-  n <- 1000
+  n <- 1000 #temporary placeholder
   model.code <- model.scaffold$unique_model_code[n]
   AD <- 10*model.scaffold$allowable_depletion[n] #converts AD in cm to mm; can redefine this script based on PAW
   if (is.na(AD)) {
@@ -354,6 +353,7 @@ for (n in 1:nrow(model.scaffold)) {
   RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
   Kcb.df <- KcbAdj(Kcb.std, crop.parameters, cropname, U2, RHmin)
   Kcb.adjusted <- Kcb.df$Kcb.climate.adj
+  days.no.irr <- DaysNoIrr(P, ETo, Kcb.adjusted, AD, doys.model, years, Jlate, Jharv)
   Kcmax <- Kcb.df$Kc.max
   PAW <- AD/(AD.percentange/100)
   Dei.initial <- numeric(length = model.length)
@@ -406,7 +406,7 @@ for (n in 1:nrow(model.scaffold)) {
   Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
   ETc.act[i] <- ETcactCalc(Kc.act, ETo)
   Dr.end[i] <- TEW.parameter * TEW.fraction - P[i] + Kc.act[i] * ETo[i] + DPr[i] #initial calc
-  for (i in 2:model.length) { #now for days 2...model.length after initialization
+  system.time(for (i in 2:model.length) { #now for days 2...model.length after initialization
     Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw)
     Dep.initial[i] <- DepInitialCalc(Dep.end, P)
     Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
@@ -423,18 +423,16 @@ for (n in 1:nrow(model.scaffold)) {
     Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
     ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
     Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir)
-    Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv)
+    Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr)
     DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end)
     Ks[i] <- KsCalc(Dr.initial, PAW, AD)
     Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
     Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr)
     ETc.act[i] <- ETcactCalc(Kc.act, ETo) #could take this out of loop
-  }
+  })
   result <- data.frame(dates, months, days, year, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
   write.csv(result, paste0('almond_root0.91m_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=F)
   print(n)
-  
-  
 }
 #for comparing result in Excel spreadsheet model
 writeClipboard(as.character(PRISMcell))
@@ -449,9 +447,7 @@ writeClipboard(as.character(RHmin))
 writeClipboard(as.character(U2))
 #print coords
 
-coords_data <- read.csv()
-model.scaffold$[n]
-n
+
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
 #pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach
 #Ke = Kei + Kep (eqn. 14)
@@ -489,108 +485,3 @@ plot(fewi, type='l')
 plot(fc, type='l')
 plot(fewp, type='l')
 plot(fewp + fewi, type='l')
-
-#alternative approach using means for different periods of the Kc curve.  This was used in the FAO56 spreadsheet program.
-#calculate U2 and minRH by year for mid to late period for each cell of interest; this is used by Kcb function.  Should just use average of years for 2017
-U2_mid <- function(U2.df, col_index, Jmid, Jlate) {
-  U2_temp <- U2.df[which(U2.df$DOY >= Jmid & U2.df$DOY <= Jlate), ]
-  result <- as.data.frame(tapply(U2_temp[,col_index], U2_temp$year, mean)) #or could do all cells via this arg to replace col_index <- 6:ncol(U2_temp)
-  colnames(result) <- colnames(U2.df)[col_index]
-  return(result) #rownames are years, search by which(rownames(result)=='year of interest')
-}
-#check function
-U2_mid_allyrs <- U2_mid(U2.df, 6, almond_parameters$Jmid, almond_parameters$Jlate)
-
-RHmin_mid <- function(RHmin, col_index, Jmid, Jlate) {
-  RHmin_temp <- RHmin[which(RHmin$DOY >= Jmid & RHmin$DOY <= Jlate), ]
-  result <- as.data.frame(tapply(RHmin_temp[,col_index], RHmin_temp$year, mean))
-  colnames(result) <- colnames(RHmin)[col_index]
-  return(result)
-}
-RHmin_mid_allyrs <- RHmin_mid(RHmin.df, 6, almond_parameters$Jmid, almond_parameters$Jlate)
-
-U2_end <- function(U2.df, col_index, Jlate, Jharv) {
-  U2_temp <- U2.df[which(U2.df$DOY >= Jlate & U2.df$DOY <= Jharv), ]
-  result <- as.data.frame(tapply(U2_temp[,col_index], U2_temp$year, mean)) #or could do all cells via this arg to replace col_index <- 6:ncol(U2_temp)
-  colnames(result) <- colnames(U2.df)[col_index]
-  return(result) #rownames are years, search by which(rownames(result)=='year of interest')
-}
-#check function
-U2_end_allyrs <- U2_end(U2.df, 6, almond_parameters$Jlate, almond_parameters$Jharv)
-
-RHmin_end <- function(RHmin.df, col_index, Jlate, Jharv) {
-  RHmin_temp <- RHmin.df[which(RHmin.df$DOY >= Jlate & RHmin.df$DOY <= Jharv), ]
-  result <- as.data.frame(tapply(RHmin_temp[,col_index], RHmin_temp$year, mean))
-  colnames(result) <- colnames(RHmin.df)[col_index]
-  return(result)
-}
-RHmin_end_allyrs <- RHmin_mid(RHmin.df, 6, almond_parameters$Jlate, almond_parameters$Jharv)
-
-Kcb_mid <- function(Kcb_mid_std, U2_summary, RHmin_summary, h_mid, yr) {#equation 5 from Allen et al. 2005; 
-  U2_mid_mean <- U2_summary[which(rownames(U2_summary)==yr),]
-  RHmin_mid_mean <- RHmin_summary[which(rownames(RHmin_summary)==yr),]
-  Kcb_mid_std + (0.04*(U2_mid_mean-2)-0.004*(RHmin_mid_mean-45))*(h_mid/3)^0.3
-}
-#test the function
-Kcb_mid(almond_parameters$Kcb_mid, U2_mid_allyrs, RHmin_mid_allyrs, almond_parameters$height, 2004)
-Kcb_mid(almond_parameters$Kcb_mid, U2_mid_allyrs, RHmin_mid_allyrs, almond_parameters$height, 2016)
-
-Kcb_end <- function(Kcb_end_std, U2_summary, RHmin_summary, h_end, yr) {#equation 5 from Allen et al. 2005
-  U2_end_mean <- U2_summary[which(rownames(U2_summary)==yr),]
-  RHmin_end_mean <- RHmin_summary[which(rownames(RHmin_summary)==yr),]
-  Kcb_end_std + (0.04*(U2_end_mean-2)-0.004*(RHmin_end_mean-45))*(h_end/3)^0.3
-}
-Kcb_end(almond_parameters$Kcb_end, U2_end_allyrs, RHmin_end_allyrs, almond_parameters$height, 2004)
-Kcb_end(almond_parameters$Kcb_end, U2_end_allyrs, RHmin_end_allyrs, almond_parameters$height, 2016)
-
-#trial results functions and experimenting with tapply and aggregate
-IrDates <- function(df, irr.n, df.output) { #only works for irr.n=5 
-  years <- (min(df$year)+1):(max(df$year)-1) #could add if statment to handle partial years
-  for (i in 1:length(years)) {
-    df.temp <- df[which(df$year==years[i]), ]
-    j <- which(df.temp$Ir > 0)
-    if (length(j) >= irr.n) {
-      if (years[i] > min(df$year)+1) {
-        Ir.dates.add <- data.frame(Irr.1=df.temp$dates[j[1]], Irr.2=df.temp$dates[j[2]], Irr.3=df.temp$dates[j[3]], Irr.4=df.temp$dates[j[4]], Irr.5=df.temp$dates[j[5]], Irr.Last=df.temp$dates[j[length(j)]])
-        #Ir.dates.add$year <- years[i]
-        Ir.dates <- rbind(Ir.dates, Ir.dates.add)
-        next
-      } else {
-        Ir.dates <- data.frame(Irr.1=df.temp$dates[j[1]], Irr.2=df.temp$dates[j[2]], Irr.3=df.temp$dates[j[3]], Irr.4=df.temp$dates[j[4]], Irr.5=df.temp$dates[j[5]], Irr.Last=df.temp$dates[j[length(j)]])
-        #Ir.dates$year <- years[i]
-        next
-      }
-    } else {
-      stop(print('There is a problem with the IrDates function.  Cannot handle a water year 2004-2016 with less than 5 irrigations'))
-    }
-  }
-  col.start <- which(colnames(df.output)=='Irr.1')
-  col.end <- which(colnames(df.output)=='Irr.Last')
-  df.output[which(df.output$unique_model_code==model.code), col.start:col.end] <- Ir.dates
-  #print(class(Ir.dates$Irr.1))
-  return(df.output)
-  #print(Ir.dates)
-}
-
-IrrigationTimes <- function(x) {
-  if(length(which(x > 0))==0) {
-    return(NA)
-  } else {
-    print(names(x))
-    return(which(x > 0))
-  }
-}
-
-testfunction <- function(x) {
-  print(x['dates'])
-}
-IrrigationDates <- function(x) {
-  if(length(which(x[, 'Ir'] > 0))==0) {
-    return(NA)
-  } 
-  else if (length(which(x[, 'Ir'] > 0)) >= 5) {
-    return(x[ , 'dates'][which(x[, 'Ir']> 0)[1:5]])
-  } else {
-    return(x[ , 'dates'][which(x[, 'Ir'] >0)])
-  }
-}
