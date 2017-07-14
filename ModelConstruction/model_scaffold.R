@@ -143,7 +143,7 @@ results_df$PRISMcellnumber <- PRISMcellnumbers
 results_df$CIMIScellnumber <- CIMIScellnumbers
 results_df$model_code <- paste0(results_df$mukey, results_df$crop_code, results_df$PRISMcellnumber, results_df$CIMIScellnumber)
 #results_df$model_code <- as.numeric(results_df$model_code) #set options(digits=22, scipen=999) before writing this to csv.  However, excel will round all number after 15 digits if opening the csv.  DANGER! long integers are being changed somehow, which creates the impression there are less than 200k unique combinations!  conclusion is that these should be kept in character class to preserve integrity
-model_codes <- unique(results_df$model_code) #242,714 unique combinations of soil, crop, and climate out of 17,220,605
+model_codes <- unique(results_df$model_code) #242,714 unique combinations of soil, crop, and climate out of 17,220,605 where soil is map unit
 unique_model_code <- 100001:(100000+length(model_codes)) #create a dummy code for the model matrix
 model_codes_matrix <- data.frame(model_code=model_codes, unique_model_code=unique_model_code)
 final_results_df <- merge(results_df, model_codes_matrix, by='model_code')
