@@ -1,7 +1,8 @@
-#script modified and simplified from SSURGO_processing_awc_r.R to obtain required model paramters
+#script modified and simplified from SSURGO_processing_awc_r.R to obtain 
+  # required model paramters (continue at line 225)
 #for summer 2017 model effort
-library(plyr)
-library(dplyr)
+#library(plyr)
+#library(dplyr)
 #library(nnet)
 #library(extrafont)
 #library(extrafontdb)
@@ -34,13 +35,15 @@ max_modified <- function(x) {
   else {max(x, na.rm = TRUE)}
 }
 results <- file.path(mainDir, 'soils_data/results/summer2017model')
+
 #fc_def <- 'awc_r'
 #figure_label <- 'SSURGO defined FC'
 
 #one-time operation to clean SSURGO horizon data which had duplicate chkeys 
 setwd(SoilsDataDir)
 ssurgo_horizon <- read.csv('CA_horizon_data_2017-07-13.csv')
-ssurgo_horizon <- ssurgo_horizon[!is.na(ssurgo_horizon$chkey), ] #get rid of chkeys that have no data first
+ssurgo_horizon <- ssurgo_horizon[!is.na(ssurgo_horizon$chkey), ] #get rid of 
+  # chkeys that have no data first
 fragvol_tot <- as.data.frame(tapply(ssurgo_horizon$fragvol_r, ssurgo_horizon$chkey, sum, na.rm=TRUE))
 colnames(fragvol_tot) <- 'fragvol_r_sum'
 fragvol_tot$chkey <- rownames(fragvol_tot)
@@ -50,14 +53,13 @@ ssurgo_horizon <- ssurgo_horizon[ ,-which(colnames(ssurgo_horizon) == "fragvol_r
 ssurgo_horizon <- merge(ssurgo_horizon, fragvol_tot, by='chkey')
 write.csv(ssurgo_horizon, 'CA_horizon_data_2017-07-13_clean.csv', row.names = FALSE)
 
-#a real hack job originally developed Oct 2017 to deal with duplicate cokeys as 
-#a result of reskind query, since multiple reskinds require multiple cokey rows 
-#with duplicate data
-#in order to apply ssurgo_horizon sum routine, need to first identify which 
-#cokeys have lithic or paralithic contacts or both, so that these horizons 
-#are not given plant available values
-#purpose is to get the soil comp data into the correct dimensions for ease
-#and to distinguish between modifiable and unmodifiable soil profiles
+# a real hack job developed Oct 2017 to deal with duplicate cokeys as a result 
+  # of reskind query, since multiple reskinds require multiple cokey rows with 
+  # duplicate data in order to apply ssurgo_horizon sum routine, need to first 
+  # identify which cokeys have lithic or paralithic contacts or both, so that 
+  # these horizons are not given plant available values purpose is to get the 
+  # soil comp data into the correct dimensions for ease and to distinguish 
+  # between modifiable and unmodifiable soil profiles
 ssurgo_comp <- read.csv("CA_comp_data_2017-07-13.csv")
 ssurgo_comp$majcompflag[ssurgo_comp$majcompflag=='No '] <- 'No' #strip out the space after 'No '
 ssurgo_comp <- ssurgo_comp[!is.na(ssurgo_comp$cokey), ] #there were 6 mukeys with no identified cokeys
@@ -174,105 +176,56 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   #txt17 <- paste('Major comonents total:', round(sum(ssurgo_comp$hectares[which(ssurgo_comp$majcompflag=='Yes')]), digits = 0), 'hectares.') #add up major comp acreage: 6,331,342 ha, which is 85.4% of total
   #txt18 <- paste('Minor components total:', round(sum(ssurgo_comp$hectares[which(ssurgo_comp$majcompflag=='No')], na.rm = TRUE), digits = 0), 'hectares.') #add up minor comp acreage (there are 3 cokeys with missing comppct_r data): 1,085,786 ha, which is 14.6% of total
 
-#first, sum up awc by cokey for those with paralithic or lithic reskinds with attention to possible rooting depths
-  sum_PAW_cmH2O <- function(rooting_depth, PAW, df) {
-    for (i in 1:nrow(df)) {
-      if (i==1) {
-        y <- vector(mode = 'numeric', length = nrow(df))
-      }
-      if (is.na(df$hzthickness[i]) & is.na(df[[PAW]][i])) {
-        y[i] <- NA
-        next
-      }
-      if (df$hzdepb_r[i] <= rooting_depth) {
-        y[i] <- df[[PAW]][i]*df$hzthickness[i]
-        next
-      }
-      if (df$hzdept_r[i] < rooting_depth) {
-        y[i] <- (rooting_depth - df$hzdept_r[i])*df[[PAW]][i]
-        next
-      } else {
-        y[i] <- NA
-      }
-    }
-    return(y)
+#first, sum up awc by cokey for those with paralithic or lithic reskinds with attention to possible rooting depths; there are 1464 NAs for awc_r out of 42,327
+  sum_PAW_cmH2O <- function(df, rooting_depth, paw) {
+    ifelse(is.na(df$hzthickness) & is.na(df[[paw]]), NA,
+      ifelse(df$hzdepb_r <= rooting_depth, df[[paw]]*df$hzthickness,
+        ifelse(df$hzdept_r < rooting_depth, 
+          (rooting_depth - df$hzdept_r)*df[[paw]], NA)))
   }
-  sum_PAW_soilthickness <- function(rooting_depth, PAW, df) {
-    for (i in 1:nrow(df)) {
-      if (i==1) {
-        y <- vector()
-      }
-      if (df$hzdepb_r[i] <= rooting_depth & !is.na(df[[PAW]][i])) { 
-        y <- c(y, df$hzthickness[i])
-        next
-      }
-      if (df$hzdept_r[i] < rooting_depth & !is.na(df[[PAW]][i])) {
-        y <- c(y, (rooting_depth - df$hzdept_r[i]))
-        next
-      }
-      else {y <- c(y, NA)}
-    }
-    return(y)
-  }
-  ssurgo_horizon_Cr_R$z1m_cmH2O <- sum_PAW_cmH2O(100, 'awc_r', ssurgo_horizon_Cr_R)
-  ssurgo_horizon_Cr_R$z2m_cmH2O <- sum_PAW_cmH2O(200, 'awc_r', ssurgo_horizon_Cr_R)
-  ssurgo_horizon_Cr_R$z4m_cmH2O <- sum_PAW_cmH2O(400, 'awc_r', ssurgo_horizon_Cr_R)
-  ssurgo_horizon_Cr_R$aws0150ck_cmH2O <- sum_PAW_cmH2O(150, 'awc_r', ssurgo_horizon_Cr_R)
+  ssurgo_horizon_Cr_R$z0.5m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 50, 'awc_r')
+  ssurgo_horizon_Cr_R$z1.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 100, 'awc_r')
+  ssurgo_horizon_Cr_R$z1.5m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 150, 'awc_r')
+  ssurgo_horizon_Cr_R$z2.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_Cr_R$z4.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 400, 'awc_r')
 
-#left off here 7/13/17  
 #now sum up AD H2O and soil thickness used in the calculation by cokey
-  comps_R_Cr <- as.data.frame(tapply(ssurgo_horizon_Cr_R$AD_alfalfa_cmH2O, ssurgo_horizon_Cr_R$cokey, sum_modified))
-  colnames(comps_R_Cr) <- 'AD_alfalfa_cmH2O'
-  comps_R_Cr$cokey <- rownames(comps_R_Cr)
-  comps_R_Cr$cokey <- as.integer(comps_R_Cr$cokey)
-  rownames(comps_R_Cr) <- NULL
-  comps_R_Cr <- comps_R_Cr[ ,c(2, 1)]
-  comps_R_Cr$AD_alfalfa_soilthickness <- tapply(ssurgo_horizon_Cr_R$AD_alfalfa_soilthickness, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$aws0150ck_cmH2O <- tapply(ssurgo_horizon_Cr_R$aws0150ck_cmH2O, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$aws0150ck_soilthickness <- tapply(ssurgo_horizon_Cr_R$aws0150ck_soilthickness, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$AD_grapes_cmH2O <- tapply(ssurgo_horizon_Cr_R$AD_grapes_cmH2O, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$AD_grapes_soilthickness <- tapply(ssurgo_horizon_Cr_R$AD_grapes_soilthickness, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$AD_almonds_cmH2O <- tapply(ssurgo_horizon_Cr_R$AD_almonds_cmH2O, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$AD_almonds_soilthickness <- tapply(ssurgo_horizon_Cr_R$AD_almonds_soilthickness, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$AD_walnuts_cmH2O <- tapply(ssurgo_horizon_Cr_R$AD_walnuts_cmH2O, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  comps_R_Cr$AD_walnuts_soilthickness <- tapply(ssurgo_horizon_Cr_R$AD_walnuts_soilthickness, ssurgo_horizon_Cr_R$cokey, sum_modified)
-  setwd(results)
-  write.csv(comps_R_Cr, 'comps_rock_AD_calcs.csv', row.names = FALSE)
+  sum_PAW_cmH2O_bycokey <- function(df, var) {
+    y <- aggregate(x=df[[var]], by=list(df$cokey), FUN=sum_modified)
+    colnames(y) <- c('cokey', paste0(var, '_comp'))
+    return(y)
+  }
+  #see https://stackoverflow.com/questions/8091303/simultaneously-merge-multiple-data-frames-in-a-list
+  comps.R.Cr.unmodified <- Reduce(function(...) merge(..., all=T), list(sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_cmH2O_unmodified')))
   
-#second, for alfalfa, sum up awc by cokey for those without paralithic or lithic contacts but without modification of the soil profile.
-  ssurgo_horizon_no_Cr_R$AD_alfalfa_cmH2O <- sum_AD_cmH2O(alfalfa_root_z, 'AD_alfalfa', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$AD_alfalfa_soilthickness <- sum_AD_soilthickness(alfalfa_root_z, 'AD_alfalfa', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$aws0150ck_cmH2O <- sum_AD_cmH2O(aws0150ck, 'paw_est', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$aws050ck_soilthickness <- sum_AD_soilthickness(aws0150ck, 'paw_est', ssurgo_horizon_no_Cr_R)
-  comps_no_Cr_R <- as.data.frame(tapply(ssurgo_horizon_no_Cr_R$AD_alfalfa_cmH2O, ssurgo_horizon_no_Cr_R$cokey, sum_modified))
-  colnames(comps_no_Cr_R) <- 'AD_alfalfa_cmH2O_unmodified'
-  comps_no_Cr_R$cokey <- rownames(comps_no_Cr_R)
-  comps_no_Cr_R$cokey <- as.integer(comps_no_Cr_R$cokey)
-  rownames(comps_no_Cr_R) <- NULL
-  comps_no_Cr_R <- comps_no_Cr_R[ ,c(2, 1)]
-  comps_no_Cr_R$AD_alfalfa_soilthickness <- tapply(ssurgo_horizon_no_Cr_R$AD_alfalfa_soilthickness, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$aws0150ck_cmH2O_unmodified <- tapply(ssurgo_horizon_no_Cr_R$aws0150ck_cmH2O, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$aws0150ck_soilthickness_unmodified <- tapply(ssurgo_horizon_no_Cr_R$aws050ck_soilthickness, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  
-#third, for walnuts, almonds, and grapes, sum up awc by cokey for those without paralithic or lithic contacts by adding missing AD data for the portion of the profile of the rooting zone without it, assuming profile wtd avgs for the missing data.  AD_'crop'_soilthickness reflects cm of rooting zone with data as a QC check. also do this for the 0-150 cm aws check.
-  ssurgo_horizon_no_Cr_R$AD_grapes_soilthickness <- sum_AD_soilthickness(grape_root_z, 'AD_grapes', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$AD_almonds_soilthickness <- sum_AD_soilthickness(almonds_root_z, 'AD_deciduous', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$AD_walnuts_soilthickness <- sum_AD_soilthickness(walnuts_root_z, 'AD_deciduous', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$AD_grapes_cmH2O_unmodified <- sum_AD_cmH2O(grape_root_z , 'AD_grapes', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$AD_almonds_cmH2O_unmodified <- sum_AD_cmH2O(almonds_root_z, 'AD_deciduous', ssurgo_horizon_no_Cr_R)
-  ssurgo_horizon_no_Cr_R$AD_walnuts_cmH2O_unmodified <- sum_AD_cmH2O(walnuts_root_z, 'AD_deciduous', ssurgo_horizon_no_Cr_R)
-  comps_no_Cr_R$AD_grapes_soilthickness_unmodified <- tapply(ssurgo_horizon_no_Cr_R$AD_grapes_soilthickness, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$AD_almonds_soilthickness_unmodified <- tapply(ssurgo_horizon_no_Cr_R$AD_almonds_soilthickness, ssurgo_horizon_no_Cr_R$cokey, sum_modified)  
-  comps_no_Cr_R$AD_walnuts_soilthickness_unmodified <- tapply(ssurgo_horizon_no_Cr_R$AD_walnuts_soilthickness, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$AD_grapes_cmH2O_unmodified <- tapply(ssurgo_horizon_no_Cr_R$AD_grapes_cmH2O_unmodified, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$AD_almonds_cmH2O_unmodfied <- tapply(ssurgo_horizon_no_Cr_R$AD_almonds_cmH2O_unmodified, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$AD_walnuts_cmH2O_unmodified <- tapply(ssurgo_horizon_no_Cr_R$AD_walnuts_cmH2O_unmodified, ssurgo_horizon_no_Cr_R$cokey, sum_modified)
-  comps_no_Cr_R$AD_grapes_rootzone_wtdavg <- comps_no_Cr_R$AD_grapes_cmH2O_unmodified/comps_no_Cr_R$AD_grapes_soilthickness_unmodified
-  comps_no_Cr_R$AD_walnuts_rootzone_wtdavg <- comps_no_Cr_R$AD_walnuts_cmH2O_unmodified/comps_no_Cr_R$AD_walnuts_soilthickness_unmodified
-  comps_no_Cr_R$AD_almonds_rootzone_wtdavg <- comps_no_Cr_R$AD_almonds_cmH2O_unmodfied/comps_no_Cr_R$AD_almonds_soilthickness_unmodified
-  comps_no_Cr_R$aws0150ck_rootzone_wtdavg <- comps_no_Cr_R$aws0150ck_cmH2O_unmodified/comps_no_Cr_R$aws0150ck_soilthickness
+#second, specifically for alfalfa, sum up awc by cokey as above but for those soils
+#without paralithic or lithic contacts but assuming no modification of the soil profile.
+  ssurgo_horizon_no_Cr_R$z0.5m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 50, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z1.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 100, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z1.5m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 150, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z2.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z4.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 400, 'awc_r')
 
-#function to create a modified AD value by cokey
+  comps.no.R.Cr.unmodified <- Reduce(function(...) merge(..., all=T), list(sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z0.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z2.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z4.0m_cmH2O_unmodified')))
+#third, for walnuts, almonds, and grapes, sum up awc by cokey for those without paralithic or lithic contacts by adding missing AD data for the portion of the profile of the rooting zone without it, assuming profile wtd avgs for the missing data.  AD_'crop'_soilthickness reflects cm of rooting zone with data as a QC check. also do this for the 0-150 cm aws check.
+
+#function to calculate soil thickness of soils without Cr or R horizons for purpose
+#of calculating modified soil profile AWC value
+  sum_PAW_soilthickness <- function(df, rooting_depth, paw) { 
+    ifelse(df$hzdepb_r <= rooting_depth & !is.na(df[[paw]]), df$hzthickness, 
+      ifelse(df$hzdept_r < rooting_depth & !is.na(df[[paw]]), 
+        rooting_depth - df$hzdept_r, NA))
+  }
+  ssurgo_horizon_no_Cr_R$z0.5m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 50, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z1.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 100, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z1.5m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 150, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z2.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z4.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 400, 'awc_r')
+
+#left off here 7/14/17
+#TO-DO:(1)sum up soil thickness by cokey for different depths 
+      #(2) revise function to create a modified AD value by cokey 
+      #(3) add var for % of PAW that is assumed in modified, restrictive horizon
   AD_sum_modified <- function(df, rootdepth, soilthickness, rootzone_wtdavg, AD) {
     for (i in 1:nrow(df)) {
       if (i==1) {
@@ -293,6 +246,8 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
     }
     return(y)
   }
+  
+  
   comps_no_Cr_R$aws0150ck_cmH2O_modified <- AD_sum_modified(comps_no_Cr_R, aws0150ck, 'aws0150ck_soilthickness_unmodified', 'aws0150ck_rootzone_wtdavg', 'aws0150ck_cmH2O_unmodified')
   comps_no_Cr_R$aws0150ck_soilthickness_modified <- aws0150ck
   comps_no_Cr_R$AD_grapes_cmH2O_modified <- AD_sum_modified(comps_no_Cr_R, grape_root_z, 'AD_grapes_soilthickness_unmodified', 'AD_grapes_rootzone_wtdavg', 'AD_grapes_cmH2O_unmodified')
@@ -453,139 +408,15 @@ aggregate_SSURGO(file.path(mainDir, 'soils_data/results/paw_check'), 'ssurgo_fc'
 # abline(0, 1, col=2, lty=2, lwd=2)
 # dev.off()
 
-
-#summarize data for most common soil components
-  wdir <- file.path(mainDir, 'soils_data/results/dtree2_FC_results')
-  setwd(wdir)
-  results_fnames <- list.files(pattern = glob2rx('*.csv'))
-  ssurgo_comp_all <- read.csv(results_fnames[1], stringsAsFactors = FALSE)
-  soil_compname_ha <- as.data.frame(tapply(ssurgo_comp_all$hectares, ssurgo_comp_all$compname, sum))
-  colnames(soil_compname_ha) <- 'total_ha'
-  i <- order(soil_compname_ha$total_ha, decreasing = TRUE)
-  soil_compname_ha <- soil_compname_ha[i, ]
-  maj_comps <- head(soil_compname_ha, 22)
-  maj_comps <- names(maj_comps)
-  maj_comps <- maj_comps[-which(maj_comps=='Urban land' | maj_comps=='Water')]
-  y <- vector()
-  for (i in 1:nrow(ssurgo_comp_all)) {
-    if (ssurgo_comp_all$compname[i] %in% maj_comps & ssurgo_comp_all$majcompflag[i]=='Yes') {
-      y <- c(y, i)
-    }
-  }
-  ssurgo_comp_top20 <- ssurgo_comp_all[y, ]
-  colnames(ssurgo_comp_top20)[20] <- 'paw_0150cm'
-  top20_stats <- as.data.frame(tapply(ssurgo_comp_top20$AD_alfalfa_cmH2O, ssurgo_comp_top20$compname, function(X) length(unique(X))))
-  colnames(top20_stats) <- 'unique_AD_values_in_DB'
-#function to summarize data
-  stats_calc <- function(summary_df, df, varname, func_name, func) {
-    summary_df[[paste(varname, '_', func_name, sep = '')]] <- tapply(df[[varname]], df$compname, func)
-    return(summary_df)
-  }
-  varlist <- c('paw_0150cm', 'AD_alfalfa_cmH2O', 'AD_grapes_cmH2O', 'AD_almonds_cmH2O', 'AD_walnuts_cmH2O')
-  func_names <- c('mean', 'max', 'min')
-  func_list <- c(mean, max, min)
-#this needs debugging
-  for (j in 1:length(func_list)) {
-    for (i in 1:length(varlist)) {
-      top20_stats <- stats_calc(top20_stats, ssurgo_comp_top20, varlist[i], func_names[j], func_list[j][[1]])
-    }
-  }
-  setwd(wdir)
-  write.csv(top20_stats, 'top20_comps_summary.csv')
-
-#compare comp estimates by FC method
-  wdir <- file.path(mainDir, 'soils_data/results')
-  result_dirs <- list.dirs(wdir)
-  for (i in 2:length(result_dirs)) {
-    method_name <- basename(result_dirs[i])
-    if (i == 2) {
-      i=2
-      setwd(result_dirs[i])
-      comps <- read.csv("comps_all_final_summary.csv", stringsAsFactors = FALSE)
-      comps <- comps[ ,c('cokey', 'compname', 'majcompflag', 'aws0150ck_cmH2O')]
-      print(nrow(comps))
-      colnames(comps)[3] <- paste('aws0150_', method_name, sep = '')
-      next
-    }
-    setwd(result_dirs[i])
-    df <- read.csv("comps_all_final_summary.csv", stringsAsFactors = FALSE)
-    df <- df[ ,c('cokey', 'aws0150ck_cmH2O')]
-    print(nrow(df))
-    colnames(df)[2] <- paste('aws0150_', method_name, sep = '')
-    comps <- merge(comps, df, by='cokey')
-  }
-  nrow(comps)
-  setwd(wdir)
-  write.csv(comps, 'comps_all_FC_methods.csv', row.names = FALSE)
-  
-  #ssurgo_comp_no_rock_reskind_mult <- ssurgo_comp_no_rock_reskind_mult[order(ssurgo_comp_no_rock_reskind_mult$cokey, ssurgo_comp_no_rock_reskind_mult$resdept_r), ]
-  
-# colnames to compute missing data for: AD_alfalfa_cmH2O, AD_alfalfa_soilthickness, aws0150ck_cmH2O, aws0150ck_soilthickness, AD_grapes_cmH2O, AD_grapes_soilthickness, AD_almonds_cmH2O, AD_almonds_soilthickness, AD_walnuts_cmH2O, AD_walnuts_soilthickness
-  
 #code to select deepest horizon                                              
   comp_bottom_hz <- as.data.frame(ssurgo_horizon %>% group_by(cokey) %>% slice(which.max(hzdept_r))) #select the deepest horizons by cokey
   
   
-  #ssurgo_comp <- ssurgo_comp[-i, ] #take out cokeys with paralithic or lithic reskind 
-#now find which cokeys in ssurgo_comp have other reskinds besides paralithic or lithic
-  # cokeys_rock_dups <- vector()
-  # for (i in 1:nrow(cokeys_rock)) {
-  #   if (cokeys_rock$cokey[i] %in% ssurgo_comp$cokey) { #if the cokeys with paralithic or lithic contact have a second reskind, save the indices of these cokeys in ssurgo_comp to a vector
-  #     cokeys_rock_dups <- c(cokeys_rock_dups, match(cokeys_rock$cokey[i], ssurgo_comp$cokey))
-  #   }
-  # }
-  # cokeys_rock <- rbind(cokeys_rock, ssurgo_comp[cokeys_rock_dups, ])
-  # ssurgo_comp <- ssurgo_comp[-cokeys_rock_dups, ]
-  # cokeys_rock_dups <- vector()
-  # for (i in 1:nrow(cokeys_rock)) {
-  #   if (cokeys_rock$cokey[i] %in% ssurgo_comp$cokey) { #if the cokeys with paralithic or lithic contact have a second reskind, save the indices of these cokeys in ssurgo_comp to a vector
-  #     cokeys_rock_dups <- c(cokeys_rock_dups, match(cokeys_rock$cokey[i], ssurgo_comp$cokey))
-  #   }
-  # }
-  # cokeys_rock <- rbind(cokeys_rock, ssurgo_comp[cokeys_rock_dups, ]) #bind this second set of restricitons to cokeys_rock
-  # ssurgo_comp <- ssurgo_comp[-cokeys_rock_dups, ] #then remove these rows from the cokeys without a paralithic or lithic contact
-# get the keys for ssurgo_comp
 
-#find bottom horizon depth and compare 0 - bottom horizon depth vs. sum(hz_thickness) by cokey 
+
   
-#count instances of various kinds of restrictions 
-tapply(ssurgo_comp$cokey, ssurgo_comp$reskind, length)
-# Abrupt textural change                      Cemented horizon 
-# 307                                         24 
-# Densic bedrock                              Densic material 
-# 2                                           39 
-# Duripan                                     Lithic bedrock 
-# 925                                         2399 
-# Manufactured layer                          Natric 
-# 45                                          47 
-# Paralithic bedrock                          Petrocalcic 
-# 3073                                        16 
-# Salic                                       Strongly contrasting textural stratification 
-# 18                                          97 
-# Sulfuric 
-# 4
 
-#code to identify duplicate components
-duplicated_cokeys <- ssurgo_comp$cokey[duplicated(ssurgo_comp$cokey)]
-length(duplicated_cokeys) #269 duplicated cokeys out of 41,275 cokeys
-# cokey_number <- 2
-# print(duplicated_cokeys[cokey_number])
-# ssurgo_comp[ssurgo_comp$cokey==duplicated_cokeys[cokey_number], ]
-# ssurgo_horizon[ssurgo_horizon$cokey==duplicated_cokeys[cokey_number], ]
-# for (i in 1:length(duplicated_cokeys)) {
-#   dups <- ssurgo_comp[ssurgo_comp$cokey==duplicated_cokeys[i], ]
-#   if (dups$resdept_r[1] == dups$resdept_r[2]) {
-#     print(dups)
-#     print(ssurgo_horizon[ssurgo_horizon$cokey==duplicated_cokeys[i], ])
-#   }
-# }
-unique_restrictions <- vector()
-for (i in 1:length(duplicated_cokeys)) {
-  dups <- ssurgo_comp[ssurgo_comp$cokey==duplicated_cokeys[i], ]
-  restrictions <- paste(dups$reskind[1], dups$reskind[2], collapse = ' ')
-  unique_restrictions[i] <- restrictions
-}
-unique(unique_restrictions) #31 unique combinations of reskinds for the same cokey
+
 
   
   
