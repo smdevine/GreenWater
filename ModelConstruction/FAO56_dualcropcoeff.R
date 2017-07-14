@@ -280,6 +280,7 @@ model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
 model.scaffold.results <- model.scaffold[rep(seq.int(1, nrow(model.scaffold)), model.length.yrs), 1:ncol(model.scaffold)] #makes a new data.frame with each row repeated model.length.yrs number of times
 model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code), ] #for some reason it is produced out of order
 model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
+model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey_model)) #need to use as.character to preserve integrity of long integers
 
 #E=evaporation
 #T=transpiration
@@ -445,8 +446,9 @@ system.time(for (n in 1:100) {
 #for writing overall results to disk
 setwd(resultsDir)
 output <- model.scaffold.results[1:1500, ] #need additional model_code to get these in order
+output <- output[order(output$unique_model_code_final, output$Model.Year), ]
 write.csv(output, paste0('almond_majcomps_results_', Sys.Date(), '.csv'), row.names = FALSE)
-
+#order(soil_comp_data$mukey, soil_comp_data$comppct_r, soil_comp_data$cokey, decreasing=c(F, T, F))
 #for comparing result in Excel spreadsheet model
 writeClipboard(as.character(PRISMcell))
 writeClipboard(as.character(spCIMIScell))
