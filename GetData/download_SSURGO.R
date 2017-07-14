@@ -1,6 +1,8 @@
 #key to the SDA_query function is to get the correct type of join and
 #to be explicit about which table the desired attribute is coming from if there
 #is more than one instance of that attribute (eg. mukey or cokey)
+#note the abbreviation of table names following a table name within the SDA_query
+#function is not necessary 
 library(soilDB)
 options(stringsAsFactors = FALSE)
 mainDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion'
