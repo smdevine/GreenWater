@@ -264,8 +264,6 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   #then, from the all the survey areas if not available within a given survey area
   #could be re-written without embedded for-loops to increase speed
   area_weighted_average <- function(df, varname) { #modified function from 'SSURGO_analysis_v2.R' in 'Forest Dieoff and Hydrology/R Scripts' directory.  Uses data from the same areasymbol first and then goes beyond the areasymbol next.  Could do the same to fill in reskind data, if necessary
-    df <- ssurgo_comp_no_rock #temp arg
-    varname <- 'z0.5m_cmH2O_unmodified_comp' #temp arg
     has_data <- df[!is.na(df[[varname]]) & !is.na(df$compacres), ]
     data_area <- as.data.frame(tapply(has_data$compacres, list(has_data$compname, has_data$areasymbol), sum))
     data_calc_term <- as.data.frame(tapply(has_data[[varname]]*has_data$compacres, list(has_data$compname, has_data$areasymbol), sum))
@@ -273,6 +271,7 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
     #replace NA AWC values with component name average AWC values
     i <- which(is.na(df[[varname]]))
     for (j in 1:length(i)) {
+      j <- 3 #temp arg
       look_up_index <- match(df$compname[i[j]], rownames(data_by_compname))
       if (is.na(look_up_index)) {
         next
@@ -305,16 +304,16 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
     return(df)
   }
   #run function for ssurgo_comp_no_rock
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z0.5m_cmH2O_unmodified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.0m_cmH2O_unmodified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.5m_cmH2O_unmodified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z2.0m_cmH2O_unmodified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z4.0m_cmH2O_unmodified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z0.5m_cmH2O_modified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.0m_cmH2O_modified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.5m_cmH2O_modified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z2.0m_cmH2O_modified_comp")
-  ssurgo_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z4.0m_cmH2O_modified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z0.5m_cmH2O_unmodified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.5m_cmH2O_unmodified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z2.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z4.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z0.5m_cmH2O_modified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.0m_cmH2O_modified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.5m_cmH2O_modified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z2.0m_cmH2O_modified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z4.0m_cmH2O_modified_comp")
   
   #run function for ssurgo_comp_rock
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z0.5m_cmH2O_unmodified_comp")
@@ -339,124 +338,80 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_comp_all[ssurgo_comp_all$compname=='Rock outcrop', 22:36] <- 0 #change all paw related variables to 0 where component name is Rock Outcrop
   ssurgo_comp_all <- ssurgo_comp_all[order(ssurgo_comp_all$mukey, ssurgo_comp_all$comppct_r, decreasing = c(FALSE, TRUE)), ]
   setwd(results)
-  write.csv(ssurgo_comp_all, 'comps_all_summary_7.17.17_dbmodified.csv', row.names = FALSE) # can read this in to shorten script
-  ssurgo_comp_all <- read.csv('comps_all_summary_7.17.17.csv')
+  write.csv(ssurgo_comp_all, 'comps_all_summary_7.18.17_dbmodified.csv', row.names = FALSE) # can read this in to shorten script
   
+  #then apply area_weighted_average again, so that minor components that did not have an identified Cr or R are fixed; this could be fixed above in the reskind synthesis work but is more of a challenge because of multiple reskinds.  See SSURGO_analysis_v2.R for an example of how to do it.
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z0.5m_cmH2O_unmodified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.5m_cmH2O_unmodified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z2.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z4.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z0.5m_cmH2O_modified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.0m_cmH2O_modified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.5m_cmH2O_modified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z2.0m_cmH2O_modified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z4.0m_cmH2O_modified_comp")
   
+  setwd(results)
+  write.csv(ssurgo_comp_all, 'comps_all_summary_7.18.17_dbmodified_final.csv', row.names = FALSE)
+  #get some metadata
   unique(ssurgo_comp_all$compname[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)])
   sum(is.na(ssurgo_mu$muacres)) #331 mukeys out of 15,086 don't have acreage data from the SDA_query in SSURGO_download.R
-  sum(ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)) #1,179 major soil components with no data; 1,135 after database modification
-  sum(ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp) & is.na(ssurgo_comp_all$compacres)) #71 of these also have NA for compacres; 71 after database modification
-  sum_modified(ssurgo_comp_all$compacres[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)]) #about 6.7 million acres for the 1,108 major soil components with no AWC data; 6.4 million acres after database modification 
-  unique(ssurgo_comp_all$areasymbol[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)]) #present in all 90 soil survey areas
-  unique(ssurgo_comp_all$compname[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)]) #143 unique soil component names are major components and have no data; however, there may be another instance of the same name with data; 137 after database modification
+  sum(ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)) #1,179 major soil components with no data; 350 after database modification; 314 after final db modification
+  sum(ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp) & is.na(ssurgo_comp_all$compacres)) #71 of these also have NA for compacres; 14 after database modification
+  sum_modified(ssurgo_comp_all$compacres[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)]) #about 6.7 million acres for the 1,108 major soil components with no AWC data; 5.1 million acres after database modification; 5.0 million acres after final modification
+  unique(ssurgo_comp_all$areasymbol[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)]) #present in all 90 soil survey areas, also after db modification
+  unique(ssurgo_comp_all$compname[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)]) #143 unique soil component names are major components and have no data; however, there may be another instance of the same name with data; 86 after database modification; 76 after final db modification
   sum(ssurgo_comp_all$SSURGO_awc_data=='No') #45,349 with no original data
   sum(ssurgo_comp_all$SSURGO_awc_data=='Yes') #26,139 with original data
-  sum(is.na(ssurgo_comp_all$z0.5m_cmH2O_modified_comp)) #41,281 no data after database modification
-  
-#for ssurgo_comp_rock
-  
-  
-  
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_alfalfa_soilthickness')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'aws0150ck_cmH2O')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'aws0150ck_soilthickness')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_grapes_cmH2O')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_grapes_soilthickness')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_almonds_cmH2O')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_almonds_soilthickness')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_walnuts_cmH2O')
-  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, 'AD_walnuts_soilthickness')
-#for ssurgo_comp_no_rock
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_alfalfa_cmH2O')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_alfalfa_soilthickness')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'aws0150ck_cmH2O')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'aws0150ck_soilthickness')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_grapes_cmH2O')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_grapes_soilthickness')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_almonds_cmH2O')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_almonds_soilthickness')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_walnuts_cmH2O')
-  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, 'AD_walnuts_soilthickness')
-#now bind all data together
-  ssurgo_comp_all <- rbind(ssurgo_comp_rock, ssurgo_comp_no_rock)
-
-#read in ssurgo_comp_all file
-  #setwd(results)
-  #ssurgo_comp_all <- read.csv('comps_all_final_summary.csv', stringsAsFactors = FALSE)  
-#then apply area_weighted_average again, so that minor components that did not have an identified Cr or R are fixed; this could be fixed above in the reskind synthesis work but is more of a challenge because of multiple reskinds.  See SSURGO_analysis_v2.R for an example of how to do it.
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_alfalfa_cmH2O')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_alfalfa_soilthickness')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'aws0150ck_cmH2O')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'aws0150ck_soilthickness')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_grapes_cmH2O')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_grapes_soilthickness')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_almonds_cmH2O')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_almonds_soilthickness')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_walnuts_cmH2O')
-  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, 'AD_walnuts_soilthickness')
-
-
-
-#map unit aggregation for % of components with data, max, component wtd avg, and min
-  ssurgo_comp_all$aws_dummy <- ssurgo_comp_all$aws0150ck_cmH2O #copy aws check data, assuming all AD columns are populated where this is populated 
-  ssurgo_comp_all$aws_dummy[ssurgo_comp_all$aws_dummy >= 0] <- 1
-  mu_summary <- as.data.frame(tapply(ssurgo_comp_all$comppct_r*ssurgo_comp_all$aws_dummy, ssurgo_comp_all$mukey, sum, na.rm=TRUE)) #sum up the component %s by mukey if there is aws content data for a particular component
-  colnames(mu_summary) <- 'aws_ppct_tot'
-  mu_summary$mukey <- rownames(mu_summary)
-  mu_summary <- mu_summary[ ,c(2, 1)]
-  mu_aggregation <- function(df_comp, df_mu, varname) {
-    df_mu[[paste(varname, '_min', sep='')]] <- tapply(df_comp[[varname]], df_comp$mukey, min_modified)
-    df_mu[[paste(varname, '_max', sep='')]] <- tapply(df_comp[[varname]], df_comp$mukey, max_modified)
-    df_comp$data_dummy <- df_comp[[varname]]
-    df_comp$data_dummy[df_comp$data_dummy >= 0] <- 1
-    df_mu$data_ppct_tot <- tapply(df_comp$comppct_r*df_comp$data_dummy, df_comp$mukey, sum_modified)
-    df_mu$calc_term <- tapply(df_comp$comppct_r*df_comp[[varname]], df_comp$mukey, sum_modified)
-    df_mu[[paste(varname, '_wtdavg', sep='')]] <- df_mu$calc_term/df_mu$data_ppct_tot
-    df_mu$data_ppct_tot <- NULL
-    df_mu$calc_term <- NULL
-    invisible(df_mu)
-  }
-  mu_summary <- mu_aggregation(ssurgo_comp_all, mu_summary, 'AD_alfalfa_cmH2O')
-  mu_summary <- mu_aggregation(ssurgo_comp_all, mu_summary, 'aws0150ck_cmH2O')
-  mu_summary <- mu_aggregation(ssurgo_comp_all, mu_summary, 'AD_grapes_cmH2O')
-  mu_summary <- mu_aggregation(ssurgo_comp_all, mu_summary, 'AD_almonds_cmH2O')
-  mu_summary <- mu_aggregation(ssurgo_comp_all, mu_summary, 'AD_walnuts_cmH2O')
-  final_result <- merge(ssurgo_mu, mu_summary, by='mukey', all=TRUE)
-  setwd(results)
-  write.csv(final_result, 'mu_aggregated_data_CA_ag.csv', row.names = FALSE) #represents 7,334,505 ha
-
-#temp modification to read in mu_summary from here
-  results <- file.path(mainDir, 'soils_data/results/paw_check')
-  fc_def <- 'awc_r'
-  figure_label <- 'with inclusions'
-  setwd(results)
-  final_result <- read.csv('mu_aggregated_data_CA_ag.csv', stringsAsFactors = FALSE)
-  final_result_qc <- final_result[which(final_result$aws_ppct_tot > 75), ] #represents 7,011,392 ha
-  lm.aws.comparison <- lm(aws0150wta ~ aws0150ck_cmH2O_wtdavg, data=final_result_qc)
-  pdf(paste('paw_comparison_FC', fc_def, '.pdf', sep = ''), family = 'Book Antiqua', width = 7.3, height = 6.3)
-  par(mar= c(4.5, 5, 1, 1) + 0.1) # default is c(5,4,4,2) + 0.1 (bottom, left, top, right margins in line widths)
-  plot(final_result$aws0150ck_cmH2O_wtdavg, final_result$aws0150wta, type='p', xlab=bquote('modified SSURGO 0-150 cm PAW (cm H'[2]*'O)' ~ .(figure_label)), ylab=expression('SSURGO muggatt 0-150 cm PAW (cm H'[2]*'O)'), cex.lab=1.3, cex.axis=1.3, col='blue1')
-  abline(0, 1, col=2, lty=2, lwd=2)
-  dev.off()
-  lm_result <- capture.output(summary(lm.aws.comparison))
-  fileConn <- file(paste(fc_def, '_lm_paw_comparison.txt', sep = ''))
-  writeLines(lm_result, fileConn)
-  close(fileConn)
-}
-
-aggregate_SSURGO(file.path(mainDir, 'soils_data/results/paw_check'), 'ssurgo_fc', 'SSURGO defined FC')
-
-#example of new figure specs
-# pdf(paste('paw_comparison_FC', fc_def, '.pdf', sep = ''), family = 'Book Antiqua', width = 7, height = 6.3)
-# par(mar= c(4.5, 5, 1, 1) + 0.1) # default is c(5,4,4,2) + 0.1 (bottom, left, top, right margins in line widths)
-# plot(final_result$aws0150ck_cmH2O_wtdavg, final_result$aws0150wta, type='p', xlab=bquote('modified SSURGO 0-150 cm PAW (cm H'[2]*'O)' ~ .(figure_label)), ylab=expression('SSURGO muggatt 0-150 cm PAW (cm H'[2]*'O)'), cex.lab=1.3, cex.axis=1.3)
-# abline(0, 1, col=2, lty=2, lwd=2)
-# dev.off()
+  sum(is.na(ssurgo_comp_all$z0.5m_cmH2O_modified_comp)) #13,750 no data after database modification; 2,112 after final db modification (running 'area_weighted_avg' on ssurgo_all)
 
 #code to select deepest horizon                                              
   comp_bottom_hz <- as.data.frame(ssurgo_horizon %>% group_by(cokey) %>% slice(which.max(hzdept_r))) #select the deepest horizons by cokey
+  sum(is.na(ssurgo_horizon_Cr_R$awc_r)) #13,680 are NA
+  sum(is.na(ssurgo_horizon_no_Cr_R$awc_r)) #1,464 are NA
+  i <- aggregate(ssurgo_horizon_Cr_R$hzdepb_r, list(ssurgo_horizon_Cr_R$cokey), which.min)
+
   
+  surface_weighting <- function(df, depth) {
+    df <- df[,c('cokey', 'hzdept_r', 'hzdepb_r', 'awc_r', 'wfifteenbar_r', 'fragvol_r_sum', 'claytotal_r', 'silttotal_r', 'sandtotal_r')]
+    #print(class(df))
+    if (nrow(df) == 1) {
+      return(df)
+    }
+    else if (all(is.na(df$awc_r)) & all(is.na(df$wfifteenbar_r)) & all(is.na(df$sandtotal_r))) {
+      return(df[1,])
+    }
+    else if (nrow(df) > 1) {
+      if (TRUE %in% is.na(df$awc_r)) { #this leaves the possibility that there is an issue with some other relevant variable down the road
+        df2 <- df[!is.na(df$awc_r), ]
+        if (nrow(df2) == 1) {
+          return(df2)
+        }
+        else if (nrow(df2)==0) {
+            return(df[1,])
+        } else {
+            weighting_factor <- (depth - df2$hzdept_r - ifelse(df2$hzdepb_r <= 10, depth - df2$hzdepb_r, 0))/10
+            df2[ ,4:ncol(df)] <- df2[ ,4:ncol(df2)]*weighting_factor
+            df3 <- t(apply(df2[ ,4:ncol(df2)], 2, sum))
+            df3 <- cbind(df[1,1], 0, 10, df3)
+            colnames(df3)[1:3] <- c('cokey', 'hzdept_r', 'hzdepb_r')
+            return(df3)
+        }
+      } else {
+          weighting_factor <- (depth - df$hzdept_r - ifelse(df$hzdepb_r <= 10, depth - df$hzdepb_r, 0))/10
+          df[,4:ncol(df)] <- df[,4:ncol(df)]*weighting_factor
+          df2 <- t(apply(df[,4:ncol(df)], 2, sum))
+          df <- cbind(df[1,1], 0, 10, df2)
+          colnames(df)[1:3] <- c('cokey', 'hzdept_r', 'hzdepb_r')
+          return(df)
+      }
+    }
+  }
+  surface_horizons_Cr_R <- ssurgo_horizon_Cr_R[ssurgo_horizon_Cr_R$hzdept_r < 10, ]
+  surface.data.Cr.R <- do.call(rbind, lapply(split(surface_horizons_Cr_R, surface_horizons$cokey), surface_weighting, depth=10))
+  surface_horizons_no_Cr_R <- ssurgo_horizon_no_Cr_R[ssurgo_horizon_Cr_R$hzdept_r < 10, ]
+  surface.data.Cr.R <- do.call(rbind, lapply(split(surface_horizons_no_Cr_R, surface_horizons$cokey), surface_weighting, depth=10))
   
 
 
