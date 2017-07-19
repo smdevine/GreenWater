@@ -52,14 +52,61 @@ ssurgo_horizon <- ssurgo_horizon[!duplicated(ssurgo_horizon$chkey), ] #get rid o
 ssurgo_horizon <- ssurgo_horizon[ ,-which(colnames(ssurgo_horizon) == "fragvol_r" | colnames(ssurgo_horizon)=="fragsize_r")]
 ssurgo_horizon <- merge(ssurgo_horizon, fragvol_tot, by='chkey')
 write.csv(ssurgo_horizon, 'CA_horizon_data_2017-07-13_clean.csv', row.names = FALSE)
+ssurgo_horizon <- read.csv('CA_horizon_data_2017-07-13_clean.csv')
+#see rules for soil textural classes.pdf in 'Allowable Depletion' folder
+textural.class.calc <- function(sand, silt, clay) {
+  ifelse(is.na(sand) | is.na(silt) | is.na(clay), NA,
+  ifelse(sand + silt + clay > 101 |
+    sand + silt + clay < 99, 'proportions do not sum to 100+-1%',
+  ifelse(silt + 1.5 * clay < 15, 'sand',
+  ifelse(silt + 1.5 * clay >= 15 & silt + 2 * clay < 30, 'loamy sand',
+  ifelse((clay >= 7 & clay < 20 & sand > 52 & silt + 2 * clay >= 30) | 
+    (clay < 7 & silt < 50 & silt + 2 * clay >= 30), 'sandy loam',
+  ifelse(clay >= 7 & clay < 27 & silt >=28 & silt < 50 & sand <= 52, 'loam',
+  ifelse((silt >= 50 & clay >= 12 & clay < 27) | 
+    (silt >=50 & silt < 80 & clay < 12), 'silt loam',
+  ifelse(silt >= 80 & clay < 12, 'silt',
+  ifelse(clay >= 20 & clay < 35 & silt < 28 & sand > 45, 'sandy clay loam',
+  ifelse(clay >= 27 & clay < 40 & sand > 20 & sand <= 45, 'clay loam',
+  ifelse(clay >= 27 & clay < 40 & sand <= 20, 'silty clay loam',
+  ifelse(clay >= 35 & sand > 45, 'sandy clay',
+  ifelse(clay >= 40 & silt >= 40, 'silty clay',
+  ifelse(clay >= 40 & sand <= 45 & silt < 40, 'clay',
+    'undefined textural class'))))))))))))))
+}
+ssurgo_horizon$texture.sums <- ssurgo_horizon$sandtotal_r + ssurgo_horizon$silttotal_r + ssurgo_horizon$claytotal_r
+summary(ssurgo_horizon$texture.sums)
+sum(ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums)) #801 don't add up to 100
+table(ssurgo_horizon$texture.sums[ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums)])
+FixTexture <- function(df, varname) {
+  ifelse(is.na(df$texture.sums), df[[varname]] <- df[[varname]],
+  ifelse(df$texture.sums > 99 & df$texture.sums < 101, df[[varname]] <- df[[varname]],
+  ifelse(df$texture.sums < 90 | df$texture.sums > 110, df[[varname]] <- df[[varname]],
+    df[[varname]] <- df[[varname]] * 100 / df$texture.sums)))
+}
+ssurgo_horizon$sandtotal_r <- FixTexture(ssurgo_horizon, 'sandtotal_r')
+ssurgo_horizon$silttotal_r <- FixTexture(ssurgo_horizon, 'silttotal_r')
+ssurgo_horizon$claytotal_r <- FixTexture(ssurgo_horizon, 'claytotal_r')
+ssurgo_horizon$texture.sums <- ssurgo_horizon$sandtotal_r + ssurgo_horizon$silttotal_r + ssurgo_horizon$claytotal_r
+table(ssurgo_horizon$texture.sums)
+
+test <- ssurgo_horizon[ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums), ]
+test2 <- test
+test2$sandtotal_r <- FixTexture(test2, 'sandtotal_r')
+test2$silttotal_r <- FixTexture(test2, 'silttotal_r')
+test2$claytotal_r <- FixTexture(test2, 'claytotal_r')
+test2$texture.sums <- test2$sandtotal_r + test2$silttotal_r + test2$claytotal_r
+table(test$texture.sums)
+table(test2$texture.sums)
+
 
 # a real hack job developed Oct 2017 to deal with duplicate cokeys as a result 
   # of reskind query, since multiple reskinds require multiple cokey rows with 
   # duplicate data in order to apply ssurgo_horizon sum routine, need to first 
   # identify which cokeys have lithic or paralithic contacts or both, so that 
-  # these horizons are not given plant available values purpose is to get the 
-  # soil comp data into the correct dimensions for ease and to distinguish 
-  # between modifiable and unmodifiable soil profiles
+  # these horizons are not given plant available water values. purpose is to get 
+  # the soil comp data into 1 row per cokey and to distinguish between 
+  # modifiable and unmodifiable soil profiles.
 ssurgo_comp <- read.csv("CA_comp_data_2017-07-13.csv")
 ssurgo_comp$majcompflag[ssurgo_comp$majcompflag=='No '] <- 'No' #strip out the space after 'No '
 ssurgo_comp <- ssurgo_comp[!is.na(ssurgo_comp$cokey), ] #there were 6 mukeys with no identified cokeys
@@ -84,7 +131,7 @@ cokeys_rock_reskind_mult <- sort(cokeys_rock_reskind_mult)
 j <- match(cokeys_rock_reskind_mult, cokeys_rock_reskind_one) #find the index of the cokeys with more than one paralithic or lithic reskind
 cokeys_rock_reskind_one <- cokeys_rock_reskind_one[-j] #take out the 2nd instance of the cokeys with both paralithic and lithic contacts
 j <- match(cokeys_rock_reskind_one, ssurgo_comp_rock$cokey)
-ssurgo_comp_rock_reskind_one <- ssurgo_comp_rock[j, ] 
+ssurgo_comp_rock_reskind_one <- ssurgo_comp_rock[j, ]
 ssurgo_comp_rock_reskind_mult <- ssurgo_comp_rock[-j, ]
 ssurgo_comp_rock_reskind_mult <- ssurgo_comp_rock_reskind_mult[order(ssurgo_comp_rock_reskind_mult$cokey, ssurgo_comp_rock_reskind_mult$resdept_r), ]
 k <- match(cokeys_rock_reskind_mult, ssurgo_comp_rock_reskind_mult$cokey) #now find the first instance of each cokey, which will be the shallowest of the two reskinds, according to the 'order' operation above
@@ -367,7 +414,6 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   sum(is.na(ssurgo_comp_all$z0.5m_cmH2O_modified_comp)) #13,750 no data after database modification; 2,112 after final db modification (running 'area_weighted_avg' on ssurgo_all)
 
 #code to select deepest horizon                                              
-  comp_bottom_hz <- as.data.frame(ssurgo_horizon %>% group_by(cokey) %>% slice(which.max(hzdept_r))) #select the deepest horizons by cokey
   sum(is.na(ssurgo_horizon_Cr_R$awc_r)) #13,680 are NA
   sum(is.na(ssurgo_horizon_no_Cr_R$awc_r)) #1,464 are NA
   i <- aggregate(ssurgo_horizon_Cr_R$hzdepb_r, list(ssurgo_horizon_Cr_R$cokey), which.min)
@@ -408,16 +454,74 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
       }
     }
   }
-  surface_horizons_Cr_R <- ssurgo_horizon_Cr_R[ssurgo_horizon_Cr_R$hzdept_r < 10, ]
-  surface.data.Cr.R <- do.call(rbind, lapply(split(surface_horizons_Cr_R, surface_horizons$cokey), surface_weighting, depth=10))
-  surface_horizons_no_Cr_R <- ssurgo_horizon_no_Cr_R[ssurgo_horizon_Cr_R$hzdept_r < 10, ]
-  surface.data.Cr.R <- do.call(rbind, lapply(split(surface_horizons_no_Cr_R, surface_horizons$cokey), surface_weighting, depth=10))
   
 
-
   
+  depth <- 10 #depth is in cm soil
+  surface.horizons.Cr.R <- ssurgo_horizon_Cr_R[ssurgo_horizon_Cr_R$hzdept_r < 10, ]
+  surface.data.Cr.R <- do.call(rbind, lapply(split(surface.horizons.Cr.R, surface.horizons.Cr.R$cokey), surface_weighting, depth=depth))
+  surface.data.Cr.R$TEW <- (surface.data.Cr.R$awc_r + 0.5*surface.data.Cr.R$wfifteenbar_r/100)*depth*10 #this converts it to mm H2O per X cm soil; typically 10-15 cm soil
+  surface.horizons.no.Cr.R <- ssurgo_horizon_no_Cr_R[ssurgo_horizon_no_Cr_R$hzdept_r < 10, ]
+  surface.data.no.Cr.R <- do.call(rbind, lapply(split(surface.horizons.no.Cr.R, surface.horizons.no.Cr.R$cokey), surface_weighting, depth=depth))
+  surface.data.no.Cr.R$TEW <- (surface.data.no.Cr.R$awc_r + 0.5*surface.data.no.Cr.R$wfifteenbar_r/100)*depth*10
+  summary(surface.data.Cr.R)
+  summary(surface.data.no.Cr.R)
+  surface.data.Cr.R$textural.class <- textural.class.calc(surface.data.Cr.R$sandtotal_r, surface.data.Cr.R$silttotal_r, surface.data.Cr.R$claytotal_r)
+  surface.data.no.Cr.R$textural.class <- textural.class.calc(surface.data.no.Cr.R$sandtotal_r, surface.data.no.Cr.R$silttotal_r, surface.data.no.Cr.R$claytotal_r)
+  surface.data.all <- rbind(surface.data.Cr.R, surface.data.no.Cr.R)
+  surface.data.all$texture.class.sum <- surface.data.all$sandtotal_r + surface.data.all$silttotal_r + surface.data.all$claytotal_r
+  summary(surface.data.all$texture.class.sum)
 
-
+#extra functions
+  textural.class.calc <- function(sand, silt, clay) {
+    #if (is.na(sand) | is.na(silt) | is.na(clay)) {
+    #print('Texture data is missing')
+    #return(NA)
+    #}
+    if(silt + sand + clay != 100) {
+      print('Sand, silt, and clay do not add up to 100%')
+      return(NA)
+    }
+    else if (silt + 1.5 * clay < 15) {
+      return('sand')
+    }
+    else if (silt + 1.5 * clay >= 15 & silt + 2 * clay < 30) {
+      return('loamy sand')
+    }
+    else if ((clay >= 7 & clay < 20 & sand > 52 & silt + 2 * clay >= 30) | (clay < 7 & silt < 50 & silt + 2 * clay >= 30)) {
+      return('sandy loam')
+    }
+    else if (clay >= 7 & clay < 27 & silt >=28 & silt < 50 & sand <= 52) {
+      return('loam')
+    }
+    else if ((silt >= 50 & clay >= 12 & clay < 27) | (silt >=50 & silt < 80 & clay < 12)) {
+      return('silt loam')
+    }
+    else if (silt >= 80 & clay < 12) {
+      return('silt')
+    }
+    else if (clay >= 20 & clay < 35 & silt < 28 & sand > 45) {
+      return('sandy clay loam')
+    } 
+    else if (clay >= 27 & clay < 40 & sand > 20 & sand <= 45) {
+      return('clay loam')
+    }
+    else if (clay >= 27 & clay < 40 & sand <= 20) {
+      return('silty clay loam') 
+    } 
+    else if (clay >= 35 & sand > 45) {
+      return('sandy clay')
+    } 
+    else if (clay >= 40 & silt >= 40) {
+      return('silty clay')
+    } 
+    else if (clay >= 40 & sand <= 45 & silt < 40) {
+      return('clay')
+    } else {
+      return('undefined textural class')
+    }
+  }
+  
 
   
   
