@@ -6,9 +6,9 @@
 library(soilDB)
 options(stringsAsFactors = FALSE)
 mainDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion'
-soilsDir <- file.path(mainDir, 'soils_data')
+soilsDir <- file.path(mainDir, 'soils_data/soilDB_query/CA_all')
 setwd(soilsDir)
-mu_area <- read.csv("farmland_mu_area.csv") #these are the soil mapunits of interest
+mu_area <- read.csv('CA_all_mu_data_2017-07-19.csv') #these are the soil mapunits of interest and was produced by this script
 areasymbols.needed <- unique(mu_area$areasymbol) #could have done the SQL style queries by mapunit
 areasymbols.needed <- areasymbols.needed[order(areasymbols.needed)]
 
@@ -44,7 +44,7 @@ length(which(is.na(comp_data$cokey)))
 
 query_horizon <- function(x) { #this will not return cokey NAs
   print(x)
-  SDA_query(paste0("SELECT mu.mukey, comp.cokey, ch.chkey, hzname, hzdept_r, hzdepb_r, awc_r, ec_r, claytotal_r, silttotal_r, sandtotal_r, dbthirdbar_r, wthirdbar_r, wfifteenbar_r, ksat_r, fragvol_r, fragsize_r
+  SDA_query(paste0("SELECT mu.mukey, comp.cokey, ch.chkey, hzname, hzdept_r, hzdepb_r, awc_r, ec_r, claytotal_r, silttotal_r, sandtotal_r, dbthirdbar_r, wthirdbar_r, wfifteenbar_r, ksat_r, fragvol_r, fragsize_r, sandvc_r, sandco_r, sandmed_r, sandfine_r, sandvf_r
     FROM legend l
       INNER JOIN mapunit mu ON mu.lkey = l.lkey
         INNER JOIN component comp ON comp.mukey = mu.mukey
@@ -56,7 +56,7 @@ query_horizon <- function(x) { #this will not return cokey NAs
 horizon_data <- do.call(rbind, lapply(areasymbols.needed, query_horizon))
 dim(horizon_data)
 length(unique(horizon_data$cokey))
-setwd(file.path(soilsDir, 'soilDB_query'))
+setwd(file.path(soilsDir))
 write.csv(horizon_data, paste0('CA_all_horizon_data_', Sys.Date(), '.csv'), row.names = FALSE)
 
 #mapunit level data needed
