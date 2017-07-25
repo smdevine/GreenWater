@@ -81,7 +81,7 @@ table(ssurgo_horizon$texture.sums[ssurgo_horizon$texture.sums != 100 & !is.na(ss
 FixTexture <- function(df, varname) {
   ifelse(is.na(df$texture.sums), df[[varname]] <- df[[varname]],
   ifelse(df$texture.sums > 99 & df$texture.sums < 101, df[[varname]] <- df[[varname]],
-  ifelse(df$texture.sums < 90 | df$texture.sums > 110, df[[varname]] <- df[[varname]],
+  ifelse(df$texture.sums < 85 | df$texture.sums > 115, df[[varname]] <- df[[varname]],
     df[[varname]] <- df[[varname]] * 100 / df$texture.sums)))
 }
 ssurgo_horizon$sandtotal_r <- FixTexture(ssurgo_horizon, 'sandtotal_r')
@@ -89,15 +89,17 @@ ssurgo_horizon$silttotal_r <- FixTexture(ssurgo_horizon, 'silttotal_r')
 ssurgo_horizon$claytotal_r <- FixTexture(ssurgo_horizon, 'claytotal_r')
 ssurgo_horizon$texture.sums <- ssurgo_horizon$sandtotal_r + ssurgo_horizon$silttotal_r + ssurgo_horizon$claytotal_r
 table(ssurgo_horizon$texture.sums)
-
-test <- ssurgo_horizon[ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums), ]
-test2 <- test
-test2$sandtotal_r <- FixTexture(test2, 'sandtotal_r')
-test2$silttotal_r <- FixTexture(test2, 'silttotal_r')
-test2$claytotal_r <- FixTexture(test2, 'claytotal_r')
-test2$texture.sums <- test2$sandtotal_r + test2$silttotal_r + test2$claytotal_r
-table(test$texture.sums)
-table(test2$texture.sums)
+ssurgo_horizon$textural.class <- textural.class.calc(ssurgo_horizon$sandtotal_r, ssurgo_horizon$silttotal_r, ssurgo_horizon$claytotal_r)
+setwd(results)
+write.csv(table(as.factor(ssurgo_horizon$textural.class)), 'ca_horizon_textural_class.csv', row.names = FALSE)
+# test <- ssurgo_horizon[ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums), ]
+# test2 <- test
+# test2$sandtotal_r <- FixTexture(test2, 'sandtotal_r')
+# test2$silttotal_r <- FixTexture(test2, 'silttotal_r')
+# test2$claytotal_r <- FixTexture(test2, 'claytotal_r')
+# test2$texture.sums <- test2$sandtotal_r + test2$silttotal_r + test2$claytotal_r
+# table(test$texture.sums)
+# table(test2$texture.sums)
 
 
 # a real hack job developed Oct 2017 to deal with duplicate cokeys as a result 
