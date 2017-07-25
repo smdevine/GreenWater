@@ -44,7 +44,7 @@ setwd(SoilsDataDir)
 list.files()
 ssurgo_horizon <- read.csv('CA_all_horizon_data_2017-07-24.csv')
 ssurgo_horizon <- ssurgo_horizon[!is.na(ssurgo_horizon$chkey), ] #get rid of 
-  # chkeys that have no data first, which is 27,358 out of 71,488
+  # chkeys that have no data first
 fragvol_tot <- as.data.frame(tapply(ssurgo_horizon$fragvol_r, ssurgo_horizon$chkey, sum, na.rm=TRUE))
 colnames(fragvol_tot) <- 'fragvol_r_sum'
 fragvol_tot$chkey <- rownames(fragvol_tot)
@@ -53,12 +53,24 @@ ssurgo_horizon <- ssurgo_horizon[!duplicated(ssurgo_horizon$chkey), ] #get rid o
 ssurgo_horizon <- ssurgo_horizon[ ,-which(colnames(ssurgo_horizon) == "fragvol_r" | colnames(ssurgo_horizon)=="fragsize_r")]
 ssurgo_horizon <- merge(ssurgo_horizon, fragvol_tot, by='chkey')
 write.csv(ssurgo_horizon, paste0('CA_all_horizon_data_', Sys.Date(), '_clean.csv'), row.names = FALSE)
+setwd(SoilsDataDir)
 ssurgo_horizon <- read.csv('CA_all_horizon_data_2017-07-24_clean.csv')
 #see rules for soil textural classes.pdf in 'Allowable Depletion' folder
+length(unique(ssurgo_horizon$cokey)) #37,642 cokeys; from comp table, 30k are majcomps
+#stats before modification
+sum(is.na(ssurgo_horizon$awc_r)) #19816
+sum(is.na(ssurgo_horizon$wfifteenbar_r)) #24656
+sum(is.na(ssurgo_horizon$claytotal_r)) #23859
+sum(is.na(ssurgo_horizon$silttotal_r)) #25203
+sum(is.na(ssurgo_horizon$sandtotal_r)) #25181
+sum(is.na(ssurgo_horizon$textural.class)) #25237
+sum(ssurgo_horizon$textural.class=='proportions do not sum to 100+-1', na.rm = TRUE) #543
+sum(is.na(ssurgo_horizon$wpmd)) #25780 (relies on sand fraction data also)
+
 textural.class.calc <- function(sand, silt, clay) {
   ifelse(is.na(sand) | is.na(silt) | is.na(clay), NA,
   ifelse(sand + silt + clay > 101 |
-    sand + silt + clay < 99, 'proportions do not sum to 100+-1%',
+    sand + silt + clay < 99, 'proportions do not sum to 100+-1',
   ifelse(silt + 1.5 * clay < 15, 'sand',
   ifelse(silt + 1.5 * clay >= 15 & silt + 2 * clay < 30, 'loamy sand',
   ifelse((clay >= 7 & clay < 20 & sand > 52 & silt + 2 * clay >= 30) | 
@@ -104,14 +116,19 @@ ssurgo_horizon$sandmed_r <- FixSandTexture(ssurgo_horizon, 'sandmed_r')
 ssurgo_horizon$sandfine_r <- FixSandTexture(ssurgo_horizon, 'sandfine_r')
 ssurgo_horizon$sandvf_r <- FixSandTexture(ssurgo_horizon, 'sandvf_r')
 ssurgo_horizon$sandfractions_sum <- ssurgo_horizon$sandvc_r + ssurgo_horizon$sandco_r + ssurgo_horizon$sandmed_r + ssurgo_horizon$sandfine_r + ssurgo_horizon$sandvf_r
-#sand_diffs <- ssurgo_horizon$sandfractions_sum - ssurgo_horizon$sandtotal_r
-#table(sand_diffs) #confirmed that sand proportions are now fixed in accordance with sandtotal_r
+sand_diffs <- ssurgo_horizon$sandfractions_sum - ssurgo_horizon$sandtotal_r
+table(sand_diffs) #confirmed that sand proportions are now fixed in accordance with sandtotal_r
 ssurgo_horizon$textural.class <- textural.class.calc(ssurgo_horizon$sandtotal_r, ssurgo_horizon$silttotal_r, ssurgo_horizon$claytotal_r)
+
 ssurgo_horizon$wpmd.calc.sum <- ssurgo_horizon$silttotal_r + ssurgo_horizon$claytotal_r + ssurgo_horizon$sandvc_r + ssurgo_horizon$sandco_r + ssurgo_horizon$sandmed_r + ssurgo_horizon$sandfine_r + ssurgo_horizon$sandvf_r
 table(ssurgo_horizon$wpmd.calc.sum)
 ssurgo_horizon$wpmd <- ifelse(ssurgo_horizon$wpmd.calc.sum > 99 & ssurgo_horizon$wpmd.calc.sum < 101, (ssurgo_horizon$sandvc_r*1.5 + ssurgo_horizon$sandco_r*0.75 + ssurgo_horizon$sandmed_r*0.375 + ssurgo_horizon$sandfine_r*0.175 + ssurgo_horizon$sandvf_r*0.075 + ssurgo_horizon$silttotal_r*0.026 + ssurgo_horizon$claytotal_r*0.001)/ssurgo_horizon$wpmd.calc.sum, NA)
+ssurgo_horizon$wpmd.calc2.sum <- ssurgo_horizon$silttotal_r + ssurgo_horizon$claytotal_r + ssurgo_horizon$sandtotal_r
+ssurgo_horizon$wpmd <- ifelse(is.na(ssurgo_horizon$wpmd) & ssurgo_horizon$wpmd.calc2.sum > 99 & ssurgo_horizon$wpmd.calc2.sum < 101, (ssurgo_horizon$sandtotal_r*1.025 + ssurgo_horizon$silttotal_r*0.026 + ssurgo_horizon$claytotal_r*0.001)/ssurgo_horizon$wpmd.calc2.sum, ssurgo_horizon$wpmd) #can get 130 wpmd calcs by ignoring bad sand fraction data and going with just the 3 class calc
+
 #look at new variable wpmd (weighted particle mean diameter) by textural class
 tapply(ssurgo_horizon$wpmd, ssurgo_horizon$textural.class, mean, na.rm=TRUE)
+summary(as.factor(ssurgo_horizon$textural.class))
 setwd(results)
 write.csv(table(as.factor(ssurgo_horizon$textural.class)), paste0('CA_all_horizon_textural_class', Sys.Date(), '.csv'), row.names = FALSE)
 
@@ -121,60 +138,101 @@ unique(ssurgo_horizon$textural.class[ssurgo_horizon$wpmd > 0.5])
 sum(ssurgo_horizon$wpmd > 0.18, na.rm = TRUE)
 median.wpmd <- median(ssurgo_horizon$wpmd, na.rm=TRUE)
 sd.wpdmd <- sd(ssurgo_horizon$wpmd, na.rm = TRUE)
-ssurgo_horizon$surface.depth <- ifelse(is.na(ssurgo_horizon$wpmd), NA, ifelse(ssurgo_horizon$wpmd <= median.wpmd, 0.125 - 0.0125*pmax((ssurgo_horizon$wpmd - median.wpmd)/sd.wpdmd, -2), 0.125 - 0.0125*pmin((ssurgo_horizon$wpmd-median.wpmd)/sd.wpdmd, 2)))
+fudge_factor <- 1/exp(1) #- 0.1*(1/exp(1)); this factor scales the estimate of the surface depth exposed to evaporation from a max of 14 to 15.
+ssurgo_horizon$surface.depth <- 100 * ifelse(is.na(ssurgo_horizon$wpmd), NA, ifelse(ssurgo_horizon$wpmd <= median.wpmd, 0.125 - 0.0125 * pmax((ssurgo_horizon$wpmd - median.wpmd) / (fudge_factor * sd.wpdmd), -2), 0.125 - 0.0125 * pmin((ssurgo_horizon$wpmd - median.wpmd) / sd.wpdmd, 2)))
 summary(ssurgo_horizon$surface.depth)
+hist(ssurgo_horizon$surface.depth)
+unique(ssurgo_horizon$textural.class[ssurgo_horizon$surface.depth==15])
+ssurgo_horizon[which(ssurgo_horizon$textural.class == 'loamy sand' & ssurgo_horizon$surface.depth==15), ]
 #now, determine surface characteristics for a flexible depth (Ze), determined from surface wpmd
+df <- test
 surface_weighting <- function(df) {
-  df <- df[,c('cokey', 'hzdept_r', 'hzdepb_r', 'awc_r', 'wfifteenbar_r', 'fragvol_r_sum', 'claytotal_r', 'silttotal_r', 'sandtotal_r')]
-  #print(class(df))
+  df <- df[,c('cokey', 'hzdept_r', 'hzdepb_r', 'surface.depth', 'awc_r', 'wfifteenbar_r', 'fragvol_r_sum', 'claytotal_r', 'silttotal_r', 'sandtotal_r')]
+  df <- df[order(df$hzdept_r, decreasing = FALSE), ]
   if (nrow(df) == 1) {
-    return(df)
+    return(df[1,c(1, 4:ncol(df))])
   }
-  else if (all(is.na(df$awc_r)) & all(is.na(df$wfifteenbar_r)) & all(is.na(df$sandtotal_r))) {
-    return(df[1,])
+  else if (all(is.na(df$awc_r)) & all(is.na(df$wfifteenbar_r))) {
+    return(df[1,c(1, 4:ncol(df))])
   }
-  else if (nrow(df) > 1) {
-    if (TRUE %in% is.na(df$awc_r)) { #this leaves the possibility that there is an issue with some other relevant variable down the road
-      df2 <- df[!is.na(df$awc_r), ]
-      if (nrow(df2) == 1) {
-        return(df2)
-      }
-      else if (nrow(df2)==0) {
-        return(df[1,])
-      } else {
-        depth <- 
-        weighting_factor <- (depth - df2$hzdept_r - ifelse(df2$hzdepb_r <= 10, depth - df2$hzdepb_r, 0))/10
-        df2[ ,4:ncol(df)] <- df2[ ,4:ncol(df2)]*weighting_factor
-        df3 <- t(apply(df2[ ,4:ncol(df2)], 2, sum))
-        df3 <- cbind(df[1,1], 0, 10, df3)
-        colnames(df3)[1:3] <- c('cokey', 'hzdept_r', 'hzdepb_r')
-        return(df3)
-      }
-    } else {
-      weighting_factor <- (depth - df$hzdept_r - ifelse(df$hzdepb_r <= 10, depth - df$hzdepb_r, 0))/10
-      df[,4:ncol(df)] <- df[,4:ncol(df)]*weighting_factor
-      df2 <- t(apply(df[,4:ncol(df)], 2, sum))
-      df <- cbind(df[1,1], 0, 10, df2)
-      colnames(df)[1:3] <- c('cokey', 'hzdept_r', 'hzdepb_r')
-      return(df)
+  else if (TRUE %in% is.na(df$awc_r) | TRUE %in% is.na(df$surface.depth)) { #this leaves the possibility that there is an issue with some other relevant variable down the road
+    df2 <- df[!is.na(df$awc_r) & !is.na(df$surface.depth), ]
+    if (nrow(df2) == 1) {
+      return(df2[1,c(1, 4:ncol(df2))])
     }
-  }
-}
+    else if (nrow(df2)==0) {
+      return(df[1,c(1, 4:ncol(df))])
+    } else {
+        df2 <- df2[order(df2$hzdept_r, decreasing = FALSE), ]
+        if (df2$surface.depth[1] < df2$hzdepb_r[1]) { #if the surface horizon's bottom depth exceeds the surface depth, just return that record
+          return(df2[1,c(1, 4:ncol(df))])
+        } else { #get the horizons which include a portion of the surface depth
+            select.rows <- which(df2$hzdept_r < df2$surface.depth[1])
+          #continue here
+            df2 <- df2[select.rows, ]
+            depth.v1 <- df2$surface.depth[1]
+            weighting_factor <- (depth.v1 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v1, depth.v1 - df2$hzdepb_r, 0))/depth.v1
+            depth.v2 <- sum(df2$surface.depth*weighting_factor)
+            weighting_factor <- (depth.v2 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v2, depth.v2 - df2$hzdepb_r, 0))/depth.v2
+            depth.v3 <- sum(df2$surface.depth*weighting_factor)
+            weighting_factor <- (depth.v3 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v3, depth.v3 - df2$hzdepb_r, 0))/depth.v3
+            df2[ ,4:ncol(df2)] <- df2[ ,4:ncol(df2)]*weighting_factor
+            df3 <- t(apply(df2[ ,4:ncol(df2)], 2, sum))
+            df3 <- cbind(df2[1,1], df3)
+            colnames(df3)[1] <- c('cokey')
+            return(df3)
+          }
+        }
+    } else {
+        if (df$surface.depth[1] < df$hzdepb_r[1]) { #if the surface horizon's bottom depth exceeds the surface depth, just return that record
+          return(df[1,c(1, 4:ncol(df))])
+        } else { #get the horizons which include a portion of the surface depth
+            select.rows <- which(df$hzdept_r < df$surface.depth[1])
+          #continue here
+            df <- df[select.rows, ]
+            depth.v1 <- df$surface.depth[1]
+            weighting_factor <- (depth.v1 - df$hzdept_r - ifelse(df$hzdepb_r <= depth.v1, depth.v1 - df$hzdepb_r, 0))/depth.v1 #problem is here if horizon thickness are less than the surface.depth needed because of missing data in other horizons
+            depth.v2 <- sum(df$surface.depth*weighting_factor)
+            weighting_factor <- (depth.v2 - df$hzdept_r - ifelse(df$hzdepb_r <= depth.v2, depth.v2 - df$hzdepb_r, 0))/depth.v2
+            depth.v3 <- sum(df$surface.depth*weighting_factor)
+            weighting_factor <- (depth.v3 - df$hzdept_r - ifelse(df$hzdepb_r <= depth.v3, depth.v3 - df$hzdepb_r, 0))/depth.v3
+            df[ ,4:ncol(df)] <- df[ ,4:ncol(df)] * weighting_factor
+            df2 <- t(apply(df[ ,4:ncol(df)], 2, sum))
+            df <- cbind(df[1,1], df2)
+            colnames(df)[1] <- c('cokey')
+            return(df)
+          }
+      }
+    }
+surface.horizons <- ssurgo_horizon[ssurgo_horizon$hzdept_r < 15, ]
+surface.horizons <- surface.horizons[order(surface.horizons$cokey), ]
+sum(is.na(surface.horizons$awc_r)) #3033
+sum(is.na(surface.horizons$claytotal_r)) #4590
+sum(is.na(surface.horizons$surface.depth)) #5128
+sum(is.na(surface.horizons$wfifteenbar_r)) #4091
+sum(is.na(surface.horizons$textural.class)) #5011
+sum(surface.horizons$textural.class=='proportions do not sum to 100+-1', na.rm = TRUE) #117
+sum(is.na(surface.horizons$awc_r) & !is.na(surface.horizons$surface.depth))
+#61 have surface.depth data but no awc data; these will be ignored
+sum(!is.na(surface.horizons$awc_r) & !is.na(surface.horizons$surface.depth)) #51769
+sum(!is.na(surface.horizons$awc_r)) #53925
+sum(!is.na(surface.horizons$surface.depth)) #51830
+summary(as.factor(surface.horizons$textural.class))
+sum(surface.horizons$surface.depth < 10, na.rm = TRUE)
 
-depth <- 10 #depth is in cm soil
-surface.horizons.Cr.R <- ssurgo_horizon_Cr_R[ssurgo_horizon_Cr_R$hzdept_r < 10, ]
-surface.data.Cr.R <- do.call(rbind, lapply(split(surface.horizons.Cr.R, surface.horizons.Cr.R$cokey), surface_weighting, depth=depth))
-surface.data.Cr.R$TEW <- (surface.data.Cr.R$awc_r + 0.5*surface.data.Cr.R$wfifteenbar_r/100)*depth*10 #this converts it to mm H2O per X cm soil; typically 10-15 cm soil
-surface.horizons.no.Cr.R <- ssurgo_horizon_no_Cr_R[ssurgo_horizon_no_Cr_R$hzdept_r < 10, ]
-surface.data.no.Cr.R <- do.call(rbind, lapply(split(surface.horizons.no.Cr.R, surface.horizons.no.Cr.R$cokey), surface_weighting, depth=depth))
-surface.data.no.Cr.R$TEW <- (surface.data.no.Cr.R$awc_r + 0.5*surface.data.no.Cr.R$wfifteenbar_r/100)*depth*10
-summary(surface.data.Cr.R)
-summary(surface.data.no.Cr.R)
-surface.data.Cr.R$textural.class <- textural.class.calc(surface.data.Cr.R$sandtotal_r, surface.data.Cr.R$silttotal_r, surface.data.Cr.R$claytotal_r)
-surface.data.no.Cr.R$textural.class <- textural.class.calc(surface.data.no.Cr.R$sandtotal_r, surface.data.no.Cr.R$silttotal_r, surface.data.no.Cr.R$claytotal_r)
-surface.data.all <- rbind(surface.data.Cr.R, surface.data.no.Cr.R)
-surface.data.all$texture.class.sum <- surface.data.all$sandtotal_r + surface.data.all$silttotal_r + surface.data.all$claytotal_r
-summary(surface.data.all$texture.class.sum)
+test <- surface.horizons[which(surface.horizons$cokey==13063747), ] #need to get rid of NA cokeys
+surface.data <- do.call(rbind, lapply(split(surface.horizons, surface.horizons$cokey), surface_weighting))
+surface.data$TEW <- (surface.data$awc_r + 0.5*surface.data$wfifteenbar_r/100)*surface.data$surface.depth*10 #this converts it to mm H2O per X cm soil; typically 10-15 cm soi
+surface.data$REW
+#surface.data$textural.class <- 
+head(surface.data)
+sum(surface.data$surface.depth < 10, na.rm=TRUE) #72 surface depths are now > 15 & 730 are < 10
+summary(surface.data$awc_r)
+summary(surface.data$wfifteenbar_r)
+summary(surface.data$claytotal_r)
+
+summary(surface.data$TEW)
+setwd(results)
 write.csv(surface.data.all, paste0('CA_all_surface_data_synthesis_', Sys.Date()), row.names=FALSE)
 # test <- ssurgo_horizon[ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums), ]
 # test2 <- test
