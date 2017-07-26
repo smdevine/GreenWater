@@ -4,8 +4,8 @@
        #3 Revise "SSURGO_processing_awc_r.R"
        #4 
 #script to implement the FAO56 dual crop coefficient ET routine
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold' #location of input data
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/trial6_30_2017/almonds_majcomps'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/July2017' #location of input data
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/trialJul_2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
@@ -275,6 +275,10 @@ walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 cropname <- 'almond.mature'
 model.scaffold <- model.scaffold[which(model.scaffold$crop_code==almond_code), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
 
+#initialization assumptions
+first_irrigation <- 0
+TEW.fraction <- 0.5
+
 #make a results data.frame
 model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
 model.scaffold.results <- model.scaffold[rep(seq.int(1, nrow(model.scaffold)), model.length.yrs), 1:ncol(model.scaffold)] #makes a new data.frame with each row repeated model.length.yrs number of times
@@ -313,9 +317,11 @@ last.date <- ETo.df$dates[nrow(ETo.df)]
 P.df <- P.df[1:which(P.df$dates==last.date), ]
 crop.parameters <- CropParametersDefine(crop.parameters)
 
-#temporary organization of these irrigation and crop specific paramters outside the loop, since only almonds are modeled now
-first_irrigation <- 0
-AD.percentange <- 50 #crop and scenario dependent
+#irrigation and crop specific paramters outside the loop, since only almonds are modeled now
+scenario.name <- 'almonds_majcomps/scenario_1m_50AD'
+AD.percentage <- 50 #crop and scenario dependent
+root_depth <- '1.0m'
+paw.var <- 'z1.0m_cmH2O_modified_comp'
 Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
 fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
 Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
@@ -327,23 +333,23 @@ fewi <- fewiCalc(fc, fw)
 fewp <- fewpCalc(fc, fewi)
 
 #these soil parameters to be improved by new SSURGO aggregation
-REW.parameter <- 8 #temp definition for readily evaporable water
-TEW.fraction <- 0.5
-TEW.parameter <- TEWCalc(0.336, 0.211, REW.parameter) #temp definition for total evaporable water
-#also need to define z to set up water balance tracking and labels of different soil layers (n=4)
+ #temp definition for readily evaporable water
+
 
 #loop through all rows of model scaffold but only do these operations once for each row
-setwd(resultsDir)
-system.time(for (n in 1:100) {
-  #n <- 3 #temporary placeholder
+rows.to.sample <- sample(1:nrow(model.scaffold), 0.01*nrow(model.scaffold))
+save.times <- seq(from=1, to=nrow(model.scaffold), by=1000)
+for (n in 1:nrow(model.scaffold)) {
   model.code <- model.scaffold$unique_model_code[n]
-  AD <- 10*model.scaffold$allowable_depletion[n] #converts AD in cm to mm; can redefine this script based on PAW
-  cokey <- model.scaffold$cokey_model[n]
-  if (is.na(AD)) {
-    next(print(paste('AD is missing for cokey ', as.character(cokey)))) #TO-DO: write this result to separate file of NAs
-    
+  PAW <- model.scaffold[[paw.var]][n]*10
+  AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
+  cokey <- model.scaffold$cokey[n]
+  REW.parameter <- model.scaffold$REW[n]
+  TEW.parameter <- model.scaffold$TEW[n]
+  if (is.na(AD) | is.na(REW.parameter) | is.na(TEW.parameter)) {
+    next(print(paste('Soils data is missing for cokey ', as.character(cokey)))) #TO-DO: write this result to separate file of NAs
   }
-  if (AD==0) {
+  if (AD==0 | TEW.parameter==0 | REW.parameter==0) {
     next(print(paste('AD is 0 for cokey ', as.character(cokey)))) ##TO-DO: write this result to separate file of NAs
   }
   #identify climatic and soil parameters
@@ -359,7 +365,6 @@ system.time(for (n in 1:100) {
   Kcb.adjusted <- Kcb.df$Kcb.climate.adj
   days.no.irr <- DaysNoIrr(P, ETo, Kcb.adjusted, AD, doys.model, years, Jlate, Jharv)
   Kcmax <- Kcb.df$Kc.max
-  PAW <- AD/(AD.percentange/100)
   Dei.initial <- numeric(length = model.length)
   DPei <- numeric(length = model.length)
   Dep.initial <- numeric(length = model.length)
@@ -435,19 +440,26 @@ system.time(for (n in 1:100) {
     ETc.act[i] <- ETcactCalc(Kc.act, ETo) #could take this out of loop
   }
   result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
-  model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey_model == cokey), 12:35] <- merge(cbind(do.call(rbind, lapply(split(result, result$years), IrDateCalc)), do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(result, result$years), DeepPercCalc))), do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
-  #write.csv(result, paste0('almond_root0.91m_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=F)
+  model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 26:49] <- merge(cbind(do.call(rbind, lapply(split(result, result$years), IrDateCalc)), do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(result, result$years), DeepPercCalc))), do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
   print(n)
-})
-
+  if (n %in% rows.to.sample) {
+    setwd(file.path(resultsDir, scenario.name))
+    write.csv(result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
+  }
+  else if (n %in% save.times) {
+    setwd(file.path(resultsDir, scenario.name))
+    write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
+  } else {next}
+}
+#started at 4:15 PM 7/26
 #test of 100 models took 143.87 seconds
 #so, for all almond major components x climate (80401 unique models), 
 #one scenario will take 32 hours
 #for writing overall results to disk
-setwd(resultsDir)
-output <- model.scaffold.results[1:1500, ] #need additional model_code to get these in order
+setwd(file.path(resultsDir, scenario.name))
+output <- model.scaffold.results #need additional model_code to get these in order
 output <- output[order(output$unique_model_code_final, output$Model.Year), ]
-write.csv(output, paste0('almond_majcomps_results_', Sys.Date(), '.csv'), row.names = FALSE)
+write.csv(output, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names = FALSE)
 #order(soil_comp_data$mukey, soil_comp_data$comppct_r, soil_comp_data$cokey, decreasing=c(F, T, F))
 #for comparing result in Excel spreadsheet model
 writeClipboard(as.character(PRISMcell))
