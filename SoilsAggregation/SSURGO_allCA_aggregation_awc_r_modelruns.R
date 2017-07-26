@@ -45,6 +45,7 @@ list.files()
 ssurgo_horizon <- read.csv('CA_all_horizon_data_2017-07-24.csv')
 ssurgo_horizon <- ssurgo_horizon[!is.na(ssurgo_horizon$chkey), ] #get rid of 
   # chkeys that have no data first
+sum(is.na(ssurgo_horizon$cokey))
 fragvol_tot <- as.data.frame(tapply(ssurgo_horizon$fragvol_r, ssurgo_horizon$chkey, sum, na.rm=TRUE))
 colnames(fragvol_tot) <- 'fragvol_r_sum'
 fragvol_tot$chkey <- rownames(fragvol_tot)
@@ -170,23 +171,43 @@ surface_weighting <- function(df) {
             select.rows <- which(df2$hzdept_r < df2$surface.depth[1])
           #continue here
             df2 <- df2[select.rows, ]
-            depth.v1 <- df2$surface.depth[1]
-            weighting_factor <- (depth.v1 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v1, depth.v1 - df2$hzdepb_r, 0))/depth.v1
-            depth.v2 <- sum(df2$surface.depth*weighting_factor)
-            weighting_factor <- (depth.v2 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v2, depth.v2 - df2$hzdepb_r, 0))/depth.v2
-            depth.v3 <- sum(df2$surface.depth*weighting_factor)
-            weighting_factor <- (depth.v3 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v3, depth.v3 - df2$hzdepb_r, 0))/depth.v3
-            df2[ ,4:ncol(df2)] <- df2[ ,4:ncol(df2)]*weighting_factor
-            df3 <- t(apply(df2[ ,4:ncol(df2)], 2, sum))
-            df3 <- cbind(df2[1,1], df3)
-            colnames(df3)[1] <- c('cokey')
-            return(df3)
+            df2$hzthickness <- pmin(df2$hzdepb_r, df2$surface.depth[1]) - df2$hzdept_r
+            if (sum(df2$hzthickness) == df2$surface.depth[1]) {
+              depth.v1 <- df2$surface.depth[1]
+              weighting_factor <- (depth.v1 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v1, depth.v1 - df2$hzdepb_r, 0))/depth.v1
+              depth.v2 <- sum(df2$surface.depth*weighting_factor)
+              weighting_factor <- (depth.v2 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v2, depth.v2 - df2$hzdepb_r, 0))/depth.v2
+              depth.v3 <- sum(df2$surface.depth*weighting_factor)
+              weighting_factor <- (depth.v3 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v3, depth.v3 - df2$hzdepb_r, 0))/depth.v3
+              df2$hzthickness <- NULL
+              df2[ ,4:ncol(df2)] <- df2[ ,4:ncol(df2)]*weighting_factor
+              df3 <- t(apply(df2[ ,4:ncol(df2)], 2, sum))
+              df3 <- cbind(df2[1,1], df3)
+              colnames(df3)[1] <- c('cokey')
+              return(df3)
+            } else {
+              depth.v1 <- df2$surface.depth[1]
+              weighting_factor <- (depth.v1 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v1, depth.v1 - df2$hzdepb_r, 0))/sum(df2$hzthickness)
+              depth.v2 <- sum(df2$surface.depth*weighting_factor)
+              df2$hzthickness <- pmin(df2$hzdepb_r, depth.v2) - df2$hzdept_r 
+              weighting_factor <- (depth.v2 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v2, depth.v2 - df2$hzdepb_r, 0))/sum(df2$hzthickness)
+              depth.v3 <- sum(df2$surface.depth*weighting_factor)
+              df2$hzthickness <- pmin(df2$hzdepb_r, depth.v3) - df2$hzdept_r 
+              weighting_factor <- (depth.v3 - df2$hzdept_r - ifelse(df2$hzdepb_r <= depth.v3, depth.v3 - df2$hzdepb_r, 0))/sum(df2$hzthickness)
+              df2$hzthickness <- NULL
+              df2[ ,4:ncol(df2)] <- df2[ ,4:ncol(df2)]*weighting_factor
+              df3 <- t(apply(df2[ ,4:ncol(df2)], 2, sum))
+              df3 <- cbind(df2[1,1], df3)
+              colnames(df3)[1] <- c('cokey')
+              return(df3)
+            }
           }
         }
     } else {
         if (df$surface.depth[1] < df$hzdepb_r[1]) { #if the surface horizon's bottom depth exceeds the surface depth, just return that record
           return(df[1,c(1, 4:ncol(df))])
         } else { #get the horizons which include a portion of the surface depth
+            
             select.rows <- which(df$hzdept_r < df$surface.depth[1])
           #continue here
             df <- df[select.rows, ]
@@ -221,17 +242,19 @@ summary(as.factor(surface.horizons$textural.class))
 sum(surface.horizons$surface.depth < 10, na.rm = TRUE)
 
 test <- surface.horizons[which(surface.horizons$cokey==13063747), ] #need to get rid of NA cokeys
+df <- test
 surface.data <- do.call(rbind, lapply(split(surface.horizons, surface.horizons$cokey), surface_weighting))
 surface.data$TEW <- (surface.data$awc_r + 0.5*surface.data$wfifteenbar_r/100)*surface.data$surface.depth*10 #this converts it to mm H2O per X cm soil; typically 10-15 cm soi
-surface.data$REW
+surface.data$REW #see publication "Estimating Evaporation from Bare Soil and the Crop Coefficient for the Initial Period Using Common Soils Information"
 #surface.data$textural.class <- 
+dim(surface.data)
 head(surface.data)
 sum(surface.data$surface.depth < 10, na.rm=TRUE) #72 surface depths are now > 15 & 730 are < 10
 summary(surface.data$awc_r)
 summary(surface.data$wfifteenbar_r)
 summary(surface.data$claytotal_r)
-
 summary(surface.data$TEW)
+hist(surface.data$TEW)
 setwd(results)
 write.csv(surface.data.all, paste0('CA_all_surface_data_synthesis_', Sys.Date()), row.names=FALSE)
 # test <- ssurgo_horizon[ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums), ]
