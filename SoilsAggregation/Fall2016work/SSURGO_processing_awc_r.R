@@ -305,7 +305,7 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
     return(y)
   }
   sum_AD_soilthickness <- function(rooting_depth, AD, df) {
-    for (i in 1:nrow(df)) {
+    for (i in 1:nrow(df)) { #how to count zeroes?
       if (i==1) {
         y <- vector()
       }
