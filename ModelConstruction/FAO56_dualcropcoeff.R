@@ -272,19 +272,7 @@ almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
 walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 
 #limit model.scaffold to almonds only for now
-cropname <- 'almond.mature'
 model.scaffold <- model.scaffold[which(model.scaffold$crop_code==almond_code), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
-
-#initialization assumptions
-first_irrigation <- 0
-TEW.fraction <- 0.5
-
-#make a results data.frame
-model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
-model.scaffold.results <- model.scaffold[rep(seq.int(1, nrow(model.scaffold)), model.length.yrs), 1:ncol(model.scaffold)] #makes a new data.frame with each row repeated model.length.yrs number of times
-model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code), ] #for some reason it is produced out of order
-model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
-model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey_model)) #need to use as.character to preserve integrity of long integers
 
 #E=evaporation
 #T=transpiration
@@ -318,10 +306,32 @@ P.df <- P.df[1:which(P.df$dates==last.date), ]
 crop.parameters <- CropParametersDefine(crop.parameters)
 
 #irrigation and crop specific paramters outside the loop, since only almonds are modeled now
+cropname <- 'almond.mature'
 scenario.name <- 'almonds_majcomps/scenario_1m_50AD'
+if (!dir.exists(file.path(resultsDir, scenario.name))) {
+  dir.create(file.path(resultsDir, scenario.name))
+}
 AD.percentage <- 50 #crop and scenario dependent
 root_depth <- '1.0m'
 paw.var <- 'z1.0m_cmH2O_modified_comp'
+
+#initialization assumptions
+first_irrigation <- 0
+TEW.fraction <- 0.5
+
+#make a results data.frame
+model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
+paw.vector <- model.scaffold[[paw.var]]
+model.scaffold2 <- model.scaffold[ ,-12:-21]
+model.scaffold2$paw <- paw.vector
+colnames(model.scaffold2)[15] <- paw.var
+model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
+model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
+model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
+model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey)) #need to use as.character to preserve integrity of long integers
+model.scaffold.results[which(model.scaffold.results$unique_model_code==100058 & model.scaffold.results$cokey==13094564), ]
+rm(model.scaffold2)
+
 Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
 fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
 Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
@@ -332,13 +342,9 @@ fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
 fewi <- fewiCalc(fc, fw)
 fewp <- fewpCalc(fc, fewi)
 
-#these soil parameters to be improved by new SSURGO aggregation
- #temp definition for readily evaporable water
-
-
 #loop through all rows of model scaffold but only do these operations once for each row
 rows.to.sample <- sample(1:nrow(model.scaffold), 0.01*nrow(model.scaffold))
-save.times <- seq(from=1, to=nrow(model.scaffold), by=1000)
+save.times <- seq(from=10000, to=nrow(model.scaffold), by=10000)
 for (n in 1:nrow(model.scaffold)) {
   model.code <- model.scaffold$unique_model_code[n]
   PAW <- model.scaffold[[paw.var]][n]*10
@@ -440,21 +446,24 @@ for (n in 1:nrow(model.scaffold)) {
     ETc.act[i] <- ETcactCalc(Kc.act, ETo) #could take this out of loop
   }
   result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
-  model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 26:49] <- merge(cbind(do.call(rbind, lapply(split(result, result$years), IrDateCalc)), do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(result, result$years), DeepPercCalc))), do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
+  model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 17:40] <- merge(cbind(do.call(rbind, lapply(split(result, result$years), IrDateCalc)), do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(result, result$years), DeepPercCalc))), do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
   print(n)
-  if (n %in% rows.to.sample) {
-    setwd(file.path(resultsDir, scenario.name))
-    write.csv(result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
-  }
-  else if (n %in% save.times) {
+  # if (n %in% rows.to.sample) {
+  #   setwd(file.path(resultsDir, scenario.name))
+  #   write.csv(result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
+  # }
+  if (n %in% save.times) {
     setwd(file.path(resultsDir, scenario.name))
     write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
   } else {next}
 }
 #started at 4:15 PM 7/26
+#re-ran at 
 #test of 100 models took 143.87 seconds
 #so, for all almond major components x climate (80401 unique models), 
 #one scenario will take 32 hours
+mean(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
+hist(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
 #for writing overall results to disk
 setwd(file.path(resultsDir, scenario.name))
 output <- model.scaffold.results #need additional model_code to get these in order
@@ -503,6 +512,15 @@ writeClipboard(as.character(U2))
 #where Dpei,j=Pj + Ij/fw - Dei,j-1 >= 0
 #where DPep,j=Pj-Dep,j-1 >= 0
 #Kr depends on daily water balance of surface layer (upper 10-15 cm); Few will also depend on daily water balance if separate calculations are done for soil wetted by precipitation vs. by both precip and irrigation (see "Separate Prediction of Evaporation from Soil Wetted by Precipitation Only" in Allen et al. 2005)
+
+#few stats
+sum(is.na(model.scaffold.results$z1.0m_cmH2O_modified_comp)) #32520
+sum(is.na(model.scaffold.results$GW.ET.growing)) - 2*nrow(model.scaffold) #each model scaffold row will produce 2 NAs for GW ET growing, so the extra 34,697 NAs are mostly due to 
+sum(is.na(model.scaffold$z1.0m_cmH2O_modified_comp)) #2168
+sum(is.na(model.scaffold$TEW)) #2626
+sum(is.na(model.scaffold$REW)) #2625
+
+plot(x=200tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE)
 
 #plot checks
 plot(Kcb.std, type='l')
