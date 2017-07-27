@@ -1,6 +1,7 @@
 #script modified and simplified from SSURGO_processing_awc_r.R to obtain 
   # required model paramters
 #for summer 2017 model effort
+#7/27/17 added function to calculate extended profile awc storage to 4 m for major component soils with no restrictive layers in database; this will be used for exploration of of P vs. soil water storage
 #library(plyr)
 #library(dplyr)
 #library(nnet)
@@ -229,7 +230,7 @@ surface_weighting <- function(df) {
     }
 surface.horizons <- ssurgo_horizon[ssurgo_horizon$hzdept_r < 15, ]
 surface.horizons <- surface.horizons[order(surface.horizons$cokey), ]
-surface.data$fragvol_r_sum[surface.data$fragvol_r_sum > 100] <- 100
+surface.horizons$fragvol_r_sum[surface.horizons$fragvol_r_sum > 100] <- 100
 sum(is.na(surface.horizons$awc_r)) #3033
 sum(is.na(surface.horizons$claytotal_r)) #4590
 sum(is.na(surface.horizons$surface.depth)) #5128
@@ -290,6 +291,7 @@ write.csv(surface.data, paste0('CA_all_surface_data_synthesis_', Sys.Date(), '_.
   # these horizons are not given plant available water values. purpose is to get 
   # the soil comp data into 1 row per cokey and to distinguish between 
   # modifiable and unmodifiable soil profiles.
+setwd(SoilsDataDir)
 ssurgo_comp <- read.csv("CA_all_comp_data_2017-07-19.csv")
 ssurgo_comp$majcompflag[ssurgo_comp$majcompflag=='No '] <- 'No' #strip out the space after 'No '
 ssurgo_comp <- ssurgo_comp[!is.na(ssurgo_comp$cokey), ] #there were 6 mukeys with no identified cokeys
@@ -334,7 +336,7 @@ colnames(ssurgo_comp_rock_reskind_one)[6:8] <- c('reskind1', 'res1dept_r', 'res1
 ssurgo_comp_rock_reskind_one$reskind2 <- 'None'
 ssurgo_comp_rock_reskind_one$res2dept_r <- NA
 ssurgo_comp_rock_reskind_one$res2depb_r <- NA
-ssurgo_comp_rock_reskind_one$reskind3 <- 'None' 
+ssurgo_comp_rock_reskind_one$reskind3 <- 'None'
 ssurgo_comp_rock_reskind_one$res3dept_r <- NA
 ssurgo_comp_rock_reskind_one$res3depb_r <- NA
 ssurgo_comp_rock <- rbind(ssurgo_comp_rock_reskind_one, ssurgo_comp_rock_reskind_mult) #now merge the cokeys back to together so that each row represents a unique cokey with data for up to three reskinds per cokey (confirmed there are 15,779 rows now)
@@ -505,6 +507,20 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_comp_rock$SSURGO_awc_data[is.na(ssurgo_comp_rock$z0.5m_cmH2O_unmodified_comp)] <- 'No'
   ssurgo_comp_no_rock$SSURGO_awc_data <- 'Yes'
   ssurgo_comp_no_rock$SSURGO_awc_data[is.na(ssurgo_comp_no_rock$z0.5m_cmH2O_unmodified_comp)] <- 'No'
+  summary(ssurgo_comp_no_rock$z4.0m_cmH2O_unmodified_comp)
+  
+#assume additional water for soils with no restrictive horizon
+  no.reskind.indices <- which(ssurgo_comp_no_rock$reskind1=='None')
+  NoReskindAddH2O <- function(df, varname, thickness, cm.depth) {
+    no.reskind.indices <- which(df$reskind1=='None')  
+    df[[varname]][no.reskind.indices] <- df[[varname]][no.reskind.indices]*(cm.depth/df[[thickness]][no.reskind.indices])
+  df
+  }
+  ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z4.0m_cmH2O_unmodified_comp", "z4.0m_soilthickness_unmodified_comp", 400)
+  ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z2.0m_cmH2O_unmodified_comp", "z2.0m_soilthickness_unmodified_comp", 200)
+  ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z1.5m_cmH2O_unmodified_comp", "z1.5m_soilthickness_unmodified_comp", 150)
+  ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z1.0m_cmH2O_unmodified_comp", "z1.0m_soilthickness_unmodified_comp", 100)
+  ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z0.5m_cmH2O_unmodified_comp", "z0.5m_soilthickness_unmodified_comp", 50)
   
   #concept is to replace NAs with available data for a given component name; 
   #first, from the same survey area
@@ -609,6 +625,8 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   
   setwd(results)
   write.csv(ssurgo_comp_all, paste0('CA_all_comps_summary_dbmodified_FINAL', Sys.Date(), '.csv'), row.names = FALSE)
+  
+  
   #get some metadata
   unique(ssurgo_comp_all$compname[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)])
   sum(is.na(ssurgo_mu$muacres)) #331 mukeys out of 15,086 don't have acreage data from the SDA_query in SSURGO_download.R
