@@ -35,7 +35,7 @@ model_scaffold <- read.csv("model_scaffold_codes_nocoords_6.9.17.csv")
 #get number of cokeys per mukey (can rewrite as function to end up with n set of model matrices for each scenario of allowable depletion assumptions and rooting depth)
 setwd(comp_data_dir)
 #list.files()
-soil_comp_data <- read.csv("CA_all_comps_summary_dbmodified_FINAL2017-07-26.csv")
+soil_comp_data <- read.csv("CA_all_comps_summary_dbmodified_FINAL2017-07-27.csv")
 #head(soil_comp_data)
 compkeys_n <- function(x) {length(unique(x))}
 soilcomps_n <- as.data.frame(tapply(soil_comp_data$cokey, soil_comp_data$mukey, compkeys_n))
@@ -88,7 +88,7 @@ write.csv(model_scaffold_majcomps_almonds, 'model_scaffold_majcomps_almonds.csv'
 model_scaffold_majcomps <- master.file[master.file$comppct_r >= 15, ]
 dim(model_scaffold_majcomps)
 setwd(file.path(model_scaffoldDir, 'run_model/July2017'))
-write.csv(model_scaffold_majcomps_almonds, 'model_scaffold_majcomps.csv', row.names = F)
+write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.csv', row.names = F)
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
 cokey_AD_isNA <- unique(model_scaffold2$cokey[which(is.na(model_scaffold2$allowable_depletion))])
