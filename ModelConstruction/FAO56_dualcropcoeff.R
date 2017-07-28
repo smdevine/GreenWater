@@ -121,9 +121,9 @@ DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir) { #DON'T RUN THIS FOR i=1
   Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
 }
 #need to refine days.no.irr based on ETo data for a given location
-DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jlate, Jharv) {
+DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv) {
   df <- data.frame(cbind(Kcb.adjusted, ETo, P, doys.model, years))
-  df <- df[which(df$doys.model >= Jlate & df$doys.model <= Jharv), ]
+  df <- df[which(df$doys.model >= Jmid & df$doys.model <= Jharv), ]
   df$ETcb <- df$Kcb.adjusted * df$ETo
   daily.ETcb <- tapply(df$ETcb, df$doys.model, mean)
   daily.P <- tapply(df$P, df$doys.model, mean)
@@ -184,7 +184,7 @@ IrDateCalc <- function(df) { #as.Date('1900-01-01) is a proxy for NA
       data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=df$dates[last.irr.index])
   }
 }
-do.call(rbind, lapply(split(result, result$years), IrDateCalc))
+#do.call(rbind, lapply(split(result, result$years), IrDateCalc))
 
 #calculate Green Water utilized
 #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  However a correction is applied to the growing season ET for residual irrigation water storage to correctly estimate green water utilization within the same year.
@@ -207,7 +207,7 @@ WaterBalanceCalc <- function(df) { #concept is to run by year on a data.frame tr
     data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last_irr_index:jharv_index]), Irr.end.storage = irr_storage, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_storage, Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last_irr_index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]))
   }
 }
-do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc))
+#do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc))
 
 ##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
 
@@ -220,7 +220,7 @@ GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
       data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first_irr_index] + df$Ep[jdev_index:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first_irr_index] * df$Ks[jdev_index:first_irr_index] * df$ETo[jdev_index:first_irr_index]))
   }
 }
-do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc))
+#do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc))
 
 #determine deep percolation and annual water balance using subsetting by year
 DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
@@ -251,7 +251,7 @@ DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
       data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = sum(df$DPr[(first.irr.index+1):jul.1.index]), fall.deep.perc = sum(df$DPr[last.irr.index:(dec.31.index)]))
   }
 }
-do.call(rbind, lapply(split(result, result$years), DeepPercCalc))
+#do.call(rbind, lapply(split(result, result$years), DeepPercCalc))
 
 #determine green water capture from leaf-drop to flowering
 GreenWaterCaptureCalc <- function(df) {
@@ -261,7 +261,7 @@ GreenWaterCaptureCalc <- function(df) {
       return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
   }
 }
-do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc))
+#do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc))
 
 
 #all these tasks only done once per run where run is initialzing model and then looping through all rows in model.scaffold and pasting results from all
@@ -270,9 +270,6 @@ alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
 grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
 walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
-
-#limit model.scaffold to almonds only for now
-model.scaffold <- model.scaffold[which(model.scaffold$crop_code==almond_code), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
 
 #E=evaporation
 #T=transpiration
@@ -306,124 +303,107 @@ P.df <- P.df[1:which(P.df$dates==last.date), ]
 crop.parameters <- CropParametersDefine(crop.parameters)
 
 #irrigation and crop specific paramters outside the loop, since only almonds are modeled now
+#FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth) {
+#temporary args to code starting on line 312
 cropname <- 'almond.mature'
-scenario.name <- 'almonds_majcomps/scenario_1m_50AD'
-if (!dir.exists(file.path(resultsDir, scenario.name))) {
-  dir.create(file.path(resultsDir, scenario.name))
-}
+cropcode <- almond_code
 AD.percentage <- 50 #crop and scenario dependent
 root_depth <- '1.0m'
-paw.var <- 'z1.0m_cmH2O_modified_comp'
-
+  cropname.dir <-  paste0(cropname, '_majcomps')
+  scenario.name <- paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
+  paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
+  if (!dir.exists(file.path(resultsDir, cropname.dir))) {
+    dir.create(file.path(resultsDir, cropname.dir))
+  }
+  if (!dir.exists(file.path(resultsDir, scenario.name))) {
+    dir.create(file.path(resultsDir, scenario.name))
+  }
 #initialization assumptions
-first_irrigation <- 0
-TEW.fraction <- 0.5
-
+  first_irrigation <- 0
+  TEW.fraction <- 0.5
+#limit model.scaffold to cropname
+  model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
 #make a results data.frame
-model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
-paw.vector <- model.scaffold[[paw.var]]
-model.scaffold2 <- model.scaffold[ ,-12:-21]
-model.scaffold2$paw <- paw.vector
-colnames(model.scaffold2)[15] <- paw.var
-model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
-model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
-model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
-model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey)) #need to use as.character to preserve integrity of long integers
-model.scaffold.results[which(model.scaffold.results$unique_model_code==100058 & model.scaffold.results$cokey==13094564), ]
-rm(model.scaffold2)
-
-Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
-fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
-Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
-Jmid <- crop.parameters$Jmid[which(crop.parameters$crop==cropname)]
-Jlate <- crop.parameters$Jlate[which(crop.parameters$crop==cropname)]
-Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
-fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
-fewi <- fewiCalc(fc, fw)
-fewp <- fewpCalc(fc, fewi)
-
-#loop through all rows of model scaffold but only do these operations once for each row
-rows.to.sample <- sample(1:nrow(model.scaffold), 0.01*nrow(model.scaffold))
-save.times <- seq(from=10000, to=nrow(model.scaffold), by=10000)
-for (n in 1:nrow(model.scaffold)) {
-  model.code <- model.scaffold$unique_model_code[n]
-  PAW <- model.scaffold[[paw.var]][n]*10
-  AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
-  cokey <- model.scaffold$cokey[n]
-  REW.parameter <- model.scaffold$REW[n]
-  TEW.parameter <- model.scaffold$TEW[n]
-  if (is.na(AD) | is.na(REW.parameter) | is.na(TEW.parameter)) {
-    next(print(paste('Soils data is missing for cokey ', as.character(cokey)))) #TO-DO: write this result to separate file of NAs
-  }
-  if (AD==0 | TEW.parameter==0 | REW.parameter==0) {
-    next(print(paste('AD is 0 for cokey ', as.character(cokey)))) ##TO-DO: write this result to separate file of NAs
-  }
+  model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
+  paw.vector <- model.scaffold.crop[[paw.var]]
+  model.scaffold2 <- model.scaffold.crop[ ,-12:-21]
+  model.scaffold2$paw <- paw.vector
+  colnames(model.scaffold2)[15] <- paw.var
+  model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
+  model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
+  model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
+  model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey)) #need to use as.character to preserve integrity of long integers
+#model.scaffold.results[which(model.scaffold.results$unique_model_code==100058 & model.scaffold.results$cokey==13094564), ]
+  rm(model.scaffold2)
+  Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
+  fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
+  Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
+  Jmid <- crop.parameters$Jmid[which(crop.parameters$crop==cropname)]
+  Jlate <- crop.parameters$Jlate[which(crop.parameters$crop==cropname)]
+  Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
+  fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
+  fewi <- fewiCalc(fc, fw)
+  fewp <- fewpCalc(fc, fewi)
+#loop through all rows of model scaffold but only do these operations once for each model.scaffold.crop row
+  set.seed(461980)
+  rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.01*nrow(model.scaffold.crop))
+  save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
+  for (n in 1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
+    model.code <- model.scaffold.crop$unique_model_code[n]
+    PAW <- model.scaffold.crop[[paw.var]][n]*10
+    AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
+    cokey <- model.scaffold.crop$cokey[n]
+    REW.parameter <- model.scaffold.crop$REW[n]
+    TEW.parameter <- model.scaffold.crop$TEW[n]
+    if (is.na(AD) | is.na(REW.parameter) | is.na(TEW.parameter)) {
+      next(print(paste('Soils data is missing for cokey ', as.character(cokey)))) #TO-DO: write this result to separate file of NAs
+    }
+    if (AD==0 | TEW.parameter==0 | REW.parameter==0) {
+      next(print(paste('AD is 0 for cokey ', as.character(cokey)))) ##TO-DO: write this result to separate file of NAs
+    }
   #identify climatic and soil parameters
-  spCIMIScell <- model.scaffold$CIMIScellnumber[n]
-  PRISMcell <- model.scaffold$PRISMcellnumber[n]
-  comppctr <- model.scaffold$comppct_r[n]
-  mukey <- model.scaffold$mukey[n]
-  P <- P.df[ , which(colnames(P.df)==paste0('cell_', as.character(PRISMcell)))]
-  ETo <- ETo.df[ , which(colnames(ETo.df)==paste0('cell_', as.character(spCIMIScell)))]
-  U2 <- U2.df[ ,which(colnames(U2.df)==paste0('cell_', as.character(spCIMIScell)))]
-  RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
-  Kcb.df <- KcbAdj(Kcb.std, crop.parameters, cropname, U2, RHmin)
-  Kcb.adjusted <- Kcb.df$Kcb.climate.adj
-  days.no.irr <- DaysNoIrr(P, ETo, Kcb.adjusted, AD, doys.model, years, Jlate, Jharv)
-  Kcmax <- Kcb.df$Kc.max
-  Dei.initial <- numeric(length = model.length)
-  DPei <- numeric(length = model.length)
-  Dep.initial <- numeric(length = model.length)
-  Kri <- numeric(length = model.length)
-  Kei <- numeric(length = model.length)
-  Ei <- numeric(length = model.length)
-  Dei.end <- numeric(length = model.length)
-  Krp <- numeric(length = model.length)
-  Kep <- numeric(length = model.length)
-  Ep <- numeric(length = model.length)
-  DPep <- numeric(length = model.length)
-  Dep.end <- numeric(length = model.length)
-  W <- numeric(length = model.length)
-  Kc.ns <- numeric(length = model.length)
-  ETc.ns <- numeric(length = model.length)
-  Dr.initial <- numeric(length = model.length)
+    spCIMIScell <- model.scaffold.crop$CIMIScellnumber[n]
+    PRISMcell <- model.scaffold.crop$PRISMcellnumber[n]
+    comppctr <- model.scaffold.crop$comppct_r[n]
+    mukey <- model.scaffold.crop$mukey[n]
+    P <- P.df[ , which(colnames(P.df)==paste0('cell_', as.character(PRISMcell)))]
+    ETo <- ETo.df[ , which(colnames(ETo.df)==paste0('cell_', as.character(spCIMIScell)))]
+    U2 <- U2.df[ ,which(colnames(U2.df)==paste0('cell_', as.character(spCIMIScell)))]
+    RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
+    Kcb.df <- KcbAdj(Kcb.std, crop.parameters, cropname, U2, RHmin)
+    Kcb.adjusted <- Kcb.df$Kcb.climate.adj
+    days.no.irr <- DaysNoIrr(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv)
+    Kcmax <- Kcb.df$Kc.max
+    Dei.initial <- numeric(length = model.length)
+    DPei <- numeric(length = model.length)
+    Dep.initial <- numeric(length = model.length)
+    Kri <- numeric(length = model.length)
+    Kei <- numeric(length = model.length)
+    Ei <- numeric(length = model.length)
+    Dei.end <- numeric(length = model.length)
+    Krp <- numeric(length = model.length)
+    Kep <- numeric(length = model.length)
+    Ep <- numeric(length = model.length)
+    DPep <- numeric(length = model.length)
+    Dep.end <- numeric(length = model.length)
+    W <- numeric(length = model.length)
+    Kc.ns <- numeric(length = model.length)
+    ETc.ns <- numeric(length = model.length)
+    Dr.initial <- numeric(length = model.length)
 #assumes depletion is zero for root zone except for half of TEW in upper layer
-  Ir <- numeric(length = model.length)
-  DPr <- numeric(length = model.length)
-  Ks <- numeric(length = model.length)
-  Kc.act <- numeric(length = model.length)
-  Dr.end <- numeric(length = model.length)
-  ETc.act <- numeric(length = model.length)
-  #for i=1
-  i <- 1
-  Dei.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0) #this is an initial estimate of 
+    Ir <- numeric(length = model.length)
+    DPr <- numeric(length = model.length)
+    Ks <- numeric(length = model.length)
+    Kc.act <- numeric(length = model.length)
+    Dr.end <- numeric(length = model.length)
+    ETc.act <- numeric(length = model.length)
+  #now for i=1, which will have slighly modified execution as it is the model initialization
+    i <- 1
+    Dei.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0) #this is an initial estimate of 
   #the water balance for the exposed surface soil where irrigation is not applied 
   #that assumes all daily precip occurs early in the morning so as to estimate Ke 
   #and Kr.  Same done for Dep.initial
-  Dep.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0)
-  Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
-  Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
-  W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
-  Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi)
-  Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp)
-  Ep[i] <- EpCalc(ETo, Kep)
-  Ei[i] <- EiCalc(ETo, Kei)
-  DPep[i] <- DPepCalc(P, Dep.initial)
-  Dep.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ep[i] / fewp[i] + DPep[i] #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
-  DPei[i] <- max(P[i] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
-  Dei.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ei[i] / fewi[i] + DPei[i] #replaces Dei.end[i-1] with Dei.intial[i]
-  Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
-  ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-  Dr.initial[i] <- max(TEW.parameter * TEW.fraction - P[i] + ETc.ns[i], 0) #initial calc
-  Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr)
-  DPr[i] <- max(max(P[i] + Ir[i] - TEW.parameter * TEW.fraction - ETc.ns[i], 0)) #initial calc
-  Ks[i] <- KsCalc(Dr.initial, PAW, AD)
-  Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
-  ETc.act[i] <- ETcactCalc(Kc.act, ETo)
-  Dr.end[i] <- TEW.parameter * TEW.fraction - P[i] + Kc.act[i] * ETo[i] + DPr[i] #initial calc
-  for (i in 2:model.length) { #now for days 2...model.length after initialization
-    Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw)
-    Dep.initial[i] <- DepInitialCalc(Dep.end, P)
+    Dep.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0)
     Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
     Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
     W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
@@ -432,31 +412,60 @@ for (n in 1:nrow(model.scaffold)) {
     Ep[i] <- EpCalc(ETo, Kep)
     Ei[i] <- EiCalc(ETo, Kei)
     DPep[i] <- DPepCalc(P, Dep.initial)
-    Dep.end[i] <- DepEndCalc(Dep.end, P, Ep, fewp, DPep)
-    DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial)
-    Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei)
+    Dep.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ep[i] / fewp[i] + DPep[i] #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
+    DPei[i] <- max(P[i] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
+    Dei.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ei[i] / fewi[i] + DPei[i] #replaces Dei.end[i-1] with Dei.intial[i]
     Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
     ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-    Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir)
+    Dr.initial[i] <- max(TEW.parameter * TEW.fraction - P[i] + ETc.ns[i], 0) #initial calc
     Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr)
-    DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end)
+    DPr[i] <- max(max(P[i] + Ir[i] - TEW.parameter * TEW.fraction - ETc.ns[i], 0)) #initial calc
     Ks[i] <- KsCalc(Dr.initial, PAW, AD)
     Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
-    Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr)
-    ETc.act[i] <- ETcactCalc(Kc.act, ETo) #could take this out of loop
+    ETc.act[i] <- ETcactCalc(Kc.act, ETo)
+    Dr.end[i] <- TEW.parameter * TEW.fraction - P[i] + Kc.act[i] * ETo[i] + DPr[i] #initial calc
+    for (i in 2:model.length) { #now for days 2...model.length after initialization
+      Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw)
+      Dep.initial[i] <- DepInitialCalc(Dep.end, P)
+      Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
+      Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
+      W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
+      Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi)
+      Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp)
+      Ep[i] <- EpCalc(ETo, Kep)
+      Ei[i] <- EiCalc(ETo, Kei)
+      DPep[i] <- DPepCalc(P, Dep.initial)
+      Dep.end[i] <- DepEndCalc(Dep.end, P, Ep, fewp, DPep)
+      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial)
+      Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei)
+      Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
+      ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
+      Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir)
+      Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr)
+      DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end)
+      Ks[i] <- KsCalc(Dr.initial, PAW, AD)
+      Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
+      Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr)
+      ETc.act[i] <- ETcactCalc(Kc.act, ETo) #could take this out of loop
+    }
+    model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
+    model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 17:40] <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
+    print(paste(scenario.name, as.character(n)))
+    if (n %in% rows.to.sample) {
+      setwd(file.path(resultsDir, scenario.name))
+      write.csv(model.result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
+    }
+    if (n==1000 | n %in% save.times | n == nrow(model.scaffold.crop)) {
+      setwd(file.path(resultsDir, scenario.name))
+      write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
+    } else {next}
   }
-  result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
-  model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 17:40] <- merge(cbind(do.call(rbind, lapply(split(result, result$years), IrDateCalc)), do.call(rbind, lapply(split(result, result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(result, result$years), DeepPercCalc))), do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
-  print(n)
-  # if (n %in% rows.to.sample) {
-  #   setwd(file.path(resultsDir, scenario.name))
-  #   write.csv(result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
-  # }
-  if (n %in% save.times) {
-    setwd(file.path(resultsDir, scenario.name))
-    write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
-  } else {next}
-}
+#}
+#function arguments to include
+
+
+#FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m')
+
 #started at 4:15 PM 7/26
 #re-ran at 
 #test of 100 models took 143.87 seconds
@@ -523,10 +532,10 @@ writeClipboard(as.character(U2))
 
 #few stats
 sum(is.na(model.scaffold.results$z1.0m_cmH2O_modified_comp)) #32520
-sum(is.na(model.scaffold.results$GW.ET.growing)) - 2*nrow(model.scaffold) #each model scaffold row will produce 2 NAs for GW ET growing, so the extra 34,697 NAs are mostly due to 
-sum(is.na(model.scaffold$z1.0m_cmH2O_modified_comp)) #2168
-sum(is.na(model.scaffold$TEW)) #2626
-sum(is.na(model.scaffold$REW)) #2625
+sum(is.na(model.scaffold.results$GW.ET.growing)) - 2*nrow(model.scaffold.crop) #each model scaffold row will produce 2 NAs for GW ET growing, so the extra 34,697 NAs are mostly due to 
+sum(is.na(model.scaffold.crop$z1.0m_cmH2O_modified_comp)) #2168
+sum(is.na(model.scaffold.crop$TEW)) #2626
+sum(is.na(model.scaffold.crop$REW)) #2625
 
 plot(x=200tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE)
 
