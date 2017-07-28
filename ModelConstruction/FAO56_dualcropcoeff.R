@@ -70,54 +70,54 @@ TEWCalc <- function(ThetaFC, ThetaWP, REW, Ze=0.10) { #Ze is depth of upper soil
   } 
   return(result)
 }
-DepInitialCalc <- function(Dep.end, P) {
+DepInitialCalc <- function(Dep.end, P, i) {
   max(Dep.end[i-1] - P[i], 0) # DON'T RUN THIS IF i=1
 }
-DeiInitialCalc <- function(Dei.end, P, Ir, fw) { #DON'T RUN THIS WHEN i=1
+DeiInitialCalc <- function(Dei.end, P, Ir, fw, i) { #DON'T RUN THIS WHEN i=1
   max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw, 0) #have to use irrigation from 
   #previous day because current day irrigation decision is dependent on this calc
 }
-KrCalc <- function(TEW, REW, De.initial) { #can be used to calculate Kri or Krp
+KrCalc <- function(TEW, REW, De.initial, i) { #can be used to calculate Kri or Krp
   max(0, if(De.initial[i] < REW) { #could initialize this in vector above
     1
   } else {
     (TEW - De.initial[i]) / (TEW - REW)
   })
 }
-WCalc <- function(TEW, Dei.initial, Dep.initial, fewp, fewi) {
+WCalc <- function(TEW, Dei.initial, Dep.initial, fewp, fewi, i) {
   1 / (1 + (fewp[i] / fewi[i]) * max(TEW - Dep.initial[i], 0.001) / max((TEW - Dei.initial[i]), 0.001))
 }
-KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi) {
+KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi, i) {
   min(Kri[i] * W[i] * (Kcmax[i] - Kcb[i]), fewi[i] * Kcmax[i])
 }
-KepCalc <- function(Krp, W, Kcmax, Kcb, fewp) {
+KepCalc <- function(Krp, W, Kcmax, Kcb, fewp, i) {
   min(Krp[i] * (1 - W[i]) * (Kcmax[i] - Kcb[i]), fewp[i] * Kcmax[i])
 }
-EpCalc <- function(ETo, Kep) {
+EpCalc <- function(ETo, Kep, i) {
   ETo[i] * Kep[i]
 }
-EiCalc <- function(ETo, Kei) {
+EiCalc <- function(ETo, Kei, i) {
   ETo[i] * Kei[i]
 }
-DPepCalc <- function(P, Dep.end) { #DON'T RUN THIS FOR i=1
+DPepCalc <- function(P, Dep.end, i) { #DON'T RUN THIS FOR i=1
   max(P[i] - Dep.end[i-1], 0)
 }
-DepEndCalc <- function(Dep.end, P, Ep, fewp, DPep) { #DON'T RUN THIS FOR i=1
+DepEndCalc <- function(Dep.end, P, Ep, fewp, DPep, i) { #DON'T RUN THIS FOR i=1
   Dep.end[i - 1] - P[i] + Ep[i] / fewp[i] + DPep[i]
 } #ignores transpiration and runoff from upper layer
-DPeiCalc <- function(P, Ir, fw, Dei.end) { #DON'T RUN THIS FOR i=1
+DPeiCalc <- function(P, Ir, fw, Dei.end, i) { #DON'T RUN THIS FOR i=1
   max(0, P[i] + Ir[i - 1] / fw - Dei.end[i-1])
 }
-DeiEndCalc <- function(Dei.end, P, Ir, fw, fewi, Ei, DPei) { #DON'T RUN THIS FOR i=1
+DeiEndCalc <- function(Dei.end, P, Ir, fw, fewi, Ei, DPei, i) { #DON'T RUN THIS FOR i=1
   Dei.end[i - 1] - P[i] - Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i]
 } #again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
-KcnsCalc <- function(Kcb, Kei, Kep) {
+KcnsCalc <- function(Kcb, Kei, Kep, i) {
   Kcb[i] + Kei[i] + Kep[i]
 }
-ETcnsCalc <- function(Kc.ns, ETo) {
+ETcnsCalc <- function(Kc.ns, ETo, i) {
   Kc.ns[i] * ETo[i]
 }
-DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir) { #DON'T RUN THIS FOR i=1
+DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir, i) { #DON'T RUN THIS FOR i=1
   Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
 }
 #need to refine days.no.irr based on ETo data for a given location
@@ -136,7 +136,7 @@ DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv) 
     }
   }
 } #create a fixed date based on climate and crop
-IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr) {
+IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i) {
   if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
     return(0)
   } else if (Dr.initial[i] > AD) {
@@ -147,23 +147,23 @@ IrCalc <- function(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr) {
     return(0)
   }
 }
-DPrCalc <- function(P, Ir, ETc.ns, Dr.end) { #DON'T RUN THIS FOR i=1
+DPrCalc <- function(P, Ir, ETc.ns, Dr.end, i) { #DON'T RUN THIS FOR i=1
   max(P[i] + Ir[i-1] - ETc.ns[i] - Dr.end[i - 1], 0)
 }
-KsCalc <- function(Dr.initial, PAW, AD) {
+KsCalc <- function(Dr.initial, PAW, AD, i) {
   if (Dr.initial[i] > AD) {
     (PAW - Dr.initial[i])/(PAW - AD)
   } else { 
     return(1)
   }
 }
-KcactCalc <- function(Ks, Kcb, Kei, Kep) {#equation 4 in Allen et al. 2005
+KcactCalc <- function(Ks, Kcb, Kei, Kep, i) {#equation 4 in Allen et al. 2005
   Ks[i] * Kcb[i] + Kei[i] + Kep[i]
 }
-ETcactCalc <- function(Kc.act, ETo) {#equation 3 in Allen et al. 2005
+ETcactCalc <- function(Kc.act, ETo, i) {#equation 3 in Allen et al. 2005
   Kc.act[i] * ETo[i]
 }
-DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr) { #NOT TO BE USED for i=1
+DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr, i) { #NOT TO BE USED for i=1
   Dr.end[i - 1] - P[i] - Ir[i-1] + Kc.act[i] * ETo[i] + DPr[i]
 }
 
@@ -283,32 +283,27 @@ walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
 
-#get doys [days of years] for the model and ensure SpatialCIMIS coverages match
-if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
-  doys.model <- U2.df$DOY
-  dates <- as.Date(U2.df$dates, format='%m_%d_%Y')
-  days <- U2.df$day
-  months <- U2.df$month
-  years <- U2.df$year
-  water.year <- years
-  water.year[which(months >= 10)] <- years[which(months >= 10)] + 1
-  print('Temporal coverages match in Spatial CIMIS.')
-} else {
-  print('There are differing temporal coverages in the Spatial CIMIS data.')
-}
-model.length <- nrow(ETo.df)
-#get precip and spatial CIMIS data to same temporal end point
-last.date <- ETo.df$dates[nrow(ETo.df)]
-P.df <- P.df[1:which(P.df$dates==last.date), ]
-crop.parameters <- CropParametersDefine(crop.parameters)
-
 #irrigation and crop specific paramters outside the loop, since only almonds are modeled now
-#FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth) {
 #temporary args to code starting on line 312
-cropname <- 'almond.mature'
-cropcode <- almond_code
-AD.percentage <- 50 #crop and scenario dependent
-root_depth <- '1.0m'
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type) {
+  #get doys [days of years] for the model and ensure SpatialCIMIS coverages match
+  if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
+    doys.model <- U2.df$DOY
+    dates <- as.Date(U2.df$dates, format='%m_%d_%Y')
+    days <- U2.df$day
+    months <- U2.df$month
+    years <- U2.df$year
+    water.year <- years
+    water.year[which(months >= 10)] <- years[which(months >= 10)] + 1
+    print('Temporal coverages match in Spatial CIMIS.')
+  } else {
+    print('There are differing temporal coverages in the Spatial CIMIS data.')
+  }
+  model.length <- nrow(ETo.df)
+  #get precip and spatial CIMIS data to same temporal end point
+  last.date <- ETo.df$dates[nrow(ETo.df)]
+  P.df <- P.df[1:which(P.df$dates==last.date), ]
+  crop.parameters <- CropParametersDefine(crop.parameters)
   cropname.dir <-  paste0(cropname, '_majcomps')
   scenario.name <- paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
   paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
@@ -341,12 +336,12 @@ root_depth <- '1.0m'
   Jmid <- crop.parameters$Jmid[which(crop.parameters$crop==cropname)]
   Jlate <- crop.parameters$Jlate[which(crop.parameters$crop==cropname)]
   Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
-  fw <- fwSelect(irrigation.parameters, "Microspray, orchards")
+  fw <- fwSelect(irrigation.parameters, irr.type)
   fewi <- fewiCalc(fc, fw)
   fewp <- fewpCalc(fc, fewi)
 #loop through all rows of model scaffold but only do these operations once for each model.scaffold.crop row
   set.seed(461980)
-  rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.01*nrow(model.scaffold.crop))
+  rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   for (n in 1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
     model.code <- model.scaffold.crop$unique_model_code[n]
@@ -398,55 +393,54 @@ root_depth <- '1.0m'
     Dr.end <- numeric(length = model.length)
     ETc.act <- numeric(length = model.length)
   #now for i=1, which will have slighly modified execution as it is the model initialization
-    i <- 1
-    Dei.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0) #this is an initial estimate of 
+    Dei.initial[1] <- max(TEW.parameter * TEW.fraction - P[1], 0) #this is an initial estimate of 
   #the water balance for the exposed surface soil where irrigation is not applied 
   #that assumes all daily precip occurs early in the morning so as to estimate Ke 
   #and Kr.  Same done for Dep.initial
-    Dep.initial[i] <- max(TEW.parameter * TEW.fraction - P[i], 0)
-    Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
-    Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
-    W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
-    Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi)
-    Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp)
-    Ep[i] <- EpCalc(ETo, Kep)
-    Ei[i] <- EiCalc(ETo, Kei)
-    DPep[i] <- DPepCalc(P, Dep.initial)
-    Dep.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ep[i] / fewp[i] + DPep[i] #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
-    DPei[i] <- max(P[i] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
-    Dei.end[i] <- TEW.parameter * TEW.fraction - P[i] + Ei[i] / fewi[i] + DPei[i] #replaces Dei.end[i-1] with Dei.intial[i]
-    Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
-    ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-    Dr.initial[i] <- max(TEW.parameter * TEW.fraction - P[i] + ETc.ns[i], 0) #initial calc
-    Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr)
-    DPr[i] <- max(max(P[i] + Ir[i] - TEW.parameter * TEW.fraction - ETc.ns[i], 0)) #initial calc
-    Ks[i] <- KsCalc(Dr.initial, PAW, AD)
-    Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
-    ETc.act[i] <- ETcactCalc(Kc.act, ETo)
-    Dr.end[i] <- TEW.parameter * TEW.fraction - P[i] + Kc.act[i] * ETo[i] + DPr[i] #initial calc
+    Dep.initial[1] <- max(TEW.parameter * TEW.fraction - P[1], 0)
+    Kri[1] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial, 1)
+    Krp[1] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial, 1)
+    W[1] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi, 1)
+    Kei[1] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi, 1)
+    Kep[1] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp, 1)
+    Ep[1] <- EpCalc(ETo, Kep, 1)
+    Ei[1] <- EiCalc(ETo, Kei, 1)
+    DPep[1] <- DPepCalc(P, Dep.initial, 1)
+    Dep.end[1] <- TEW.parameter * TEW.fraction - P[1] + Ep[1] / fewp[1] + DPep[1] #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
+    DPei[1] <- max(P[1] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
+    Dei.end[1] <- TEW.parameter * TEW.fraction - P[1] + Ei[1] / fewi[1] + DPei[1] #replaces Dei.end[i-1] with Dei.intial[i]
+    Kc.ns[1] <- KcnsCalc(Kcb.adjusted, Kei, Kep, 1)
+    ETc.ns[1] <- ETcnsCalc(Kc.ns, ETo, 1)
+    Dr.initial[1] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
+    Ir[1] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, 1)
+    DPr[1] <- max(max(P[1] + Ir[1] - TEW.parameter * TEW.fraction - ETc.ns[1], 0)) #initial calc
+    Ks[1] <- KsCalc(Dr.initial, PAW, AD, 1)
+    Kc.act[1] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, 1)
+    ETc.act[1] <- ETcactCalc(Kc.act, ETo, 1)
+    Dr.end[1] <- TEW.parameter * TEW.fraction - P[1] + Kc.act[1] * ETo[1] + DPr[1] #initial calc
     for (i in 2:model.length) { #now for days 2...model.length after initialization
-      Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw)
-      Dep.initial[i] <- DepInitialCalc(Dep.end, P)
-      Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial)
-      Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial)
-      W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi)
-      Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi)
-      Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp)
-      Ep[i] <- EpCalc(ETo, Kep)
-      Ei[i] <- EiCalc(ETo, Kei)
-      DPep[i] <- DPepCalc(P, Dep.initial)
-      Dep.end[i] <- DepEndCalc(Dep.end, P, Ep, fewp, DPep)
-      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial)
-      Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei)
-      Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep)
-      ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo)
-      Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir)
-      Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr)
-      DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end)
-      Ks[i] <- KsCalc(Dr.initial, PAW, AD)
-      Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep)
-      Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr)
-      ETc.act[i] <- ETcactCalc(Kc.act, ETo) #could take this out of loop
+      Dei.initial[i] <- DeiInitialCalc(Dei.end, P, Ir, fw, i)
+      Dep.initial[i] <- DepInitialCalc(Dep.end, P, i)
+      Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial, i)
+      Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial, i)
+      W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi, i)
+      Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi, i)
+      Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp, i)
+      Ep[i] <- EpCalc(ETo, Kep, i)
+      Ei[i] <- EiCalc(ETo, Kei, i)
+      DPep[i] <- DPepCalc(P, Dep.initial, i)
+      Dep.end[i] <- DepEndCalc(Dep.end, P, Ep, fewp, DPep, i)
+      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial, i)
+      Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei, i)
+      Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep, i)
+      ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo, i)
+      Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir, i)
+      Ir[i] <- IrCalc(AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i)
+      DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end, i)
+      Ks[i] <- KsCalc(Dr.initial, PAW, AD, i)
+      Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, i)
+      Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr, i)
+      ETc.act[i] <- ETcactCalc(Kc.act, ETo, i) #could take this out of loop
     }
     model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
     model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 17:40] <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
@@ -455,16 +449,37 @@ root_depth <- '1.0m'
       setwd(file.path(resultsDir, scenario.name))
       write.csv(model.result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
     }
-    if (n==1000 | n %in% save.times | n == nrow(model.scaffold.crop)) {
+    if (n==1000 | n %in% save.times) {
       setwd(file.path(resultsDir, scenario.name))
       write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
     } else {next}
   }
-#}
+  setwd(file.path(resultsDir, scenario.name))
+  write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
+  metadata <- cbind(data.frame(date.run=Sys.Date(), crop=cropname, cropscape.code=cropcode, AD.percentage=AD.percentage, rooting.depth=root_depth, irrigation.type=irr.type, paw.varname = paw.var, model.days=model.length, first.day=dates[1], last.day=dates[length(dates)], n.models=nrow(model.scaffold.crop)), crop.parameters[which(crop.parameters$crop==cropname), 2:ncol(crop.parameters)], irrigation.parameters[which(irrigation.parameters$irrigation.type==irr.type), 'fw'])
+  colnames(metadata)[ncol(metadata)] <- 'fw'
+  write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
+}
 #function arguments to include
+FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 30, '2.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 30, '4.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 80, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 80, '4.0m', "Microspray, orchards")
 
-
-#FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m')
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '2.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '4.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '2.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '4.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards")
 
 #started at 4:15 PM 7/26
 #re-ran at 
