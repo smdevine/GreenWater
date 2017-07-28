@@ -10,6 +10,7 @@
 #loadfonts()
 options(stringsAsFactors = FALSE)
 mainDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion'
+
 SoilsDataDir <- file.path(mainDir, 'soils_data/soilDB_query/CA_all')
 sum_modified <- function(x) {
   if(all(is.na(x))) {
