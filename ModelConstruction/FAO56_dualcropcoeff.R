@@ -463,7 +463,15 @@ for (n in 1:nrow(model.scaffold)) {
 #so, for all almond major components x climate (80401 unique models), 
 #one scenario will take 32 hours
 mean(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
-hist(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
+hist(model.scaffold.results$GW.ET.growing)
+hist(tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
+hist(tapply(model.scaffold.results$Irr.app.total, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
+plot(tapply(model.scaffold.results$Irr.app.total, model.scaffold.results$Model.Year, mean, na.rm=TRUE), tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
+plot(tapply(model.scaffold.results$ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE), tapply(model.scaffold.results$Irr.app.total, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
+plot(2003:2017, tapply(model.scaffold.results$ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
+(240/25.4)/12*1000000
+plot(tapply(model.scaffold.results$z1.0m_cmH2O_modified_comp, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE), tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE))
+
 #for writing overall results to disk
 setwd(file.path(resultsDir, scenario.name))
 output <- model.scaffold.results #need additional model_code to get these in order
