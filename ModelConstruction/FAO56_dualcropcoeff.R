@@ -285,6 +285,11 @@ walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 
 #irrigation and crop specific paramters outside the loop, since only almonds are modeled now
 #temporary args to code starting on line 312
+cropname <- 'almond.mature'
+cropcode <- almond_code
+AD.percentage <- 50
+root_depth <- '1.0m'
+irr.type <- 'Microspray, orchards'
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type) {
   #get doys [days of years] for the model and ensure SpatialCIMIS coverages match
   if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
@@ -461,7 +466,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
 }
 #function arguments to include
-FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', 'Microspray, orchards')
 FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards")
 FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards")
 FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards")
