@@ -305,7 +305,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   last.date <- ETo.df$dates[nrow(ETo.df)]
   P.df <- P.df[1:which(P.df$dates==last.date), ]
   cropname.dir <-  paste0(cropname, '_majcomps')
-  scenario.name <- paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
+  scenario.name <- paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD') #need to add irr.type here
   paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
   if (!dir.exists(file.path(resultsDir, cropname.dir))) {
     dir.create(file.path(resultsDir, cropname.dir))
@@ -462,26 +462,26 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   colnames(metadata)[ncol(metadata)] <- 'fw'
   write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
 }
-#function arguments to include
+#run the function for each modelled scenario
 FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
-FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 30, '2.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 30, '4.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 80, '1.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards")
-FAO56DualCropCalc('almond.mature', almond_code, 80, '4.0m', "Microspray, orchards")
+FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 30, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 80, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '2.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '4.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '2.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '4.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchards")
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards")
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 
 #exploratory debugging
 environment(FAO56DualCropCalc)
