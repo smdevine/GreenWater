@@ -45,6 +45,11 @@ walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 #irrigation and crop specific paramters outside the loop, since only almonds are modeled now
 #temporary args to code starting on line 312
 #print(crop.parameters)
+# cropname <- 'almond.mature'
+# cropcode <- almond_code
+# AD.percentage <- 50
+# root_depth <- '4.0m'
+# irr.type <- 'Microspray, orchards'
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df) {
   CropParametersDefine <- function(crop.parameters) {
     bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
@@ -196,8 +201,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #results function to summarize each model's results
   #find time to first and last irrigation
   IrDateCalc <- function(df) { #as.Date('1900-01-01) is a proxy for NA
-    first.irr.index <- head(which(df$Ir > 0 & df$dates < as.Date(paste0(as.character(df$years[1]), '-07-01'))), 1)
-    last.irr.index <- tail(which(df$Ir > 0 & df$dates > as.Date(paste0(as.character(df$years[1]), '-07-01'))), 1)
+    first.irr.index <- head(which(df$Ir > 0 & df$dates < as.Date(paste0(as.character(df$years[1]), '-09-01'))), 1) #)
+    last.irr.index <- if(df$doys.model[nrow(df)] > Jharv - days.no.irr){tail(which(df$Ir > 0), 1)}else{vector()}
     if (length(first.irr.index) == 0 & length(last.irr.index) == 0) {
       data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'))
     }
@@ -210,7 +215,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=df$dates[last.irr.index])
     }
   }
-  #do.call(rbind, lapply(split(result, result$years), IrDateCalc))
+  #do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc))
   
   #calculate Green Water utilized
   #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  However a correction is applied to the growing season ET for residual irrigation water storage to correctly estimate green water utilization within the same year.
@@ -238,23 +243,27 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   ##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
   
   GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
+    #df <- model.result[model.result$years==2017,]
     first_irr_index <- which(df$Ir > 0)[1]
     jdev_index <- which(df$doys.model==Jdev)
+    #print(df$years[1])
     if (df$doys.model[1] > Jdev | is.na(first_irr_index)) {
       data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA)
     } else {
       data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first_irr_index] + df$Ep[jdev_index:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first_irr_index] * df$Ks[jdev_index:first_irr_index] * df$ETo[jdev_index:first_irr_index]))
     }
   }
-  #do.call(rbind, lapply(split(result, result$years), GreenWaterIrr1Calc))
+  #do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc))
   
   #determine deep percolation and annual water balance using subsetting by year
   DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
+    #df <- model.result[which(model.result$years==2003), ] 
     jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-01-01')))
-    first.irr.index <- head(which(df$Ir > 0 & df$dates < as.Date(paste0(as.character(df$years[1]), '-07-01'))), 1)
-    last.irr.index <- tail(which(df$Ir > 0 & df$dates > as.Date(paste0(as.character(df$years[1]), '-07-01'))), 1)
+    first.irr.index <- head(which(df$Ir > 0 & df$dates < as.Date(paste0(as.character(df$years[1]), '-09-01'))), 1) #)
+    last.irr.index <- tail(which(df$Ir > 0), 1) #& df$dates > as.Date(paste0(as.character(df$years[1]), '-07-01')))
     jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01')))
     dec.31.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-12-31')))
+    #print(df$years[1])
     if (df$dates[1] > as.Date(paste0(as.character(df$years[1]), '-01-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$years[nrow(df)]), '-12-31'))) { #this means they ain't a whole year's data
       if (length(last.irr.index) == 0 & length(first.irr.index) == 0) { #not sufficient coverage to calc anything
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA, fall.deep.perc = NA)
@@ -263,21 +272,21 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=NA, fall.deep.perc = NA)
       }
       else if (length(jan.1.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #winter and post Irr deep perc
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=sum(df$DPr[(first.irr.index+1):jul.1.index]), fall.deep.perc = NA)
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = NA)
       }
       else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #only Spring deep perc available
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=sum(df$DPr[(first.irr.index+1):jul.1.index]), fall.deep.perc = NA)
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = NA)
       }
       else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(dec.31.index) != 0) { #spring and fall deep perc
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=sum(df$DPr[(first.irr.index+1):jul.1.index]), fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
       } else {#fall perc only
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA,  fall.deep.perc =  sum(df$DPr[last.irr.index:(dec.31.index-1)]))
       }
     } else { #entire annual coverage available
-      data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = sum(df$DPr[(first.irr.index+1):jul.1.index]), fall.deep.perc = sum(df$DPr[last.irr.index:(dec.31.index)]))
+      data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = sum(df$DPr[last.irr.index:(dec.31.index)]))
     }
   }
-  #do.call(rbind, lapply(split(result, result$years), DeepPercCalc))
+  #do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))
   
   #determine green water capture from leaf-drop to flowering
   GreenWaterCaptureCalc <- function(df) {
@@ -345,7 +354,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   set.seed(461980)
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  for (n in 1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
+  for (n in 38029:38032) {#1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
+    #n <- 255
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
@@ -465,6 +475,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
 #run the function for each modelled scenario
 FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+
 FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 FAO56DualCropCalc('almond.mature', almond_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
@@ -501,6 +512,12 @@ plot(2003:2017, tapply(model.scaffold.results$ET.growing, model.scaffold.results
 (240/25.4)/12*1000000
 plot(tapply(model.scaffold.results$z1.0m_cmH2O_modified_comp, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE), tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE))
 
+#look at model_results
+setwd(file.path(resultsDir, scenario.name))
+list.files()
+model.scaffold.results <- read.csv('almond.mature4.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
+plot(model.scaffold.results$GW.ET.growing, model.scaffold.results$Irr.app.total)
+summary(model.scaffold.results$ET.growing)
 #for writing overall results to disk
 setwd(file.path(resultsDir, scenario.name))
 output <- model.scaffold.results #need additional model_code to get these in order
@@ -551,7 +568,7 @@ writeClipboard(as.character(U2))
 #Kr depends on daily water balance of surface layer (upper 10-15 cm); Few will also depend on daily water balance if separate calculations are done for soil wetted by precipitation vs. by both precip and irrigation (see "Separate Prediction of Evaporation from Soil Wetted by Precipitation Only" in Allen et al. 2005)
 
 #few stats
-sum(is.na(model.scaffold.results$z1.0m_cmH2O_modified_comp)) #32520
+sum(is.na(model.scaffold.results$z4.0m_cmH2O_modified_comp)) #32520
 sum(is.na(model.scaffold.results$GW.ET.growing)) - 2*nrow(model.scaffold.crop) #each model scaffold row will produce 2 NAs for GW ET growing, so the extra 34,697 NAs are mostly due to 
 sum(is.na(model.scaffold.crop$z1.0m_cmH2O_modified_comp)) #2168
 sum(is.na(model.scaffold.crop$TEW)) #2626
