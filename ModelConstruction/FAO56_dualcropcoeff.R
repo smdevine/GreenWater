@@ -50,7 +50,7 @@ walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 # AD.percentage <- 50
 # root_depth <- '4.0m'
 # irr.type <- 'Microspray, orchards'
-FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df) {
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start) {
   CropParametersDefine <- function(crop.parameters) {
     bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
     crop.parameters$Jdev <- as.integer(format.Date(bloom.date, '%j'))
@@ -328,18 +328,25 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
 #limit model.scaffold to cropname
   model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
 #make a results data.frame
-  model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
-  paw.vector <- model.scaffold.crop[[paw.var]]
+  if (results_file == 'new') {
+    model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
+    paw.vector <- model.scaffold.crop[[paw.var]]
   #print(head(paw.vector))
-  model.scaffold2 <- model.scaffold.crop[ ,-12:-21]
-  model.scaffold2$paw <- paw.vector
-  colnames(model.scaffold2)[15] <- paw.var
-  model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
-  model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
-  model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
-  model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey)) #need to use as.character to preserve integrity of long integers
+    model.scaffold2 <- model.scaffold.crop[ ,-12:-21]
+    model.scaffold2$paw <- paw.vector
+    colnames(model.scaffold2)[15] <- paw.var
+    model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
+    model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
+    model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
+    model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey)) #need to use as.character to preserve integrity of long integers
 #model.scaffold.results[which(model.scaffold.results$unique_model_code==100058 & model.scaffold.results$cokey==13094564), ]
-  rm(model.scaffold2)
+    rm(model.scaffold2)
+  } else {
+    setwd(file.path(resultsDir, scenario.name))
+    #fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
+    #model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
+    model.scaffold.results <- read.csv(results_file, stringsAsFactors = FALSE)
+  }
   crop.parameters <- CropParametersDefine(crop.parameters.df)
   Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
   fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
@@ -354,7 +361,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   set.seed(461980)
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  for (n in 38029:38032) {#1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
+  for (n in row_start:nrow(model.scaffold.crop)) {#1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
     #n <- 255
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
@@ -474,9 +481,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
 }
 #run the function for each modelled scenario
 FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
-FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
-
-FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
+FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=40001)
+FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 FAO56DualCropCalc('almond.mature', almond_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
 FAO56DualCropCalc('almond.mature', almond_code, 30, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
@@ -514,8 +520,8 @@ plot(tapply(model.scaffold.results$z1.0m_cmH2O_modified_comp, model.scaffold.res
 
 #look at model_results
 setwd(file.path(resultsDir, scenario.name))
-list.files()
-model.scaffold.results <- read.csv('almond.mature4.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
+fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
+model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
 plot(model.scaffold.results$GW.ET.growing, model.scaffold.results$Irr.app.total)
 summary(model.scaffold.results$ET.growing)
 #for writing overall results to disk
