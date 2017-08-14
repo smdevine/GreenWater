@@ -502,35 +502,24 @@ FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchard
 
 FAO56DualCropCalc('grapes.table', grape_code, 50, '1.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 
+#parallel execution with foreach
+#this was a pain to figure out
+library(foreach)
+library(doSNOW)
+cl<-makeCluster(4, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters"))
+registerDoSNOW(cl)
+foreach(i=1:4) %dopar% {  
+  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m')
+  FAO56DualCropCalc('grapes.table', 69, 50, root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+}
+stopCluster(cl)
+
 #parallel execution
 library(parallel)
 
 # Calculate the number of cores
-no_cores <- detectCores() - 2
-
-# Initiate cluster
-cl <- makeCluster(no_cores)
-
-parLapply(cl=cl, X=1:4, fun=FAO56DualCropCalc, cropname=c('grapes.table', 'grapes.table', 'grapes.table', 'grapes.table'), cropcode=c(grape_code, grape_code, grape_code, grape_code), AD.percentage=c(50, 50, 50, 50), root_depth=c('1.0m', '1.5m', '2.0m', '4.0m'), irr.type=c("Drip", "Drip", "Drip", "Drip"), crop.parameters.df=c(crop.parameters.df, crop.parameters.df, crop.parameters.df, crop.parameters.df), model.scaffold=c(model.scaffold, model.scaffold, model.scaffold, model.scaffold), U2.df=c(U2.df, U2.df, U2.df, U2.df), P.df=c(P.df, P.df, P.df, P.df), ETo.df=c(ETo.df, ETo.df, ETo.df, ETo.df), RHmin.df=c(RHmin.df, RHmin.df, RHmin.df, RHmin.df), results_file=c('new', 'new', 'new', 'new'), row_start=c(1, 1, 1, 1))
-
-
-cropname <- 'grapes.table'
-cropcode <- grape_code
-AD.percentage <- 50 
-root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m')
-irr.type <- "Drip"
-results_file <- 'new'
-row_start <- 1
-clusterExport(cl=cl, varlist=c("FAO56DualCropCalc", "cropname", "cropcode", "AD.percentage", "root_depth", "irr.type", "results_file", "row_start", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df"), envir=environment())
-parLapply(cl=cl, X=1:4, fun=FAO56DualCropCalc(cropname = cropname, cropcode = cropcode, AD.percentage = AD.percentage, root_depth = root_depth, irr.type = irr.type, crop.parameters.df = crop.parameters.df, model.scaffold=model.scaffold, U2.df=U2.df, P.df=P.df, ETo.df=ETo.df, RHmin.df=RHmin.df, results_file = results_file, row_start = row_start))
-
-#third time's the charge
-parLapply(cl=cl, X=root_depth, fun=FAO56DualCropCalc, cropname = cropname, cropcode = cropcode, AD.percentage = AD.percentage, irr.type = irr.type, crop.parameters.df = crop.parameters.df, model.scaffold=model.scaffold, U2.df=U2.df, P.df=P.df, ETo.df=ETo.df, RHmin.df=RHmin.df, results_file = results_file, row_start = row_start)
-
-#third time's the charm
-mclapply(2:4, function(i,j,k) c(i,j,k), i=1, k=5)
-mclapply(X=root_depth, fun=FAO56DualCropCalc, cropname = cropname, cropcode = cropcode, AD.percentage = AD.percentage, irr.type = irr.type, crop.parameters.df = crop.parameters.df, model.scaffold=model.scaffold, U2.df=U2.df, P.df=P.df, ETo.df=ETo.df, RHmin.df=RHmin.df, results_file = results_file, row_start = row_start)
-
+no_cores <- detectCores() - 4
 
 #exploratory debugging
 environment(FAO56DualCropCalc)
