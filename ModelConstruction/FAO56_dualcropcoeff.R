@@ -493,14 +493,15 @@ FAO56DualCropCalc('almond.mature', almond_code, 80, '4.0m', "Microspray, orchard
 FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 30, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-
-FAO56DualCropCalc('grapes.table', grape_code, 50, '1.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 
 #parallel execution with foreach
 #this was a pain to figure out
