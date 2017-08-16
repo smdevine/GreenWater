@@ -503,6 +503,9 @@ FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchard
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 
+#debugging row 70000+ for table.grapes from running parallel code below
+FAO56DualCropCalc('grapes.table', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=70001)
+
 #parallel execution with foreach
 #this was a pain to figure out
 library(foreach)
@@ -541,9 +544,13 @@ plot(2003:2017, tapply(model.scaffold.results$ET.growing, model.scaffold.results
 plot(tapply(model.scaffold.results$z1.0m_cmH2O_modified_comp, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE), tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE))
 
 #look at model_results
+scenario.name <- 'grapes.table_majcomps/scenario_2.0m50AD'
+
 setwd(file.path(resultsDir, scenario.name))
 fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
 model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
+tail(model.scaffold.results, 6)
+model.scaffold.results[1049995:1050000,]
 plot(model.scaffold.results$GW.ET.growing, model.scaffold.results$Irr.app.total)
 summary(model.scaffold.results$ET.growing)
 #for writing overall results to disk
