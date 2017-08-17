@@ -2,8 +2,8 @@
 #script also includes section to extract raster PRISM precip data for cells of interest relative to this modeling project into a matrix of cells of interest (columns) x days (rows), matching the same format as that used to extract spatial CIMIS raster data (see 'spatialCIMIS.R')
 library(prism)
 library(raster)
-PRISMdir <- "D:/PRISM/PRISM_daily"
-cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold'
+PRISMdir <- "C:/Users/smdevine/Desktop/Allowable_Depletion/PRISMdaily"
+cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
 for (i in 2017:2017) {
   if (file.exists(file.path(PRISMdir, as.character(i))) == FALSE) {
     dir.create(file.path(PRISMdir, as.character(i)))
@@ -30,7 +30,7 @@ prism_data$day <- as.integer(format.Date(datesequence, '%d'))
 prism_data$year <- as.integer(format.Date(datesequence, '%Y'))
 prism_data$DOY <- as.integer(format.Date(datesequence, '%j'))
 i <- 536
-for (i in 537:length(datesequence)) {
+for (i in 1:length(datesequence)) {
   day <- format.Date(datesequence[i], '%d')
   mnth <- format.Date(datesequence[i], '%m')
   yr <- format.Date(datesequence[i], '%Y')
