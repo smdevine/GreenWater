@@ -184,7 +184,7 @@ spatialCIMIS <- raster('U220040101.tif')
 CIMIScellnumbers <- as.integer(cellFromXY(object=spatialCIMIS, xy=mukeys_cropcodes_CA_TA))
 summary(CIMIScellnumbers)
 CIMIScellunique <- unique(CIMIScellnumbers) #17,341 CIMIS cells need sampling; 18,633
-setwd(file.path(mainDir, 'model_scaffold/Aug2017'))
+setwd(file.path(mainDir, 'model_scaffold/run_model/Aug2017'))
 CIMIScellunique_df <- data.frame(CIMIS_cells=CIMIScellunique)
 write.csv(CIMIScellunique_df, 'CIMIS_cells_unique.csv', row.names = F)
 #get cell numbers from PRISM for each point of interest
@@ -194,7 +194,7 @@ PRISMcellnumbers <- as.integer(cellFromXY(object = prism, xy = mukeys_cropcodes_
 summary(PRISMcellnumbers)
 PRISMcellunique <- unique(PRISMcellnumbers) #5338 PRISM cells need sampling; 5701 need sampling
 PRISMcellunique_df <- data.frame(PRISM_cells=PRISMcellunique) 
-setwd(file.path(mainDir, 'model_scaffold/Aug2017'))
+setwd(file.path(mainDir, 'model_scaffold/run_model/Aug2017'))
 write.csv(PRISMcellunique_df, 'PRISM_cells_unique.csv', row.names = F)
 
 #add PRISM and CIMIS raster cell numbers to find unique combinations of soil, crop, and climate
