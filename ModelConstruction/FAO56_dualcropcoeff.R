@@ -530,7 +530,7 @@ registerDoSNOW(cl)
 foreach(i=1:8) %dopar% {  
   root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
   AD.percentage <- c(30, 30, 30, 30, 80, 80, 80, 80)
-  FAO56DualCropCalc('grapes.table', 69, AD.percentage, root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+  FAO56DualCropCalc('grapes.table', 69, AD.percentage[i], root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 }
 stopCluster(cl)
 
