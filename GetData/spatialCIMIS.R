@@ -5,10 +5,10 @@ library(XML)
 library(httr)
 #NOTE: 1/1/2003-2/19/2003, 3/7/2003-3/9/2003, 4/9/2003-4/10/2003, 6/15/2003, 6/17/2003, 6/19/2003-6/22/2003, 6/24/2003, and a number more dates before 9/30/2003 are missing. 2004 water year to the present is good to go.
 californiaDir <- 'C:/Users/smdevine/Desktop/SpatialData/CA_counties/government_units'
-cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold'
+cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
 #below is specific to downloading data
 ca_ta <- showP4(showWKT("+init=epsg:3310"))
-spatialCIMISdir <- 'D:/SpatialCIMIS'
+spatialCIMISdir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/SpatialCIMIS'
 #'C:/Users/smdevine/Desktop/Allowable_Depletion/SpatialCIMIS'
 startyear <- '2003'
 endyear <- '2017'
@@ -95,7 +95,7 @@ setwd(cellsofinterestDir)
 cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
 cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
 cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
-varname <- 'U2'
+varname <- 'ETo'
 startyear <- '2003'
 endyear <- '2017'
 startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
