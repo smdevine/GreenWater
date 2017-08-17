@@ -1,4 +1,5 @@
 #initial work to preprocess soil map units to a raster aligned with Cropscape was done on O'Geen lab spatial analysis desktop in ArcMap and R
+#in mid-August 2018, extracted relevant portion of this script to model_scaffold.R
 #ls() #lists objects in the working session
 library(raster)
 library(rgdal)
@@ -39,18 +40,32 @@ setwd(file.path(cropscape_results, 'main_tiles'))
 tiles <- list.files(file.path(cropscape_results, 'main_tiles'), pattern = glob2rx('*.grd'))
 crops <- c('alfalfa', 'grapes', 'almonds', 'walnuts', 'pistachios', 'tomatoes', 'wheat')
 crop_codes <- c(alfalfa, grapes, almonds, walnuts, pistachios, tomatoes, wheat)
+j <- 1
+i <- 1
 for (j in seq_along(crop_codes)) {
   for (i in 1:4) {
     setwd(file.path(cropscape_results, 'main_tiles'))
     tile <- raster(tiles[i])
-    tile[tile$cropscape!=crop_codes[j]] <- NA #replace 1 with j
-    if (!dir.exists(file.path(cropscape_export, crops[j]))) {
-      dir.create(file.path(cropscape_export, crops[j]))
+    tile[tile$cropscape_masked_ag!=crop_codes[j]] <- NA #replace 1 with j
+    #print(i)
+    #print('success to here')
+    if (!dir.exists(file.path(cropscape_results, crops[j]))) {
+      dir.create(file.path(cropscape_results, crops[j]))
     }
-    setwd(file.path(cropscape_export, crops[j])) #replace 1 with j
+    setwd(file.path(cropscape_results, crops[j])) #replace 1 with j
     writeRaster(tile, paste(crops[j], '_tile', i, '.tif', sep = ''), format='GTiff') #replace 1 with j
     removeTmpFiles()
   }
+}
+for (i in 2:4) { #refers to 4 tiles
+  setwd(file.path(cropscape_results, 'main_tiles'))
+  study.crops.raster <- raster(tiles[i])
+  study.crops.raster[!(study.crops.raster$cropscape_masked_ag %in% crop_codes)] <- NA
+  if (!dir.exists(file.path(cropscape_results, 'study_crops'))) {
+  dir.create(file.path(cropscape_results, 'study_crops'))
+  }
+  setwd(file.path(cropscape_results, 'study_crops'))
+  writeRaster(study.crops.raster, paste0('study_crops_tile', as.character(i), '.tif'), format='GTiff')
 }
 #it was realized that saving the files as grd files after this process was taking 1.6 GB per file! so, grd files were read back in and saved as tif files
 
@@ -89,6 +104,7 @@ tiles <- list.files(pattern = glob2rx('*.grd'))
 tile <- raster(tiles[4])
 writeRaster(tile, 'farmland_mu_albers_tile4.tif', format='GTiff')
 
+#no longer relevant
 #mask each soil mu tile by crop and then run subs to add additional layers to the stack for max, min, and wtdavg
 #read in soils data
 setwd(mu_data_dir)
