@@ -523,6 +523,19 @@ foreach(i=1:4) %dopar% {
 }
 stopCluster(cl)
 
+#cluster run 8/17/17 for grapes.table @ 30% and 80% AD irr mgmt
+cl<-makeCluster(8, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters"))
+registerDoSNOW(cl)
+foreach(i=1:8) %dopar% {  
+  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
+  AD.percentage <- c(30, 30, 30, 30, 80, 80, 80, 80)
+  FAO56DualCropCalc('grapes.table', 69, AD.percentage, root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+}
+stopCluster(cl)
+
+
+
 #parallel execution
 library(parallel)
 
