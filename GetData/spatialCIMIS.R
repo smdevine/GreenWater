@@ -128,15 +128,16 @@ SpCIMISExtract <- function(varname) {
   write.csv(cimis_data2, paste0('SpatialCIMIS_', varname, '_rounded.csv'), row.names=F)
 }
 SpCIMISExtract('U2')
+SpCIMISExtract('minRH')
 #parallel execution with foreach
 library(foreach)
 library(doSNOW)
-cl<-makeCluster(3, type = 'SOCK') #change the number to your desired number of CPU cores  
+cl<-makeCluster(2, type = 'SOCK') #change the number to your desired number of CPU cores  
 clusterExport(cl, list=c("cellsofinterestDir", 'spatialCIMISdir', 'SpCIMISExtract'))
 clusterCall(cl, function() library(raster))
 registerDoSNOW(cl)
 foreach(i=1:2) %dopar% {  
-  varname <- c('ETo', 'U2', 'RHmin')
+  varname <- c('U2', 'minRH')
   SpCIMISExtract(varname = varname[i])
 }
 stopCluster(cl)
