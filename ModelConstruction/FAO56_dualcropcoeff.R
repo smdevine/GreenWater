@@ -362,7 +362,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   for (n in row_start:nrow(model.scaffold.crop)) {#1:nrow(model.scaffold.crop)) { #nrow(model.scaffold.crop)
-    #n <- 255
+    #n <- 76892
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
@@ -384,6 +384,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     ETo <- ETo.df[ , which(colnames(ETo.df)==paste0('cell_', as.character(spCIMIScell)))]
     U2 <- U2.df[ ,which(colnames(U2.df)==paste0('cell_', as.character(spCIMIScell)))]
     RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
+    if (all(is.na(P)) | all(is.na(ETo))) {
+      next(print(paste('Climate data is missing for scenario number', as.character(n)))) #TO-DO: write this result to separate file of NAs
+    }
     Kcb.df <- KcbAdj(Kcb.std, crop.parameters=crop.parameters, cropname, U2, RHmin) #object 'crop.parameters' not found
     Kcb.adjusted <- Kcb.df$Kcb.climate.adj
     days.no.irr <- DaysNoIrr(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv)
@@ -504,7 +507,8 @@ FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchard
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 
 #debugging row 70000+ for table.grapes from running parallel code below
-FAO56DualCropCalc('grapes.table', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=70001)
+root_depth <- '2.0m'
+FAO56DualCropCalc('grapes.table', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=76890)
 
 #parallel execution with foreach
 #this was a pain to figure out
@@ -515,7 +519,7 @@ clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "
 registerDoSNOW(cl)
 foreach(i=1:4) %dopar% {  
   root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m')
-  FAO56DualCropCalc('grapes.table', 69, 50, root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+  FAO56DualCropCalc('grapes.table', 69, 50, root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = paste0('grapes.table', root_depth[i], 'AD50_FAO56results.csv'), row_start = 70001)
 }
 stopCluster(cl)
 
