@@ -91,41 +91,55 @@ for (i in 1:length(datesequence)) {
 
 #get SpatialCIMIS into matrix for cells of interest
 #file naming convention for U2 rasters forgot '_' between 'U2' and date; hence the if/else statement below
-setwd(cellsofinterestDir)
-cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
-cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
-cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
-varname <- 'ETo'
-startyear <- '2003'
-endyear <- '2017'
-startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
-enddate <- strptime(paste0("6/13/", endyear), '%m/%d/%Y')
-datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
-cimis_data <- as.data.frame(matrix(nrow=length(datesequence), ncol=(length(cellsofinterest)+5)))
-colnames(cimis_data) <- c('dates', 'month', 'day', 'year', 'DOY', cellsofinterest_names)
-cimis_data$dates <- format.Date(datesequence, '%m_%d_%Y')
-cimis_data$month <- as.integer(format.Date(datesequence, '%m'))
-cimis_data$day <- as.integer(format.Date(datesequence, '%d'))
-cimis_data$year <- as.integer(format.Date(datesequence, '%Y'))
-cimis_data$DOY <- as.integer(format.Date(datesequence, '%j'))
+SpCIMISExtract <- function(varname) {
+  setwd(cellsofinterestDir)
+  cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
+  cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
+  cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
+#varname <- 'U2'
+  startyear <- '2003'
+  endyear <- '2017'
+  startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
+  enddate <- strptime(paste0("6/13/", endyear), '%m/%d/%Y')
+  datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
+  cimis_data <- as.data.frame(matrix(nrow=length(datesequence), ncol=(length(cellsofinterest)+5)))
+  colnames(cimis_data) <- c('dates', 'month', 'day', 'year', 'DOY', cellsofinterest_names)
+  cimis_data$dates <- format.Date(datesequence, '%m_%d_%Y')
+  cimis_data$month <- as.integer(format.Date(datesequence, '%m'))
+  cimis_data$day <- as.integer(format.Date(datesequence, '%d'))
+  cimis_data$year <- as.integer(format.Date(datesequence, '%Y'))
+  cimis_data$DOY <- as.integer(format.Date(datesequence, '%j'))
 #i <- 1
-for (i in 1:length(datesequence)) {
-  day <- format.Date(datesequence[i], '%d')
-  mnth <- format.Date(datesequence[i], '%m')
-  yr <- format.Date(datesequence[i], '%Y')
-  setwd(file.path(spatialCIMISdir, varname, yr))
-  if (varname == 'U2') {
-    spCIMIS <- raster(paste0(varname, yr, mnth, day, '.tif'))
-  } else {spCIMIS <- raster(paste0(varname, '_', yr, mnth, day, '.tif'))}
-  cimis_data[i, 6:ncol(cimis_data)] <- extract(spCIMIS, cellsofinterest)
-  print(i)
-}
-setwd(cellsofinterestDir)
+  for (i in 1:length(datesequence)) {
+    day <- format.Date(datesequence[i], '%d')
+    mnth <- format.Date(datesequence[i], '%m')
+    yr <- format.Date(datesequence[i], '%Y')
+    setwd(file.path(spatialCIMISdir, varname, yr))
+    if (varname == 'U2') {
+      spCIMIS <- raster(paste0(varname, yr, mnth, day, '.tif'))
+    } else {spCIMIS <- raster(paste0(varname, '_', yr, mnth, day, '.tif'))}
+    cimis_data[i, 6:ncol(cimis_data)] <- extract(spCIMIS, cellsofinterest)
+    print(i)
+  }
+  setwd(cellsofinterestDir)
 #write.csv(cimis_data, paste0('SpatialCIMIS_', varname, '_data.csv'), row.names = F)
 #cimis_data <- read.csv('SpatialCIMIS_data.csv') #this has 86,600,954 cells
-cimis_data2 <- cbind(cimis_data[ ,1:5], round(cimis_data[ ,6:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
-write.csv(cimis_data2, paste0('SpatialCIMIS_', varname, '_rounded.csv'), row.names=F)
-
+  cimis_data2 <- cbind(cimis_data[ ,1:5], round(cimis_data[ ,6:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
+  write.csv(cimis_data2, paste0('SpatialCIMIS_', varname, '_rounded.csv'), row.names=F)
+}
+SpCIMISExtract('U2')
+#parallel execution with foreach
+library(foreach)
+library(doSNOW)
+cl<-makeCluster(3, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("cellsofinterestDir", 'spatialCIMISdir', 'SpCIMISExtract'))
+clusterCall(cl, function() library(raster))
+registerDoSNOW(cl)
+foreach(i=1:2) %dopar% {  
+  varname <- c('ETo', 'U2', 'RHmin')
+  SpCIMISExtract(varname = varname[i])
+}
+stopCluster(cl)
 #explore other datasets in the Spatial CIMIS database
 setwd(californiaDir)
 california <- shapefile("california_CA_TA.shp")
