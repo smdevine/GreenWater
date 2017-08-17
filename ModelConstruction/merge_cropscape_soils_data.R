@@ -3,7 +3,7 @@
 library(raster)
 library(rgdal)
 options(digits = 22, scipen = 999)
-#library(SpaDES)
+library(SpaDES)
 #rasterOptions(chunksize = 2e+07, maxmemory = 2e+08, progress='window')
 rasterOptions(progress = 'window')
 #memory.limit(size = 10000)
@@ -29,6 +29,9 @@ alfalfa <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
 grapes <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almonds <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
 walnuts <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+pistachios <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
+tomatoes <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Tomatoes']
+wheat <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Winter Wheat']
 
 #split cropscape raster into four tiles and then select crops of interest for masking soil rasters
 splitRaster(cropscape_raster, 2, 2, path=file.path(cropscape_results, 'main_tiles'))
