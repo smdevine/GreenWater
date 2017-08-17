@@ -25,9 +25,10 @@ grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
 walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 
-setwd(model_scaffoldDir)
+setwd(file.path(model_scaffoldDir, 'run_model/Aug2017'))
 #list.files()
-model_scaffold <- read.csv("model_scaffold_codes_nocoords_6.9.17.csv")
+model_scaffold <- read.csv("model_scaffold_codes8.17.17.csv")
+
 #head(model_scaffold)
 #dim(model_scaffold) #242,714 rows
 #lapply(model_scaffold, class)
@@ -66,28 +67,28 @@ for (i in seq_len(maxcomps)) {
   temp <- soil_comp_data[soilcomp_rownums, ]
   temp$mukey <- NULL
   temp2 <- cbind(model_scaffold2, temp)
-  setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_component'))
+  setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentAug2017'))
   write.csv(temp2, paste0('model_scaffold_comp', as.character(i), '.csv'), row.names=F) #save the file for modeling purposes later
   model_scaffold2 <- model_scaffold2[-which(model_scaffold2$n_compkeys==i), ] #now get rid of model codes with i number of cokeys.  they don't need to be included in additional model scaffolds
   soilcomp_rownums <- unique(soilcomp_rownums)
   soil_comp_data <- soil_comp_data[-soilcomp_rownums, ] #get rid of the cokeys already covered
 }
 
-setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_component'))
+setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentAug2017'))
 fnames <- list.files(pattern = glob2rx('*csv'))
 master.file <- do.call(rbind, lapply(fnames, read.csv))
 dim(master.file)
-#1,177,027 unique soil components, climate, and crop
+#1,177,027 unique soil components, climate, and crop; now, 1,681,860
 j <- which(master.file$comppct_r >= 15)
-length(j) #but only 277,477 are major components
+length(j) #but only 277,477 are major components; now, 387,970
 sum(master.file$majcompflag=='Yes')
-model_scaffold_majcomps_almonds <- master.file[master.file$comppct_r >= 15 & master.file$crop_code==almond_code,]
-dim(model_scaffold_majcomps_almonds)
-setwd(file.path(model_scaffoldDir, 'run_model/July2017'))
-write.csv(model_scaffold_majcomps_almonds, 'model_scaffold_majcomps_almonds.csv', row.names = F)
+#model_scaffold_majcomps_almonds <- master.file[master.file$comppct_r >= 15 & master.file$crop_code==almond_code,]
+#dim(model_scaffold_majcomps_almonds)
+#setwd(file.path(model_scaffoldDir, 'run_model/July2017'))
+#write.csv(model_scaffold_majcomps_almonds, 'model_scaffold_majcomps_almonds.csv', row.names = F)
 model_scaffold_majcomps <- master.file[master.file$comppct_r >= 15, ]
 dim(model_scaffold_majcomps)
-setwd(file.path(model_scaffoldDir, 'run_model/July2017'))
+setwd(file.path(model_scaffoldDir, 'run_model/Aug2017'))
 write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.csv', row.names = F)
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
