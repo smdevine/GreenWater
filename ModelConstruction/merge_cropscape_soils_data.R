@@ -37,13 +37,16 @@ wheat <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Winter Wheat']
 splitRaster(cropscape_raster, 2, 2, path=file.path(cropscape_results, 'main_tiles'))
 setwd(file.path(cropscape_results, 'main_tiles'))
 tiles <- list.files(file.path(cropscape_results, 'main_tiles'), pattern = glob2rx('*.grd'))
-crops <- c('alfalfa', 'grapes', 'almonds', 'walnuts')
-crop_codes <- c(alfalfa, grapes, almonds, walnuts)
-for (j in 2:4) {
+crops <- c('alfalfa', 'grapes', 'almonds', 'walnuts', 'pistachios', 'tomatoes', 'wheat')
+crop_codes <- c(alfalfa, grapes, almonds, walnuts, pistachios, tomatoes, wheat)
+for (j in seq_along(crop_codes)) {
   for (i in 1:4) {
     setwd(file.path(cropscape_results, 'main_tiles'))
     tile <- raster(tiles[i])
     tile[tile$cropscape!=crop_codes[j]] <- NA #replace 1 with j
+    if (!dir.exists(file.path(cropscape_export, crops[j]))) {
+      dir.create(file.path(cropscape_export, crops[j]))
+    }
     setwd(file.path(cropscape_export, crops[j])) #replace 1 with j
     writeRaster(tile, paste(crops[j], '_tile', i, '.tif', sep = ''), format='GTiff') #replace 1 with j
     removeTmpFiles()
