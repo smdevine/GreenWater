@@ -4,7 +4,7 @@
        #3 Revise "SSURGO_processing_awc_r.R"
        #4 
 #script to implement the FAO56 dual crop coefficient ET routine
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/July2017' #location of input data
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017' #location of input data
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/trialJul_2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
