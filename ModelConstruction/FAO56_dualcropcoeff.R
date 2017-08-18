@@ -16,13 +16,12 @@ RHmin.df <- read.csv('SpatialCIMIS_minRH_rounded_QCpass.csv', stringsAsFactors =
 ETo.df <- read.csv('SpatialCIMIS_ETo_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
 model.scaffold <- read.csv('model_scaffold_majcomps.csv', stringsAsFactors = F)
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
+model.scaffold$longitude_AEA <- NULL
+model.scaffold$latitude_AEA <- NULL
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 
 #define functions implement FA56 dual crop coefficients
 #includes subroutine that separates evaporable water as P vs. Irr sourced
-
-
-
 #all these tasks only done once per run where run is initialzing model and then looping through all rows in model.scaffold and pasting results from all
 #ID crop codes
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
@@ -41,10 +40,6 @@ walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-
-#irrigation and crop specific paramters outside the loop, since only almonds are modeled now
-#temporary args to code starting on line 312
-#print(crop.parameters)
 # cropname <- 'almond.mature'
 # cropcode <- almond_code
 # AD.percentage <- 50
@@ -332,9 +327,11 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
     paw.vector <- model.scaffold.crop[[paw.var]]
   #print(head(paw.vector))
-    model.scaffold2 <- model.scaffold.crop[ ,-12:-21]
+    #mukey	crop_code	PRISMcellnumber	CIMIScellnumber	unique_model_code	full_matrix_rownum	n_compkeys	cokey	compname	comppct_r	majcompflag	TEW	REW	surface.depth	z2.0m_cmH2O_modified_comp	Model.Year
+
+    model.scaffold2 <- model.scaffold.crop[ ,-11:-20]
     model.scaffold2$paw <- paw.vector
-    colnames(model.scaffold2)[15] <- paw.var
+    colnames(model.scaffold2)[14] <- paw.var
     model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
     model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
     model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
@@ -465,13 +462,13 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       ETc.act[i] <- ETcactCalc(Kc.act, ETo, i) #could take this out of loop
     }
     model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
-    model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), 17:40] <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
+    model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), which(colnames(model.scaffold.results)=='Irr.1'):(which(colnames(model.scaffold.results)=='GW.capture.net'))] <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:25]
     print(paste(scenario.name, as.character(n)))
     if (n %in% rows.to.sample) {
       setwd(file.path(resultsDir, scenario.name))
       write.csv(model.result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
     }
-    if (n==1000 | n %in% save.times) {
+    if (n==100 | n %in% save.times) {
       setwd(file.path(resultsDir, scenario.name))
       write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
     } else {next}
@@ -506,9 +503,9 @@ FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchard
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 
-#debugging row 70000+ for table.grapes from running parallel code below
-root_depth <- '2.0m'
+#single call to function for table grapes for debugging
 FAO56DualCropCalc('grapes.table', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=76890)
+FAO56DualCropCalc('grapes.table', grape_code, 30, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1)
 
 #parallel execution with foreach
 #this was a pain to figure out
@@ -524,16 +521,18 @@ foreach(i=1:4) %dopar% {
 stopCluster(cl)
 
 #cluster run 8/17/17 for grapes.table @ 30% and 80% AD irr mgmt
-cl<-makeCluster(8, type = 'SOCK') #change the number to your desired number of CPU cores  
+library(foreach)
+library(doSNOW)
+cl <- makeCluster(7, type = 'SOCK') #change the number to your desired number of CPU cores  
 clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters"))
 registerDoSNOW(cl)
-foreach(i=1:8) %dopar% {  
-  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
-  AD.percentage <- c(30, 30, 30, 30, 80, 80, 80, 80)
-  FAO56DualCropCalc('grapes.table', 69, AD.percentage[i], root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
+foreach(i=1:7) %dopar% {  
+  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m')
+  AD_percentage <- c(30, 30, 30, 30, 80, 80, 80)
+  FAO56DualCropCalc('grapes.table', 69, AD_percentage[i], root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 }
 stopCluster(cl)
-
+#still need to run 4 m root zone with 80% AD
 
 
 #parallel execution
