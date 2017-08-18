@@ -1,18 +1,22 @@
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/model_scaffold'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
 setwd(modelscaffoldDir)
 precip <- read.csv('PRISM_precip_data.csv') #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
 which(is.na(precip)) #no NAs in PRISM as of 6/26/17
 
 RHmin <- read.csv('SpatialCIMIS_minRH_rounded.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
 na_indices_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {which(is.na(x))})
+which(names(RHmin)=='cell_148533')
+head(RHmin$cell_148533)
+head(RHmin[,10018])
+head(RHmin[,10019])
 for (i in 1:length(na_indices_RHmin)) {
   if (length(na_indices_RHmin[[i]]) == 1) {
     next
   }
   else(print(i))
 }
-names(na_indices_RHmin)[9524] #"cell_148533" there is no data for this cell.  It's located east of Watsonville right on the beach at this lat, long: 36.90404, -121.844
-na_indices_RHmin <- na_indices_RHmin[-9524]
+names(na_indices_RHmin)[10013] #"cell_148533" there is no data for this cell.  It's located east of Watsonville right on the beach at this lat, long: 36.90404, -121.844
+na_indices_RHmin <- na_indices_RHmin[-10013]
 na_indices_RHmin <- unlist(na_indices_RHmin)
 unique(na_indices_RHmin) #row 2991 is only NA for all other cells
 #change row 2991 to average of all those same DOYs for a given cell
@@ -30,7 +34,7 @@ for (i in 1:length(na_indices_U2)) {
   }
   else(print(i))
 } #i=9524 is all NA; no other NAs present
-names(na_indices_U2)[9524] #"cell_148533" is NA; same for RHmin
+names(na_indices_U2)[10013] #"cell_148533" is NA; same for RHmin
 #no changes made to 'SpatialCIMIS_U2_rounded.csv'
 
 ETo <- read.csv('SpatialCIMIS_ETo_rounded.csv') #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script
@@ -52,7 +56,7 @@ for (i in 1:length(j)) {
 #for example,
 ETo[2600:2620, j[1]]
 #run loop to replace NAs
-j <- j[-5] #get rid of index referring to column 9524; it's all NA
+j <- j[-5] #get rid of index referring to column 10018; it's all NA
 #in a loop, j[i] returns the column index
 column_indices <- j
 i <- 1
