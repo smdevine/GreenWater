@@ -534,15 +534,26 @@ foreach(i=1:7) %dopar% {
 }
 stopCluster(cl)
 #still need to run 4 m root zone with 80% AD
+<<<<<<< HEAD
+
+#cluster run 8/17/17 for grapes.table @ 30% and 80% AD irr mgmt
+=======
 #cluster run 8/18/17 for pistachios @ 50% AD irr mgmt at 1, 1.5, 2, and 4 m root zones and 30% AD irr mgmt at 1 and 1.5 m root zones.
+>>>>>>> b1f02ed02a344c7ae5fc09fb4962c6d72299b7f4
 library(foreach)
 library(doSNOW)
 cl <- makeCluster(7, type = 'SOCK') #change the number to your desired number of CPU cores  
 clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters"))
 registerDoSNOW(cl)
+<<<<<<< HEAD
+foreach(i=1:12) %dopar% {
+  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
+  AD_percentage <- c(30, 30, 30, 30, 50, 50, 50, 50, 80, 80, 80, 80)
+=======
 foreach(i=1:7) %dopar% {  
   root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m')
   AD_percentage <- c(50, 50, 50, 50, 30, 30, 30)
+>>>>>>> b1f02ed02a344c7ae5fc09fb4962c6d72299b7f4
   FAO56DualCropCalc('pistachios', 204, AD_percentage[i], root_depth[i], 'Microspray, orchards', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 }
 stopCluster(cl)
