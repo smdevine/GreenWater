@@ -506,7 +506,7 @@ FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.5m', "Microspray, orchard
 
 #single call to function for table grapes for debugging
 FAO56DualCropCalc('grapes.table', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=76890)
-FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1)
+FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1) #started at 8:59 PM 8.18.17
 
 #parallel execution with foreach
 #this was a pain to figure out
