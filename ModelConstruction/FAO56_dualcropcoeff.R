@@ -25,12 +25,6 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 #includes subroutine that separates evaporable water as P vs. Irr sourced
 #all these tasks only done once per run where run is initialzing model and then looping through all rows in model.scaffold and pasting results from all
 #ID crop codes
-alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
-grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
-almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
-walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
-pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
-
 #E=evaporation
 #T=transpiration
 #ET=evapotranspriation
@@ -42,15 +36,20 @@ pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachio
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-cropname <- 'almond.mature'
-cropcode <- almond_code
-AD.percentage <- 50
-root_depth <- '2.0m'
-irr.type <- 'Microspray, orchards'
-results_file <- 'new'
-row_start <- 1
-RDI.min <- NA
+# cropname <- 'almond.mature'
+# cropcode <- almond_code
+# AD.percentage <- 50
+# root_depth <- '2.0m'
+# irr.type <- 'Microspray, orchards'
+# results_file <- 'new'
+# row_start <- 1
+# RDI.min <- NA
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min) {
+  alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
+  grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+  almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+  walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+  pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
   CropParametersDefine <- function(crop.parameters) {
     bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
     crop.parameters$Jdev <- as.integer(format.Date(bloom.date, '%j'))
@@ -550,32 +549,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   }
 }
 #run the function for each modelled scenario
-FAO56DualCropCalc('almond.mature', almond_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
-FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=40001)
-FAO56DualCropCalc('almond.mature', almond_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('almond.mature', almond_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df)
-FAO56DualCropCalc('almond.mature', almond_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('almond.mature', almond_code, 30, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('almond.mature', almond_code, 80, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('almond.mature', almond_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 50, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 30, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '4.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-FAO56DualCropCalc('walnut.mature', walnut_code, 80, '1.5m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-
-#single call to function for table grapes for debugging
-FAO56DualCropCalc('grapes.table', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file=paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row_start=76890)
-FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1) #started at 8:59 PM 8.18.17
 
 #single call to revised function for wine grapes
 FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = 0.25)
@@ -626,6 +599,17 @@ stopCluster(cl)
 #cluster run 8/24/17 for wine grapes with Ks defined by 50% AD and RDI.min set
 #at 0.2, 0.5, 0.8, equivalent to an allowed soil moisture depletion of 90%, 75%, 
 #and 60% of plant available water
+library(foreach)
+library(doSNOW)
+cl <- makeCluster(7, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
+registerDoSNOW(cl)
+foreach(i=1:12) %dopar% {
+  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
+  RDI.min <- c(0.2, 0.2, 0.2, 0.2, 0.5, 0.5, 0.5, 0.5, 0.8, 0.8, 0.8, 0.8)
+  FAO56DualCropCalc(cropname = 'grapes.wine', cropcode = grape_code, AD.percentage = 50, root_depth = root_depth[i], irr.type = 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = RDI.min[i])
+}
+stopCluster(cl)
 
 #parallel execution
 library(parallel)
@@ -728,41 +712,3 @@ plot(fc, type='l')
 plot(fewp, type='l')
 plot(fewp + fewi, type='l')
 
-#temp version of IrCalc
-DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv, RDI.min, loop=3) {
-  df <- data.frame(cbind(Kcb.adjusted, ETo, P, doys.model, years))
-  df <- df[which(df$doys.model >= Jmid & df$doys.model <= Jharv), ]
-  if (cropname=='grapes.wine') {
-    no.irr.days <- 30
-    for (i in 1:loop) {
-      print(no.irr.days)
-      df$ETcb <- df$Kcb.adjusted * df$ETo
-      print(df$ETcb)
-      df$ETcb[1:(nrow(df) - no.irr.days)] <- df$ETcb[1:(nrow(df) - no.irr.days)]*(1+RDI.min)/2
-      print(df$ETcb)
-      daily.ETcb <- tapply(df$ETcb, df$doys.model, mean)
-      daily.P <- tapply(df$P, df$doys.model, mean)
-      daily.WB <- daily.ETcb - daily.P
-      for (i in 1:length(daily.WB)) {
-        if (sum(daily.WB) < AD) {
-          no.irr.days <- Jharv - as.integer(names(daily.WB[1]))
-        } else {
-          daily.WB <- daily.WB[-1]
-        }
-      }
-    }
-    return(no.irr.days)
-  } else {
-    df$ETcb <- df$Kcb.adjusted * df$ETo
-    daily.ETcb <- tapply(df$ETcb, df$doys.model, mean)
-    daily.P <- tapply(df$P, df$doys.model, mean)
-    daily.WB <- daily.ETcb - daily.P
-    for (i in 1:length(daily.WB)) {
-      if (sum(daily.WB) < AD) {
-        return(Jharv - as.integer(names(daily.WB[1])))
-      } else {
-        daily.WB <- daily.WB[-1]
-      }
-    }
-  }
-}
