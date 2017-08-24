@@ -1,3 +1,6 @@
+#TO-DO:
+  #1. Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
+  
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
@@ -550,6 +553,10 @@ FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameter
 
 #single call to revised function for wine grapes
 FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = 0.25)
+
+#unit test of revised function 8/23-24
+FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA)
+FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA)
 
 #parallel execution with foreach
 #this was a pain to figure out
