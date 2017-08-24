@@ -6,7 +6,7 @@
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017' #location of input data
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/trialJul_2017'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Aug2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
@@ -42,14 +42,14 @@ pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachio
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-# cropname <- 'grapes.wine'
-# cropcode <- grape_code
-# AD.percentage <- 50
-# root_depth <- '2.0m'
-# irr.type <- 'Drip'
-# results_file <- 'new'
-# row_start <- 1
-# RDI.min <- 0.25
+cropname <- 'almond.mature'
+cropcode <- almond_code
+AD.percentage <- 50
+root_depth <- '2.0m'
+irr.type <- 'Microspray, orchards'
+results_file <- 'new'
+row_start <- 1
+RDI.min <- NA
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min) {
   CropParametersDefine <- function(crop.parameters) {
     bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
@@ -224,8 +224,16 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #results function to summarize each model's results
   #find time to first and last irrigation
   IrDateCalc <- function(df) { #as.Date('1900-01-01) is a proxy for NA
-    first.irr.index <- head(which(df$Ir > 0), 1) #& df$dates < as.Date(paste0(as.character(df$years[1]), '-09-01')))
-    last.irr.index <- if(df$doys.model[nrow(df)] > Jharv - days.no.irr){tail(which(df$Ir > 0), 1)}else{vector()}
+    first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
+      head(which(df$Ir > 0), 1)} else {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
+          which(df$Ir > 0)} else {vector()}
+      }
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+      tail(which(df$Ir > 0), 1)} else {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+          which(df$Ir > 0)} else {vector()}
+      }
     if (length(first.irr.index) == 0 & length(last.irr.index) == 0) {
       data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'))
     }
@@ -243,22 +251,25 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #calculate Green Water utilized
   #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  However a correction is applied to the growing season ET for residual irrigation water storage to correctly estimate green water utilization within the same year.
   WaterBalanceCalc <- function(df) { #concept is to run by year on a data.frame trimmed to Jdev-Jharv each year
-    first_irr_index <- which(df$Ir>0)[1]
-    last_irr_index <- which(df$Ir > 0)[length(which(df$Ir>0))]
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+      tail(which(df$Ir > 0), 1)} else {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+          which(df$Ir > 0)} else {vector()}
+      }
     jharv_index <- which(df$doys.model==Jharv)
     jdev_index <- which(df$doys.model==Jdev)
     if (df$doys.model[1] > Jdev | df$doys.model[nrow(df)] < Jharv) { #if there is not a complete growing season, don't report any data
       if (length(jharv_index)==0) { #data begins after leaf-drop or ends before leaf-drop; either way, can't get entire season or end season data
         data.frame(RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Irr.end.storage = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
       }
-      else if (length(last_irr_index)==0) { #implies no data when last irrigation occurred but there is data at Jharv; thus can get end of season storage data
+      else if (length(last.irr.index)==0) { #implies no data when last irrigation occurred but there is data at Jharv; thus can get end of season storage data
         data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Irr.end.storage = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
       } else { #implies data exists from at least when last irrigation occurred to Jharv, so can get everything but entire growing season data
-        data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last_irr_index:jharv_index]), Irr.end.storage = max(AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index]), 0), GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = df$Ir[last_irr_index], ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
+        data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Irr.end.storage = max(AD - df$Dr.end[jharv_index] - sum(df$P[last.irr.index:jharv_index]), 0), GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = df$Ir[last.irr.index], ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
       }
     } else {
-      irr_storage <- max(AD - df$Dr.end[jharv_index] - sum(df$P[last_irr_index:jharv_index]), 0)
-      data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last_irr_index:jharv_index]), Irr.end.storage = irr_storage, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_storage, Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last_irr_index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), H2O.stress=sum(df$ETc.ns - df$ETc.act))
+      irr_storage <- max(AD - df$Dr.end[jharv_index] - sum(df$P[last.irr.index:jharv_index]), 0)
+      data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Irr.end.storage = irr_storage, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_storage, Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last.irr.index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), H2O.stress=sum(df$ETc.ns - df$ETc.act))
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
@@ -267,13 +278,17 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   
   GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
     #df <- model.result[model.result$years==2017,]
-    first_irr_index <- which(df$Ir > 0)[1]
+    first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
+      head(which(df$Ir > 0), 1)} else {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
+          which(df$Ir > 0)} else {vector()}
+      }
     jdev_index <- which(df$doys.model==Jdev)
     #print(df$years[1])
-    if (df$doys.model[1] > Jdev | is.na(first_irr_index)) {
+    if (df$doys.model[1] > Jdev | length(first.irr.index)==0) {
       data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA)
     } else {
-      data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first_irr_index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first_irr_index] + df$Ep[jdev_index:first_irr_index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first_irr_index] * df$Ks[jdev_index:first_irr_index] * df$ETo[jdev_index:first_irr_index]))
+      data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first.irr.index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first.irr.index] + df$Ep[jdev_index:first.irr.index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first.irr.index] * df$Ks[jdev_index:first.irr.index] * df$ETo[jdev_index:first.irr.index]))
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc))
@@ -282,8 +297,16 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
     #df <- model.result[which(model.result$years==2003), ] 
     jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-01-01')))
-    first.irr.index <- head(which(df$Ir > 0), 1) #& df$dates < as.Date(paste0(as.character(df$years[1]), '-09-01')))
-    last.irr.index <- tail(which(df$Ir > 0), 1) #& df$dates > as.Date(paste0(as.character(df$years[1]), '-07-01')))
+    first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
+      head(which(df$Ir > 0), 1)} else {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
+          which(df$Ir > 0)} else {vector()}
+      }
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+      tail(which(df$Ir > 0), 1)} else {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+          which(df$Ir > 0)} else {vector()}
+      }
     jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01')))
     dec.31.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-12-31')))
     #print(df$years[1])
@@ -319,7 +342,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
     }
   }
-  #do.call(rbind, lapply(split(result, result$water.year), GreenWaterCaptureCalc))
+  #do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc))
   if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
     doys.model <- U2.df$DOY
     dates <- as.Date(U2.df$dates, format='%m_%d_%Y')
@@ -337,7 +360,10 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   last.date <- ETo.df$dates[nrow(ETo.df)]
   P.df <- P.df[1:which(P.df$dates==last.date), ]
   cropname.dir <-  paste0(cropname, '_majcomps')
-  scenario.name <- paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD') #need to add irr.type here
+  scenario.name <- if (cropname == 'grapes.wine') {
+    paste0(cropname.dir, '/scenario_', root_depth, as.character(RDI.min), 'RDI.min')} else {
+        paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
+      } #need to add irr.type here
   paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
   if (!dir.exists(file.path(resultsDir, cropname.dir))) {
     dir.create(file.path(resultsDir, cropname.dir))
@@ -387,7 +413,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   for (n in row_start:nrow(model.scaffold.crop)) {#1:nrow(model.scaffold.crop))
-    #n <- 174
+    #n <- 25
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
@@ -596,6 +622,10 @@ foreach(i=1:12) %dopar% {
   FAO56DualCropCalc('pistachios', 204, AD_percentage[i], root_depth[i], 'Microspray, orchards', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
 }
 stopCluster(cl)
+
+#cluster run 8/24/17 for wine grapes with Ks defined by 50% AD and RDI.min set
+#at 0.2, 0.5, 0.8, equivalent to an allowed soil moisture depletion of 90%, 75%, 
+#and 60% of plant available water
 
 #parallel execution
 library(parallel)
