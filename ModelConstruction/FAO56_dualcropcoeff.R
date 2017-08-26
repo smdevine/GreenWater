@@ -44,6 +44,11 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 # results_file <- 'new'
 # row_start <- 1
 # RDI.min <- 0.2
+alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
+grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
@@ -611,7 +616,7 @@ stopCluster(cl)
 #and 60% of plant available water
 library(foreach)
 library(doSNOW)
-cl <- makeCluster(7, type = 'SOCK') #change the number to your desired number of CPU cores  
+cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
 clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
 registerDoSNOW(cl)
 foreach(i=1:12) %dopar% {
