@@ -1,5 +1,6 @@
 #TO-DO:
   #1. Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
+  #2. Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer
   
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
