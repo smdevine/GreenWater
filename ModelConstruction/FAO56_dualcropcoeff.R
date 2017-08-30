@@ -1,6 +1,7 @@
 #TO-DO:
   #1. Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
   #2. Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer
+  #3. Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix
   
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
@@ -620,9 +621,9 @@ library(doSNOW)
 cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
 clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
 registerDoSNOW(cl)
-foreach(i=1:12) %dopar% {
-  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
-  RDI.min <- c(0.2, 0.2, 0.2, 0.2, 0.5, 0.5, 0.5, 0.5, 0.8, 0.8, 0.8, 0.8)
+foreach(i=1:6) %dopar% {
+  root_depth <- c('2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
+  RDI.min <- c(0.5, 0.5, 0.8, 0.8, 0.8, 0.8)
   FAO56DualCropCalc(cropname = 'grapes.wine', cropcode = grape_code, AD.percentage = 50, root_depth = root_depth[i], irr.type = 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = RDI.min[i])
 }
 stopCluster(cl)
