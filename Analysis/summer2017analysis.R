@@ -79,8 +79,8 @@ rasterOptions(progress = 'window')
 raster.model.codes <- rasterize(x=model_points_sp, y=raster.model.codes, field='unique_model_code', fun=function(x,...) {min(x)})
 setwd(file.path(resultsDir, 'rasters/Aug2017'))
 writeRaster(raster.model.codes, 'model.codes.Aug2017.tif', format='GTiff')
-raster.maxGW <- subs(raster.model.codes, max_GW_ET, by=1, which=2)
-subs(x, y, by=1, which=2, subsWithNA=TRUE, filename='', ...)  #this is much, much faster than rasterizing points
+raster.maxGW <- subs(raster.model.codes, max_GW_ET, by=1, which=2) #this is much faster than rasterizing points
+writeRaster(raster.maxGW, 'maxGW.ET.Aug2017runs.tif', format='GTiff')
 
 #merge mean annual GreenWater ET with spatial points data.frame that has the unique_model_codes for all points of interest
 setwd(file.path(resultsDir, 'data.frames/Aug2017'))
