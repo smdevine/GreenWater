@@ -6,6 +6,12 @@ max_modified <- function(x) {
   }
   else {max(x, na.rm = TRUE)}
 }
+min_modified <- function(x) {
+  if(all(is.na(x))) {
+    return(NA)
+  }
+  else {min(x, na.rm = TRUE)}
+}
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
 JulmodelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/July2017'
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results'
@@ -79,6 +85,7 @@ rasterOptions(progress = 'window')
 raster.model.codes <- rasterize(x=model_points_sp, y=raster.model.codes, field='unique_model_code', fun=function(x,...) {min(x)})
 setwd(file.path(resultsDir, 'rasters/Aug2017'))
 writeRaster(raster.model.codes, 'model.codes.Aug2017.tif', format='GTiff')
+raster.model.codes <- raster('model.codes.Aug2017.tif')
 raster.maxGW <- subs(raster.model.codes, max_GW_ET, by=1, which=2)
 subs(x, y, by=1, which=2, subsWithNA=TRUE, filename='', ...)  #this is much, much faster than rasterizing points
 
@@ -97,6 +104,9 @@ model_points_sp <- merge(model_points_sp, allcrops_GW_ET, by='unique_model_code'
 raster_gw_mean2004_2016 <- raster(xmn=(lonmin-15), xmx=(lonmax+15), ymn=(latmin-15), ymx=(latmax+15), resolution=30, crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs') #add or subtract 15 because coordinates are centers of the raster cells from which these were derived
 rasterOptions(progress = 'window')
 raster_gw_mean2004_2016 <- rasterize(x=model_points_sp, y=raster_gw_mean2004_2016, field='meanGW.mm.year', fun=function(x,...) {mean(x)}) #this latter addition to the rasterize function (defining fun is to deal with NAs present in meanGW.mm.year)
+plot(raster_gw_mean2004_2016)
+setwd(file.path(resultsDir, 'rasters/Aug2017'))
+writeRaster(raster_gw_mean2004_2016, 'meanGW.ET.Aug2017runs.tif', format='GTiff')
 
 sum(!is.na(model_points_sp$meanGW.mm.year)) #13204255 cells with data
 sum(!is.na(model_points_sp$meanGW.mm.year))*900/10000 #1,188,383 hectares -or- 2935306 acres with data
@@ -144,6 +154,29 @@ mean(model_points_sp$maxGW.mm.year, na.rm=TRUE) #mean green water ET across almo
 sum(!is.na(model_points_sp$maxGW.mm.year))*900*mean(model_points_sp$maxGW.mm.year, na.rm=TRUE)/(1000*1233.48) #2,465,077 acre-feet for 2,935,306 acres
 #acre-feet of green water
 table(model_points_sp$crop_code[which(is.na(model_points_sp$maxGW.mm.year))])
+
+#now, aggregate min annual green water ET by mukey & model.code
+min_GW_ET <- tapply(allcrops2.0m_AD50$GW.ET.growing, allcrops2.0m_AD50$unique_model_code_final, min_modified)
+min_mukeys <- tapply(allcrops2.0m_AD50$mukey, allcrops2.0m_AD50$unique_model_code_final, unique)
+min_comppct_r <- tapply(allcrops2.0m_AD50$comppct_r, allcrops2.0m_AD50$unique_model_code_final, unique)
+min_modelcode <- tapply(allcrops2.0m_AD50$unique_model_code, allcrops2.0m_AD50$unique_model_code_final, unique)
+min_results <- cbind(min_GW_ET, min_mukeys, min_comppct_r, min_modelcode)
+min_results <- as.data.frame(min_results)
+min_compsums <- as.data.frame(tapply(min_results$min_comppct_r[!is.na(min_results$min_GW_ET)], min_results$min_modelcode[!is.na(min_results$min_GW_ET)], sum))
+colnames(min_compsums) <- 'compsums'
+min_compsums$min_modelcode <- rownames(min_compsums)
+min_results <- merge(min_results, min_compsums, by='min_modelcode')
+min_GW_ET <- tapply(min_results$min_GW_ET*(min_results$min_comppct_r/min_results$compsums), min_results$min_modelcode, sum, na.rm=TRUE)
+length(unique(min_results$min_modelcode)) #193820 results
+min_GW_ET <- as.data.frame(min_GW_ET)
+colnames(min_GW_ET) <- 'minGW.mm.year'
+min_GW_ET$unique_model_code <- rownames(min_GW_ET)
+min_GW_ET$minGW.mm.year <- as.numeric(min_GW_ET$minGW.mm.year)
+dim(min_GW_ET) #193,820  model codes with data
+min_GW_ET <- min_GW_ET[,c(2,1)]
+raster.minGW <- subs(raster.model.codes, min_GW_ET, by=1, which=2)
+setwd(file.path(resultsDir, 'rasters/Aug2017'))
+writeRaster(raster.minGW, 'minGW.ET.Aug2017runs.tif', format='GTiff')
 
 #convert unique model codes in July results to August codes
 setwd(modelscaffoldDir)
