@@ -315,6 +315,31 @@ IndexTableBuild("z2.0m_cmH2O_modified_comp", 'paw.cmH2O.Aug2017runs.tif', unique
 IndexTableBuild("TEW", 'TEW.surface.Aug2017runs.tif', unique)
 IndexTableBuild("Dr.end.season", 'Dr.end.season.Aug2017runs.tif', mean, na.rm=TRUE)
 
+##version 2 of function
+IndexTableBuild <- function(varname, rasterfname, func, ...) {
+  var.by.year <- tapply(allcrops2.0m_AD50[[varname]], allcrops2.0m_AD50$unique_model_code_final, func, ...)
+  mukeys <- tapply(allcrops2.0m_AD50$mukey, allcrops2.0m_AD50$unique_model_code_final, unique)
+  comppct_r <- tapply(allcrops2.0m_AD50$comppct_r, allcrops2.0m_AD50$unique_model_code_final, unique)
+  modelcode <- tapply(allcrops2.0m_AD50$unique_model_code, allcrops2.0m_AD50$unique_model_code_final, unique)
+  results <- cbind(var.by.year, mukeys, comppct_r, modelcode)
+  results <- as.data.frame(results)
+  compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$var.by.year)], results$modelcode[!is.na(results$var.by.year)], sum))
+  colnames(compsums) <- 'compsums'
+  compsums$modelcode <- rownames(compsums)
+  results <- merge(results, compsums, by='modelcode')
+  var.final <- tapply(results$var.by.year*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
+  var.final <- as.data.frame(var.final)
+  colnames(var.final) <- 'var.final'
+  var.final$unique_model_code <- rownames(var.final)
+  var.final$var.final <- as.numeric(var.final$var.final)
+  var.final <- var.final[,c(2,1)]
+  raster.result <- raster.model.codes
+  raster.result[cell_numbers_of_interest$cell_numbers_of_interest] <- var.final$var.final[match(cell_numbers_of_interest$unique_model_codes, var.final$unique_model_code)]
+  setwd(file.path(resultsDir, 'rasters/Aug2017'))
+  rasterOptions(progress = 'window')
+  writeRaster(raster.result, rasterfname, format='GTiff')
+}
+system.time(IndexTableBuild("GW.E.to.Irr1", 'GW.E.to.Irr1.Aug2017runs.tif', mean, na.rm=TRUE)) #this is 7.7 times faster than the first version of the function (513 seconds)
 ##data exploration
 mean(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
 hist(model.scaffold.results$GW.ET.growing)
