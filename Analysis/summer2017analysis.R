@@ -96,6 +96,7 @@ cellnums_to_modelcode <- cbind(cell_numbers_of_interest, unique_model_codes)
 length(cellnums_to_modelcode)
 setwd('C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017')
 write.csv(cellnums_to_modelcode, 'cellnumbers_to_modelcodes.csv', row.names = FALSE)
+cell_numbers_of_interest <- read.csv('cellnumbers_to_modelcodes.csv', stringsAsFactors = FALSE)
 # or like this (and this also returns the cell values ( p[, 3] ): 
 p <- rasterToPoints(ras, fun=function(x){x>50}) 
 cellFromXY(ras, p[,1:2])
