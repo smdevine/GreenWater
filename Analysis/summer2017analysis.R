@@ -174,9 +174,42 @@ min_GW_ET$unique_model_code <- rownames(min_GW_ET)
 min_GW_ET$minGW.mm.year <- as.numeric(min_GW_ET$minGW.mm.year)
 dim(min_GW_ET) #193,820  model codes with data
 min_GW_ET <- min_GW_ET[,c(2,1)]
-raster.minGW <- subs(raster.model.codes, min_GW_ET, by=1, which=2)
+raster.minGW <- subs(raster.model.codes, min_GW_ET, by=1, which=2) 
 setwd(file.path(resultsDir, 'rasters/Aug2017'))
 writeRaster(raster.minGW, 'minGW.ET.Aug2017runs.tif', format='GTiff')
+
+#now, aggregate mean date to 1st irrigation for green water ET by mukey & model.code
+allcrops2.0m_AD50$Irr.1[which(allcrops2.0m_AD50$Irr.1=='1900-01-01')] <- NA
+test <- allcrops2.0m_AD50$Irr.1
+test <- as.integer(test) #this coerces text to NA
+date_integer_indices <- which(!is.na(test))
+allcrops2.0m_AD50$Irr.1[date_integer_indices] <- as.character(as.Date(as.integer(allcrops2.0m_AD50$Irr.1[date_integer_indices]), origin='1970-01-01'))
+allcrops2.0m_AD50$Irr.1[which(allcrops2.0m_AD50$Irr.1=='1900-01-01')] <- NA
+allcrops2.0m_AD50$Irr.1 <- as.Date(allcrops2.0m_AD50$Irr.1, format='%Y-%m-%d')
+class(allcrops2.0m_AD50$Irr.1)
+allcrops2.0m_AD50$Irr.1.doy <- as.integer(format.Date(allcrops2.0m_AD50$Irr.1, '%j'))
+first.irr.mean <- tapply(allcrops2.0m_AD50$Irr.1.doy, allcrops2.0m_AD50$unique_model_code_final, mean, na.rm=TRUE)
+mukeys <- tapply(allcrops2.0m_AD50$mukey, allcrops2.0m_AD50$unique_model_code_final, unique)
+comppct_r <- tapply(allcrops2.0m_AD50$comppct_r, allcrops2.0m_AD50$unique_model_code_final, unique)
+modelcode <- tapply(allcrops2.0m_AD50$unique_model_code, allcrops2.0m_AD50$unique_model_code_final, unique)
+results <- cbind(first.irr.mean, mukeys, comppct_r, modelcode)
+results <- as.data.frame(results)
+compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$first.irr.mean)], results$modelcode[!is.na(results$first.irr.mean)], sum))
+colnames(compsums) <- 'compsums'
+compsums$modelcode <- rownames(compsums)
+results <- merge(results, compsums, by='modelcode')
+first.irr.mean <- tapply(results$first.irr.mean*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
+length(unique(results$modelcode)) #193820 results
+first.irr.mean <- as.data.frame(first.irr.mean)
+colnames(first.irr.mean) <- 'irr1.doy'
+first.irr.mean$unique_model_code <- rownames(first.irr.mean)
+first.irr.mean$irr1.doy <- as.integer(first.irr.mean$irr1.doy)
+dim(first.irr.mean) #193,820  model codes with data
+first.irr.mean <- first.irr.mean[,c(2,1)]
+system.time(raster.irr1.meandoy <- subs(raster.model.codes, first.irr.mean, by=1, which=2, filename='irr1.meandoy.Aug2017runs.tif', format='GTiff'))
+setwd(file.path(resultsDir, 'rasters/Aug2017'))
+writeRaster(raster.irr1.meandoy, 'irr1.meandoy.Aug2017runs.tif', format='GTiff') #this took 65 minutes
+cellStats(raster.irr1.meandoy, stat='mean', na.rm=TRUE) #mean is DOY 122
 
 #convert unique model codes in July results to August codes
 setwd(modelscaffoldDir)
@@ -239,6 +272,29 @@ lonmax <- xmax(model_points_sp)
 lonmin <- xmin(model_points_sp)
 raster_mukeys <- raster(xmn=(lonmin-15), xmx=(lonmax+15), ymn=(latmin-15), ymx=(latmax+15), resolution=30, crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs') #add or subtract 15 because coordinates are centers of the raster cells from which these were derived
 raster_mukeys <- rasterize(x=model_points_sp, y=raster_mukeys, field='mukey') #appears to be working but will take 2-3 hours
+
+## development of function to build an index table for the variable of interest based on the unique model code of each raster cell of interest as a key
+IndexTableBuild <- function(varname, rasterfname, func, ...) {
+  var.by.year <- tapply(allcrops2.0m_AD50$varname, allcrops2.0m_AD50$unique_model_code_final, func, ...)
+  mukeys <- tapply(allcrops2.0m_AD50$mukey, allcrops2.0m_AD50$unique_model_code_final, unique)
+  comppct_r <- tapply(allcrops2.0m_AD50$comppct_r, allcrops2.0m_AD50$unique_model_code_final, unique)
+  modelcode <- tapply(allcrops2.0m_AD50$unique_model_code, allcrops2.0m_AD50$unique_model_code_final, unique)
+  results <- cbind(var.by.year, mukeys, comppct_r, modelcode)
+  results <- as.data.frame(results)
+  compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$var.by.year)], results$modelcode[!is.na(results$var.by.year)], sum))
+  colnames(compsums) <- 'compsums'
+  compsums$modelcode <- rownames(compsums)
+  results <- merge(results, compsums, by='modelcode')
+  var.final <- tapply(results$var.by.year*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
+  var.final <- as.data.frame(var.final)
+  colnames(var.final) <- 'var.final'
+  var.final$unique_model_code <- rownames(var.final)
+  var.final$var.final <- as.numeric(var.final$var.final)
+  var.final <- var.final[,c(2,1)]
+  setwd(file.path(resultsDir, 'rasters/Aug2017'))
+  rasterOptions(progress = 'window')
+  subs(raster.model.codes, var.final, by=1, which=2, filename=rasterfname, format='GTiff')
+}
 
 
 ##data exploration
