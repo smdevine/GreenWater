@@ -89,6 +89,17 @@ raster.model.codes <- raster('model.codes.Aug2017.tif')
 raster.maxGW <- subs(raster.model.codes, max_GW_ET, by=1, which=2) #this is much faster than rasterizing points
 writeRaster(raster.maxGW, 'maxGW.ET.Aug2017runs.tif', format='GTiff')
 
+#get cell numbers of interest to see if this works faster
+cell_numbers_of_interest <- Which(!is.na(raster.model.codes), cells = TRUE)
+unique_model_codes <- raster.model.codes[cell_numbers_of_interest]
+cellnums_to_modelcode <- cbind(cell_numbers_of_interest, unique_model_codes)
+length(cellnums_to_modelcode)
+setwd('C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017')
+write.csv(cellnums_to_modelcode, 'cellnumbers_to_modelcodes.csv', row.names = FALSE)
+# or like this (and this also returns the cell values ( p[, 3] ): 
+p <- rasterToPoints(ras, fun=function(x){x>50}) 
+cellFromXY(ras, p[,1:2])
+
 #merge mean annual GreenWater ET with spatial points data.frame that has the unique_model_codes for all points of interest
 setwd(file.path(resultsDir, 'data.frames/Aug2017'))
 model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
@@ -141,8 +152,6 @@ max_GW_ET <- max_GW_ET[,c(2,1)]
 #merge max GW ET ('allcrops_GW_ET' above) with spatial points data.frame (read-in above)
 model_points_sp$maxGW.mm.year <- NA
 model_points_sp$maxGW.mm.year <- max_GW_ET$maxGW.mm.year[match(model_points_sp$unique_model_code, max_GW_ET$unique_model_code)]
-#model_points_sp <- merge(model_points_sp, max_GW_ET, by='unique_model_code')
-#test$meanGW.mm.year <- as.numeric(test$meanGW.mm.year)
 raster_gw_max2004_2016 <- raster(xmn=(lonmin-15), xmx=(lonmax+15), ymn=(latmin-15), ymx=(latmax+15), resolution=30, crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs') #add or subtract 15 because coordinates are centers of the raster cells from which these were derived
 rasterOptions(progress = 'window')
 raster_gw_max2004_2016 <- rasterize(x=model_points_sp, y=raster_gw_max2004_2016, field='maxGW.mm.year', fun=function(x,...) {mean(x)}) #this latter addition to the rasterize function (defining fun is to deal with NAs present in maxGW.mm.year)
@@ -275,7 +284,7 @@ raster_mukeys <- rasterize(x=model_points_sp, y=raster_mukeys, field='mukey') #a
 
 ## development of function to build an index table for the variable of interest based on the unique model code of each raster cell of interest as a key
 IndexTableBuild <- function(varname, rasterfname, func, ...) {
-  var.by.year <- tapply(allcrops2.0m_AD50$varname, allcrops2.0m_AD50$unique_model_code_final, func, ...)
+  var.by.year <- tapply(allcrops2.0m_AD50[[varname]], allcrops2.0m_AD50$unique_model_code_final, func, ...)
   mukeys <- tapply(allcrops2.0m_AD50$mukey, allcrops2.0m_AD50$unique_model_code_final, unique)
   comppct_r <- tapply(allcrops2.0m_AD50$comppct_r, allcrops2.0m_AD50$unique_model_code_final, unique)
   modelcode <- tapply(allcrops2.0m_AD50$unique_model_code, allcrops2.0m_AD50$unique_model_code_final, unique)
@@ -295,7 +304,15 @@ IndexTableBuild <- function(varname, rasterfname, func, ...) {
   rasterOptions(progress = 'window')
   subs(raster.model.codes, var.final, by=1, which=2, filename=rasterfname, format='GTiff')
 }
-
+colnames(allcrops2.0m_AD50)
+system.time(IndexTableBuild("ET.growing", 'ET.growing.Aug2017runs.tif', mean, na.rm=TRUE))
+IndexTableBuild("Irr.app.total", 'Irr.app.total.Aug2017runs.tif', mean, na.rm=TRUE)
+IndexTableBuild("E.growing", 'E.growing.Aug2017runs.tif', mean, na.rm=TRUE)
+IndexTableBuild("GW.capture.net", 'GW.capture.net.Aug2017runs.tif', mean, na.rm=TRUE)
+IndexTableBuild("deep.perc.annual", 'deep.perc.annual.Aug2017runs.tif', mean, na.rm=TRUE)
+IndexTableBuild("z2.0m_cmH2O_modified_comp", 'paw.cmH2O.Aug2017runs.tif', unique)
+IndexTableBuild("TEW", 'TEW.surface.Aug2017runs.tif', unique)
+IndexTableBuild("Dr.end.season", 'Dr.end.season.Aug2017runs.tif', mean, na.rm=TRUE)
 
 ##data exploration
 mean(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
