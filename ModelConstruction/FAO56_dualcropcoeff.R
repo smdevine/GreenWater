@@ -1,14 +1,20 @@
 #TO-DO:
   #1. Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
-  #2. Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer
-  #3. Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix
-  #4. Include additional irrigation scenarios for each crop (drip, microspray, and flood)
-  
+  #2. Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer [DONE].  
+  #3. Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix [DONE]
+  #5. Modify winter Kcb calculation for alfalfa: allow for fall growth in intermountain region before frost termination; allow for higher peak values in Fall then decline to 0.8 before rising again in Feb [DONE]
+  #6. Modify Fc equation for alfalfa, so that it is directly based off of Kcb values [DONE]
+  #7. Allow for winter residual "mulch" in intermountain alfalfa production (for every 10% effective surface coverage results in 5% reduction in TEW)
+  #8. Modify irrigation decision so that irrigations can't occur before 2/?? in Central Valley, even with drought stress but ensure this doesn't adversely affect results calculations that depend on definitions of Jdev [DONE]
+  #9. Add alfalfa zone to model scaffold [DONE]
+
+#modified KeiCalc and KepCalc on 9/11/17 to correct for overestimation of evaporation from sandy soils with very low TEW (i.e. <12 mm)
+#changed order of DPei and DPep on 9/11/17  
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017' #location of input data
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017' #location of input data
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Aug2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
@@ -23,6 +29,9 @@ model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 model.scaffold$longitude_AEA <- NULL
 model.scaffold$latitude_AEA <- NULL
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+
+#temp arg for model.scaffold alfalfa work
+
 
 #define functions implement FA56 dual crop coefficients
 #includes subroutine that separates evaporable water as P vs. Irr sourced
@@ -39,36 +48,85 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-# cropname <- 'grapes.wine'
-# cropcode <- grape_code
-# AD.percentage <- 50
-# root_depth <- '4.0m'
-# irr.type <- 'Drip'
-# results_file <- 'new'
-# row_start <- 1
-# RDI.min <- 0.2
-alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
+cropname <- 'alfalfa.intermountain'
+cropcode <- alfalfa_code
+AD.percentage <- 50
+root_depth <- '2.0m'
+irr.type <- 'Border'
+results_file <- 'new'
+row_start <- 1
+RDI.min <- NA
+alfalfa.zone <- 'Intermountain'
+alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
 grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
 walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
-FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min) {
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
   almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
   walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
   pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
-  CropParametersDefine <- function(crop.parameters) {
+  CropParametersDefine <- function(crop.parameters, cropname) {
+    crop.parameters <- crop.parameters[which(crop.parameters$crop==cropname), ]  
     bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
-    crop.parameters$Jdev <- as.integer(format.Date(bloom.date, '%j'))
-    crop.parameters$Jmid <- crop.parameters$Jdev + crop.parameters$Ldev
-    crop.parameters$Jlate <- crop.parameters$Jmid + crop.parameters$Lmid
-    crop.parameters$Jharv <- crop.parameters$Jlate + crop.parameters$Llate
-    return(crop.parameters)
+    if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
+      crop.parameters$Jini <- as.integer(format.Date(bloom.date, '%j')) #this covers the first cutting
+      crop.parameters$Jdev <- crop.parameters$Jini + crop.parameters$Lini
+      crop.parameters$Jmid <- crop.parameters$Jdev + crop.parameters$Ldev
+      crop.parameters$Jlate <- crop.parameters$Jmid + crop.parameters$Lmid
+      crop.parameters$Jharv <- crop.parameters$Jlate + crop.parameters$Llate
+      return(crop.parameters)
+    } else { #these cover the orchard and vine crops
+      crop.parameters$Jdev <- as.integer(format.Date(bloom.date, '%j'))
+      crop.parameters$Jmid <- crop.parameters$Jdev + crop.parameters$Ldev
+      crop.parameters$Jlate <- crop.parameters$Jmid + crop.parameters$Lmid
+      crop.parameters$Jharv <- crop.parameters$Jlate + crop.parameters$Llate
+      return(crop.parameters)
+    }
   }
-  KcbDefine <- function(doy, parameters, crop) { #find standard value of Kcb by day of year relative to three reference Kcb points defined by crop parameters
+  KcbDefine <- function(doy, crop) { #find standard value of Kcb by day of year relative to three reference Kcb points defined by crop parameters
     parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
-    ifelse(doy < parameters[['Jdev']], parameters[['Kcb.dorm']], ifelse(doy < parameters[['Jmid']], parameters[['Kcb.ini']] + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb.mid']] + (doy - parameters[['Jlate']]) / parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), parameters[['Kcb.dorm']]))))
+    if (crop=='alfalfa.intermountain' | crop=='alfalfa.CV' | crop=='alfalfa.imperial') {
+      cycle.1.length <- sum(parameters[['Lini']], parameters[['Ldev']], parameters[['Lmid']], parameters[['Llate']])
+      alfalfa.Kcb.cycle1 <- function(Kcb.winter, final.else) {
+        if (crop=='alfalfa.intermountain') {
+          ifelse(doy < parameters[['Jdev']], Kcb.winter, ifelse(doy < parameters[['Jmid']], Kcb.winter + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - Kcb.winter), ifelse(doy < parameters[['Jlate']] , parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb.mid']] + (doy - parameters[['Jlate']])/ parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), final.else))))
+        }
+        else if (crop=='alfalfa.CV') {
+          ifelse(doy < parameters[['Jini']], Kcb.winter, ifelse(doy < parameters[['Jdev']] , Kcb.winter, ifelse(doy < parameters[['Jmid']], Kcb.winter + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - Kcb.winter), ifelse(doy < parameters[['Jlate']] , parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb.mid']] + (doy - parameters[['Jlate']])/ parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), final.else)))))
+        } else { #then covers Imperial valley production just before and after Jan cutting
+            ifelse(doy < parameters[['Jini']] - parameters[['Llate']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jini']], parameters[['Kcb.mid']] + (doy - parameters[['Jini']] + parameters[['Llate']])/ parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), ifelse(doy < parameters[['Jdev']] , parameters[['Kcb.ini']], ifelse(doy < parameters[['Jmid']], parameters[['Kcb.ini']] + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb.mid']] + (doy - parameters[['Jlate']])/ parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), final.else))))))
+        }
+      }
+      alfalfa.Kcb.cycles <- function(cycle.no, cycle.length, final.else) {
+        ifelse(doy < parameters[['Jini']] + cycle.1.length + cycle.length*(cycle.no - 2) + parameters[['Lini.cycle']], parameters[['Kcb.ini']], ifelse(doy < parameters[['Jini']] + cycle.1.length + cycle.length*(cycle.no - 2) + parameters[['Lini.cycle']] + parameters[['Ldev.cycle']], parameters[['Kcb.ini']] + (doy - parameters[['Jini']] - cycle.1.length - cycle.length*(cycle.no - 2) - parameters[['Lini.cycle']]) / parameters[['Ldev.cycle']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jini']] + cycle.1.length + cycle.length*(cycle.no - 2) + parameters[['Lini.cycle']] + parameters[['Ldev.cycle']] + parameters[['Lmid.cycle']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jini']] + cycle.1.length + cycle.length*(cycle.no - 2) + parameters[['Lini.cycle']] + parameters[['Ldev.cycle']] + parameters[['Lmid.cycle']] + parameters[['Llate.cycle']], parameters[['Kcb.mid']] + (doy - parameters[['Jini']] - cycle.1.length - cycle.length*(cycle.no - 2) - parameters[['Lini.cycle']] - parameters[['Ldev.cycle']] - parameters[['Lmid.cycle']]) / parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), final.else))))
+      }
+      CV.alfalfa.last <- function(final.else) {
+        ifelse(doy < parameters[['Jini']] + cycle.1.length + parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) + parameters[['Lini']], parameters[['Kcb.ini']], ifelse(doy < parameters[['Jini']] + cycle.1.length + parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) + parameters[['Lini']] + parameters[['Ldev']], parameters[['Kcb.ini']] + (doy - parameters[['Jini']] - cycle.1.length - parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) - parameters[['Lini']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jini']] + cycle.1.length + parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jini']] + cycle.1.length + parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']] + parameters[['Llate']], parameters[['Kcb.mid']] + (doy - parameters[['Jini']] - cycle.1.length - parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) - parameters[['Lini']] - parameters[['Ldev']] - parameters[['Lmid']]) / parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), final.else))))
+      }
+      winter.Kcb.alfalfa <- function(cycle.no=1, final.else=NA) { #could add dormancy reduction factor here
+        if (crop=='alfalfa.CV') {
+          ifelse(doy < parameters[['Jharv']] + cycle.1.length + (parameters[['cycle.no']] - 2) * parameters[['cycle.length']] + parameters[['Lini']], parameters[['Kcb.ini']], ifelse(doy < parameters[['Jharv']] + cycle.1.length + (parameters[['cycle.no']] - 2) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']], parameters[['Kcb.ini']] + (doy - parameters[['Jharv']] - cycle.1.length - (parameters[['cycle.no']] - 2) * parameters[['cycle.length']] - parameters[['Lini']]) / parameters[['Ldev']] * (parameters[['Kcb.winter']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jharv']] + cycle.1.length + (parameters[['cycle.no']] - 2) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']] + cycle.1.length + (parameters[['cycle.no']] - 2) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']] + parameters[['Llate']] + parameters[['Llate']], parameters[['Kcb.mid']] + (doy - parameters[['Jharv']] - cycle.1.length - parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) - parameters[['Lini']] - parameters[['Ldev']] - parameters[['Lmid']]) / (parameters[['Llate']] + parameters[['Llate']]) * (parameters[['Kcb.winter']] - parameters[['Kcb.mid']]), parameters[['Kcb.winter']]))))
+        }
+        else if (crop=='alfalfa.intermountain') {
+          ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] + parameters[['Lini']], parameters[['Kcb.ini']], ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']], parameters[['Kcb.ini']] + (doy - parameters[['Jharv']] - (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] - parameters[['Lini']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']] + parameters[['Lfrost.kill']], parameters[['Kcb.mid']] + (doy - parameters[['Jharv']] - (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] - parameters[['Lini']] - parameters[['Ldev']] - parameters[['Lmid']]) / parameters[['Lfrost.kill']] * (parameters[['Kcb.dorm']] - parameters[['Kcb.mid']]), parameters[['Kcb.dorm']]))))
+        } else { #this covers Imperial Valley
+          ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 3) * parameters[['cycle.length']] + (cycle.no - parameters[['cycle.no']] + 1) * cycle.1.length + parameters[['Lini']], parameters[['Kcb.ini']], ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 3) * parameters[['cycle.length']] + (cycle.no - parameters[['cycle.no']] + 1) * cycle.1.length + parameters[['Lini']] + parameters[['Ldev']], parameters[['Kcb.ini']] + (doy - parameters[['Jharv']] - (parameters[['cycle.no']] - 3) * parameters[['cycle.length']] - (cycle.no - parameters[['cycle.no']] + 1) * cycle.1.length - parameters[['Lini']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 3) * parameters[['cycle.length']] + (cycle.no - parameters[['cycle.no']] + 1) * cycle.1.length + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 3) * parameters[['cycle.length']] + (cycle.no - parameters[['cycle.no']] + 1) * cycle.1.length + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']] + parameters[['Llate']], parameters[['Kcb.mid']] + (doy - parameters[['Jharv']] - (parameters[['cycle.no']] - 3) * parameters[['cycle.length']] - (cycle.no - parameters[['cycle.no']] + 1) * cycle.1.length - parameters[['Lini']] - parameters[['Ldev']] - parameters[['Lmid']]) / parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), final.else))))
+        }
+      }
+      if (crop=='alfalfa.intermountain') {
+        alfalfa.Kcb.cycle1(parameters[['Kcb.dorm']], alfalfa.Kcb.cycles(2, parameters[['cycle.length']], alfalfa.Kcb.cycles(3, parameters[['cycle.length']], winter.Kcb.alfalfa())))
+      }
+      else if (crop=='alfalfa.CV') {
+        alfalfa.Kcb.cycle1(parameters[['Kcb.winter']], alfalfa.Kcb.cycles(2, parameters[['cycle.length']], alfalfa.Kcb.cycles(3, parameters[['cycle.length']], alfalfa.Kcb.cycles(4, parameters[['cycle.length']], alfalfa.Kcb.cycles(5, parameters[['cycle.length']], alfalfa.Kcb.cycles(6, parameters[['cycle.length']], CV.alfalfa.last(winter.Kcb.alfalfa())))))))
+      } else { #crop is alfalfa.imperial
+        alfalfa.Kcb.cycle1(Kcb.winter=NA, alfalfa.Kcb.cycles(2, parameters[['cycle.length']], alfalfa.Kcb.cycles(3, parameters[['cycle.length']], alfalfa.Kcb.cycles(4, parameters[['cycle.length']], alfalfa.Kcb.cycles(5, parameters[['cycle.length']], alfalfa.Kcb.cycles(6, parameters[['cycle.length']], alfalfa.Kcb.cycles(7, parameters[['cycle.length']], alfalfa.Kcb.cycles(8, parameters[['cycle.length']], alfalfa.Kcb.cycles(9, parameters[['cycle.length']], winter.Kcb.alfalfa(cycle.no = 10, final.else = winter.Kcb.alfalfa(cycle.no = 11, final.else=NA)))))))))))
+      }
+    } else {
+        ifelse(doy < parameters[['Jdev']], parameters[['Kcb.dorm']], ifelse(doy < parameters[['Jmid']], parameters[['Kcb.ini']] + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['Kcb.mid']] - parameters[['Kcb.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['Kcb.mid']], ifelse(doy < parameters[['Jharv']], parameters[['Kcb.mid']] + (doy - parameters[['Jlate']]) / parameters[['Llate']] * (parameters[['Kcb.end']] - parameters[['Kcb.mid']]), parameters[['Kcb.dorm']]))))
+    }
   }
   #adjust standard Kcb values by daily climate according to equation #5 in Allen et al. 2005 and calculate Kc max at the same time
   KcbAdj <- function(Kcb.daily, crop.parameters, crop, U2, RHmin){
@@ -81,7 +139,14 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #calculate fraction of cover ('fc') for specific day of year relative to three points defined in crop parameters
   fcCalc <- function(doy, parameters, crop) {
     parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
-    ifelse(doy < parameters[['Jdev']], parameters[['fc.ini']], ifelse(doy < parameters[['Jmid']], parameters[['fc.ini']] + (doy-parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['fc.mid']] - parameters[['fc.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['fc.mid']], ifelse(doy < parameters[['Jharv']], parameters[['fc.mid']] + (doy-parameters[['Jlate']]) / parameters[['Llate']] * (parameters[['fc.end']] - parameters[['fc.mid']]), parameters[['fc.ini']]))))
+    if (crop == 'alfalfa.CV' | crop == 'alfalfa.imperial') {
+      Kcb.std/parameters[['Kcb.mid']]
+    }
+    else if (crop == 'alfalfa.intermountain') {
+      ifelse(doy < parameters[['Jdev']], 0, ifelse(doy < parameters[['Jharv']] + (parameters[['cycle.no']] - 1) * parameters[['cycle.length']] + parameters[['Lini']] + parameters[['Ldev']] + parameters[['Lmid']] + parameters[['Lfrost.kill']], Kcb.std/parameters[['Kcb.mid']], 0))
+    } else {
+        ifelse(doy < parameters[['Jdev']], parameters[['fc.ini']], ifelse(doy < parameters[['Jmid']], parameters[['fc.ini']] + (doy - parameters[['Jdev']]) / parameters[['Ldev']] * (parameters[['fc.mid']] - parameters[['fc.ini']]), ifelse(doy < parameters[['Jlate']], parameters[['fc.mid']], ifelse(doy < parameters[['Jharv']], parameters[['fc.mid']] + (doy-parameters[['Jlate']]) / parameters[['Llate']] * (parameters[['fc.end']] - parameters[['fc.mid']]), parameters[['fc.ini']]))))
+    }
   }
   #calculate fraction of soil wetted by both irrigation and precipitation and exposed to rapid drying (fewi) and fraction of soil exposed to rapid drying and is wetted by precipitation only (fewp).  These are dependent upon fraction of cover calculation above
   fwSelect <- function(irr.parameters, irr.type) {
@@ -99,15 +164,15 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     fewp.temp[which(fewp.temp > 1)] <- 1 #upper limit on fewp for numeric stability
     return(fewp.temp)
   }
-  TEWCalc <- function(ThetaFC, ThetaWP, REW, Ze=0.10) { #Ze is depth of upper soil 
-    #layer where evaporation occurs in meters
-    result <- 1000 * (ThetaFC - 0.5 * ThetaWP) * Ze
-    if (result < REW) {
-      stop(print('Hay una problema con TEW')) #could change to next and print or 
-      #save model code
-    } 
-    return(result)
-  }
+  # TEWCalc <- function(ThetaFC, ThetaWP, REW, Ze=0.10) { #Ze is depth of upper soil 
+  #   #layer where evaporation occurs in meters
+  #   result <- 1000 * (ThetaFC - 0.5 * ThetaWP) * Ze
+  #   if (result < REW) {
+  #     stop(print('Hay una problema con TEW')) #could change to next and print or 
+  #     #save model code
+  #   } 
+  #   return(result)
+  # }
   DepInitialCalc <- function(Dep.end, P, i) {
     max(Dep.end[i-1] - P[i], 0) # DON'T RUN THIS IF i=1
   }
@@ -125,11 +190,25 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   WCalc <- function(TEW, Dei.initial, Dep.initial, fewp, fewi, i) {
     1 / (1 + (fewp[i] / fewi[i]) * max(TEW - Dep.initial[i], 0.001) / max((TEW - Dei.initial[i]), 0.001))
   }
-  KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi, i) {
-    min(Kri[i] * W[i] * (Kcmax[i] - Kcb[i]), fewi[i] * Kcmax[i])
+  KeiCalc <- function(Kri, W, Kcmax, Kcb, fewi, TEW, Dei.end, DPei, P, ETo, i) {
+    Kei.est <- min(Kri[i] * W[i] * (Kcmax[i] - Kcb[i]), fewi[i] * Kcmax[i])
+    #print(Kei.est)
+    TEW.check <- max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw + Kei.est * ETo[i] / fewi[i] + DPei[i], 0)
+    #print(TEW.check)
+    if (TEW.check > TEW) {
+      return(fewi[i] * (TEW - Dei.end[i - 1] + P[i] + Ir[i - 1] / fw - DPei[i]) / ETo[i]) #as revised Kep estimate
+    } else {
+      return(Kei.est)
+    }
   }
-  KepCalc <- function(Krp, W, Kcmax, Kcb, fewp, i) {
-    min(Krp[i] * (1 - W[i]) * (Kcmax[i] - Kcb[i]), fewp[i] * Kcmax[i])
+  KepCalc <- function(Krp, W, Kcmax, Kcb, fewp, TEW, Dep.end, DPep, P, ETo, i) {
+    Kep.est <- min(Krp[i] * (1 - W[i]) * (Kcmax[i] - Kcb[i]), fewp[i] * Kcmax[i])
+    TEW.check <- max(Dep.end[i - 1] - P[i] + (Kep.est * ETo[i]) / fewp[i] + DPep[i], 0)
+    if (TEW.check > TEW) {
+      return(fewp[i] * (TEW - Dep.end[i - 1] + P[i] - DPep[i]) / ETo[i]) #as revised Kep estimate
+    } else {
+        return(Kep.est)
+    }
   }
   EpCalc <- function(ETo, Kep, i) {
     ETo[i] * Kep[i]
@@ -141,13 +220,13 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     max(P[i] - Dep.end[i-1], 0)
   }
   DepEndCalc <- function(Dep.end, P, Ep, fewp, DPep, i) { #DON'T RUN THIS FOR i=1
-    Dep.end[i - 1] - P[i] + Ep[i] / fewp[i] + DPep[i]
+    Dep.end.est <- max(Dep.end[i - 1] - P[i] + Ep[i] / fewp[i] + DPep[i], 0)
   } #ignores transpiration and runoff from upper layer
   DPeiCalc <- function(P, Ir, fw, Dei.end, i) { #DON'T RUN THIS FOR i=1
     max(0, P[i] + Ir[i - 1] / fw - Dei.end[i-1])
   }
   DeiEndCalc <- function(Dei.end, P, Ir, fw, fewi, Ei, DPei, i) { #DON'T RUN THIS FOR i=1
-    Dei.end[i - 1] - P[i] - Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i]
+    max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i], 0)
   } #again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
   KcnsCalc <- function(Kcb, Kei, Kep, i) {
     Kcb[i] + Kei[i] + Kep[i]
@@ -159,8 +238,31 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
   }
   #need to refine days.no.irr based on ETo data for a given location
-  DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv) {
-    if (cropname=='grapes.wine') {
+  DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv, buffer.days=30) {
+    if (cropname=='alfalfa.imperial') {
+      return(NA)
+    }
+    else if (cropname == 'alfalfa.CV' | cropname == 'alfalfa.intermountain') {
+      last.irr.possible <- harvest.days[length(harvest.days)] + buffer.days
+      df <- data.frame(cbind(Kcb.adjusted, ETo, P, doys.model, years))
+      df <- df[which(df$doys.model >= 200 & df$doys.model <= last.irr.possible), ]
+      df$ETcb <- df$Kcb.adjusted * df$ETo
+      daily.ETcb <- tapply(df$ETcb, df$doys.model, mean)
+      daily.P <- tapply(df$P, df$doys.model, mean)
+      daily.WB <- daily.ETcb - daily.P
+      for (i in 1:length(daily.WB)) {
+        if (sum(daily.WB) < AD) {
+          last.irr <- as.integer(names(daily.WB[1]))
+          while(last.irr %in% harvest.days) {
+            last.irr <- last.irr + 1
+          }
+          return(last.irr.possible - last.irr)
+        } else {
+            daily.WB <- daily.WB[-1]
+        }
+      }
+    }
+    else if (cropname=='grapes.wine') {
       return(30)
     } else {
       df <- data.frame(cbind(Kcb.adjusted, ETo, P, doys.model, years))
@@ -193,8 +295,41 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       }
     }
   }
-  IrCalc <- function(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i) {
-    if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
+  HarvestDays <- function(crop) { #assume 4 day buffer on either end of each harvest
+    if (crop == 'alfalfa.imperial') {
+      parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
+      harvest.dates <- c(parameters[['Jini']], seq(from=parameters[['Jharv']], to=parameters[['Jharv']] + parameters[['cycle.length']]*(parameters[['cycle.no']]-3), by=parameters[['cycle.length']]), parameters[['Jharv']] + parameters[['cycle.length']]*(parameters[['cycle.no']]-3) + (parameters[['Jharv']] - parameters[['Jini']]))
+      harvest.dates.all <- c(harvest.dates, harvest.dates-1, harvest.dates-2, harvest.dates-3, harvest.dates-4, harvest.dates+1, harvest.dates+2, harvest.dates+3, harvest.dates+4)
+      harvest.dates.all[order(harvest.dates.all)]
+    }
+    else if (crop == 'alfalfa.CV') {
+      parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
+      harvest.dates <- c(seq(from=parameters[['Jharv']], to=parameters[['Jharv']] + parameters[['cycle.length']]*(parameters[['cycle.no']] - 2), by=parameters[['cycle.length']]), parameters[['Jharv']] + parameters[['cycle.length']]*(parameters[['cycle.no']] - 2) + (parameters[['Jharv']] - parameters[['Jini']]))
+      harvest.dates.all <- c(harvest.dates, harvest.dates - 1, harvest.dates - 2, harvest.dates - 3, harvest.dates - 4, harvest.dates + 1, harvest.dates + 2, harvest.dates + 3, harvest.dates + 4)
+      harvest.dates.all[order(harvest.dates.all)]
+    } else { #this is for intermountain alfalfa
+      parameters <- crop.parameters[which(crop.parameters$crop==crop), ]
+      harvest.dates <- seq(from=parameters[['Jharv']], to=parameters[['Jharv']] + (parameters[['cycle.no']] - 1) * parameters[['cycle.length']], by=parameters[['cycle.length']])
+      harvest.dates.all <- c(harvest.dates, harvest.dates - 1, harvest.dates - 2, harvest.dates - 3, harvest.dates - 4, harvest.dates + 1, harvest.dates + 2, harvest.dates + 3, harvest.dates + 4)
+      harvest.dates.all[order(harvest.dates.all)]
+    }
+  }
+  IrCalc <- function(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i, buffer.days=30) {
+    if (cropname == 'alfalfa.imperial') {
+      if (Dr.initial[i] > AD & !(doys.model[i] %in% harvest.days)) {
+        return(Dr.initial[i])
+      } else {
+          return(0)
+        }
+    } else if (cropname == 'alfalfa.CV' | cropname == 'alfalfa.intermountain') {
+        if (doys.model[i] < crop.parameters$Jini[which(crop.parameters$crop==cropname)] | doys.model[i] %in% harvest.days | doys.model[i] > harvest.days[length(harvest.days)] + buffer.days - days.no.irr) {
+          return(0)
+        } else if(Dr.initial[i] > AD | doys.model[i] == harvest.days[length(harvest.days)] + buffer.days - days.no.irr) {
+        return(Dr.initial[i])
+      } else {
+          return(0)
+      }
+    } else if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
       return(0)
     } else if (cropname == 'grapes.wine' & doys.model[i] < Jharv - days.no.irr & Ks[i] < RDI.min) {
       return(Dr.initial[i] - AD)
@@ -204,7 +339,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       return(GrapeLastIrr())
     } else if (doys.model[i] == Jharv - days.no.irr) {
       return(Dr.initial[i])
-    }else {
+    } else {
       return(0)
     }
   }
@@ -287,7 +422,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
   
   ##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
-  
   GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
     #df <- model.result[model.result$years==2004,]
     first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
@@ -381,7 +515,11 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     paste0(cropname.dir, '/scenario_', root_depth, as.character(RDI.min), 'RDI.min')} else {
         paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
       } #need to add irr.type here
-  paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
+  if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
+    paw.var <- paste0('z', root_depth, '_cmH2O_unmodified_comp')
+  } else {
+      paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
+  }
   if (!dir.exists(file.path(resultsDir, cropname.dir))) {
     dir.create(file.path(resultsDir, cropname.dir))
   }
@@ -392,15 +530,18 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   first_irrigation <- 0
   TEW.fraction <- 0.5
 #limit model.scaffold to cropname
-  model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
+  if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
+    model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ]
+  } else {
+      model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
+  }
 #make a results data.frame
   if (results_file == 'new') {
     model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
     paw.vector <- model.scaffold.crop[[paw.var]]
   #print(head(paw.vector))
     #mukey	crop_code	PRISMcellnumber	CIMIScellnumber	unique_model_code	full_matrix_rownum	n_compkeys	cokey	compname	comppct_r	majcompflag	TEW	REW	surface.depth	z2.0m_cmH2O_modified_comp	Model.Year
-
-    model.scaffold2 <- model.scaffold.crop[ ,-11:-20]
+    model.scaffold2 <- model.scaffold.crop[ ,c(-11:-20, -24)] #takes out paw data and alfalfa.zone from model scaffold for pasting results later
     model.scaffold2$paw <- paw.vector
     colnames(model.scaffold2)[14] <- paw.var
     model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
@@ -415,22 +556,40 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     #model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
     model.scaffold.results <- read.csv(results_file, stringsAsFactors = FALSE)
   }
-  crop.parameters <- CropParametersDefine(crop.parameters.df)
-  Kcb.std <- KcbDefine(doys.model, crop.parameters, cropname) #this will be substituted with a crop code
+  crop.parameters <- CropParametersDefine(crop.parameters.df, cropname)
+  Kcb.std <- KcbDefine(doys.model, cropname) #this will be substituted with a crop code
   fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
-  Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
+  if (cropname == 'alfalfa.intermountain' | cropname == 'alfalfa.CV' | cropname == 'alfalfa.imperial') {
+    harvest.days <- HarvestDays(cropname)
+  }
+  
+  if (cropname=='alfalfa.intermountain') {
+    Jdev <- crop.parameters$Jini[which(crop.parameters$crop==cropname)] #Jdev is intended to represent start of growing season as DOY
+  } else if (cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
+    Jdev <- 1
+  } else {
+      Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
+  }
   Jmid <- crop.parameters$Jmid[which(crop.parameters$crop==cropname)]
   Jlate <- crop.parameters$Jlate[which(crop.parameters$crop==cropname)]
-  Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
+  if (cropname=='alfalfa.intermountain') {
+    Jharv <- harvest.days[length(harvest.days)] + crop.parameters$Lfrost.kill[which(crop.parameters$crop==cropname)] #Jharv is intended to represent end of growing season as DOY where irrigation is no longer applicable
+  } else if (cropname == 'alfalfa.imperial' | cropname=='alfalfa.CV') {
+    Jharv <- 365 #what about leap years?
+  } else {
+      Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
+  }
   fw <- fwSelect(irrigation.parameters, irr.type)
   fewi <- fewiCalc(fc, fw)
   fewp <- fewpCalc(fc, fewi)
 #loop through all rows of model scaffold but only do these operations once for each model.scaffold.crop row
   set.seed(461980)
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
-  save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  for (n in row_start:nrow(model.scaffold.crop)) {#1:nrow(model.scaffold.crop))
-    #n <- 1042
+  if (nrow(model.scaffold.crop) > 10000) {
+    save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
+  }
+  for (n in row_start:nrow(model.scaffold.crop)) {
+    #n <- 1
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
@@ -442,6 +601,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     }
     if (AD==0 | TEW.parameter==0 | REW.parameter==0) {
       next(print(paste('AD is 0 for cokey ', as.character(cokey)))) ##TO-DO: write this result to separate file of NAs
+    }
+    if (REW.parameter > TEW.parameter) { #there are several hundered instances where this was the result of the SSURGO aggregation work
+      REW.parameter <- TEW.parameter
     }
   #identify climatic and soil parameters
     spCIMIScell <- model.scaffold.crop$CIMIScellnumber[n]
@@ -491,14 +653,14 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Kri[1] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial, 1)
     Krp[1] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial, 1)
     W[1] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi, 1)
-    Kei[1] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi, 1)
-    Kep[1] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp, 1)
+    DPei[1] <- max(P[1] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
+    DPep[1] <- DPepCalc(P, Dep.initial, 1)
+    Kei[1] <- min(Kri[1] * W[1] * (Kcmax[1] - Kcb.adjusted[1]), fewi[1] * Kcmax[1])
+    Kep[1] <- min(Krp[1] * (1 - W[1]) * (Kcmax[1] - Kcb.adjusted[1]), fewp[1] * Kcmax[1])
     Ep[1] <- EpCalc(ETo, Kep, 1)
     Ei[1] <- EiCalc(ETo, Kei, 1)
-    DPep[1] <- DPepCalc(P, Dep.initial, 1)
-    Dep.end[1] <- TEW.parameter * TEW.fraction - P[1] + Ep[1] / fewp[1] + DPep[1] #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
-    DPei[1] <- max(P[1] - TEW.parameter * TEW.fraction, 0) #initial estimate assumes irrigation is zero on previous day
-    Dei.end[1] <- TEW.parameter * TEW.fraction - P[1] + Ei[1] / fewi[1] + DPei[1] #replaces Dei.end[i-1] with Dei.intial[i]
+    Dep.end[1] <- min(TEW.parameter, max(TEW.parameter * TEW.fraction - P[1] + Ep[1] / fewp[1] + DPep[1], 0)) #replaces Dep.end[i-1] with TEW.parameter * TEW.fraction
+    Dei.end[1] <- min(TEW.parameter, max(TEW.parameter * TEW.fraction - P[1] + Ei[1] / fewi[1] + DPei[1], 0)) #replaces Dei.end[i-1] with Dei.intial[i]
     Kc.ns[1] <- KcnsCalc(Kcb.adjusted, Kei, Kep, 1)
     ETc.ns[1] <- ETcnsCalc(Kc.ns, ETo, 1)
     Dr.initial[1] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
@@ -514,13 +676,13 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial, i)
       Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial, i)
       W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi, i)
-      Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi, i)
-      Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp, i)
+      DPep[i] <- DPepCalc(P, Dep.initial, i)
+      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial, i)
+      Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi, TEW.parameter, Dei.end, DPei, P, ETo, i)
+      Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp, TEW.parameter, Dep.end, DPep, P, ETo, i)
       Ep[i] <- EpCalc(ETo, Kep, i)
       Ei[i] <- EiCalc(ETo, Kei, i)
-      DPep[i] <- DPepCalc(P, Dep.initial, i)
       Dep.end[i] <- DepEndCalc(Dep.end, P, Ep, fewp, DPep, i)
-      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial, i)
       Dei.end[i] <- DeiEndCalc(Dei.end, P, Ir, fw, fewi, Ei, DPei, i)
       Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep, i)
       ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo, i)
@@ -535,7 +697,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
     model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), which(colnames(model.scaffold.results)=='Irr.1'):(which(colnames(model.scaffold.results)=='GW.capture.net'))] <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:26]
     print(paste(scenario.name, as.character(n)))
-    if (n %in% rows.to.sample) {
+    if (n==1 | n %in% rows.to.sample) {
       setwd(file.path(resultsDir, scenario.name))
       if (cropname=='grapes.wine') {
         write.csv(model.result, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
@@ -556,14 +718,14 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   if (cropname=='grapes.wine') {
     write.csv(model.scaffold.results, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv'), row.names=FALSE)
   } else {
-    write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
+      write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
   }
   metadata <- cbind(data.frame(date.run=Sys.Date(), crop=cropname, cropscape.code=cropcode, AD.percentage=AD.percentage, rooting.depth=root_depth, irrigation.type=irr.type, paw.varname = paw.var, model.days=model.length, first.day=dates[1], last.day=dates[length(dates)], n.models=nrow(model.scaffold.crop)), crop.parameters[which(crop.parameters$crop==cropname), 2:ncol(crop.parameters)], irrigation.parameters[which(irrigation.parameters$irrigation.type==irr.type), 'fw'])
   colnames(metadata)[ncol(metadata)] <- 'fw'
   if (cropname == 'grapes.wine') {
     write.csv(metadata, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_model_metadata.csv'), row.names = FALSE)
   } else {
-    write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
+      write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
   }
 }
 #run the function for each modelled scenario
@@ -574,6 +736,11 @@ FAO56DualCropCalc('grapes.wine', cropscape_legend$VALUE[cropscape_legend$CLASS_N
 #unit test of revised function 8/23-24
 FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA)
 FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA)
+
+##test of revised function for alfalfa 9/10 
+FAO56DualCropCalc('alfalfa.intermountain', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Intermountain')
+FAO56DualCropCalc('alfalfa.CV', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Central Valley')
+
 
 #parallel execution with foreach
 #this was a pain to figure out
@@ -730,3 +897,16 @@ plot(fc, type='l')
 plot(fewp, type='l')
 plot(fewp + fewi, type='l')
 
+sum(model.scaffold.crop$TEW < model.scaffold.crop$REW, na.rm = TRUE)
+sum(model.scaffold$TEW < 12, na.rm=TRUE)
+which(model.scaffold.crop$TEW < model.scaffold.crop$REW)
+head(which(model.scaffold.crop$TEW < 12))
+119*15
+test <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:26]
+mean(test$ET.annual, na.rm=TRUE)
+test
+which(model.scaffold.crop$unique_model_code==218045)
+model.scaffold.ofinterest <- model.scaffold[which(model.scaffold$crop_code %in% c(alfalfa_code, almond_code, pistachio_code, grape_code, walnut_code)),]
+nrow(model.scaffold.ofinterest) #304213 unique scenarios of soil major component, climate, and crop for alfalfa, almond, grape, pistachio, and walnut
+304213*12*0.5/(3600*24)
+#21.1 days to run
