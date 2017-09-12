@@ -52,7 +52,6 @@ setwd(file.path(cropscape_results, 'main_tiles'))
 tiles <- list.files(file.path(cropscape_results, 'main_tiles'), pattern = glob2rx('*.grd'))
 crops <- c('alfalfa', 'grapes', 'almonds', 'walnuts', 'pistachios', 'tomatoes', 'wheat')
 crop_codes <- c(alfalfa, grapes, almonds, walnuts, pistachios, tomatoes, wheat)
-
 for (i in 1:4) { #refers to 4 tiles
   setwd(file.path(cropscape_results, 'main_tiles'))
   study.crops.raster <- raster(tiles[i])
@@ -119,8 +118,17 @@ plot(crop_tile4, add=T, legend=F, col='green')
 #create a spatial points dataframe out of the raster cells of interest with mukeys, cropcodes, and coordinates
 setwd(californiaDir)
 california <- shapefile("california_CA_TA.shp")
-setwd(file.path(soil_results, 'study_crops'))
+setwd(file.path(soil_results, 'study_crops/Aug2017'))
 soil_cropmasked_tiles <- list.files(pattern = glob2rx('*.tif'))
+mu_t1 <- raster('mu_cropmasked_tile1.tif')
+mu_t2 <- raster('mu_cropmasked_tile2.tif')
+mu_t3 <- raster('mu_cropmasked_tile3.tif')
+mu_t4 <- raster('mu_cropmasked_tile4.tif')
+mu_all <- mosaic(mu_t1, mu_t2, mu_t3, mu_t4, fun=min)
+setwd(file.path(soil_results, 'study_crops/Aug2017/merged_rasters'))
+writeRaster(mu_all, 'mu_cropmasked_all.tif')
+mu_all <- raster('mu_cropmasked_all.tif')
+
 setwd(file.path(cropscape_results, 'study_crops'))
 crop_tiles <- list.files(pattern = glob2rx('*.tif'))
 for (i in 1:4) {
@@ -224,7 +232,6 @@ model_scaffold$mukey_cropcode <- NULL
 setwd(file.path(mainDir, 'model_scaffold'))
 write.csv(model_scaffold, 'model_scaffold_codes8.17.17.csv', row.names = F) #this destroys the model code numbers when read back in, so they were deleted to avoid future confusion. they can simply be re-created by paste0(results_df$mukey, results_df$crop_code, results_df$PRISMcellnumber, results_df$CIMIScellnumber) in this order
 model_scaffold <- read.csv('model_scaffold_codes8.17.17.csv')
-
 
 #rasterization testing
 setwd(file.path(results, 'data.frames'))
