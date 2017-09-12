@@ -340,6 +340,15 @@ IndexTableBuild <- function(varname, rasterfname, func, ...) {
   writeRaster(raster.result, rasterfname, format='GTiff')
 }
 system.time(IndexTableBuild("GW.E.to.Irr1", 'GW.E.to.Irr1.Aug2017runs.tif', mean, na.rm=TRUE)) #this is 7.7 times faster than the first version of the function (513 seconds)
+
+#almond data exploration
+sum(almond2.0m_AD50$GW.ET.growing < 0, na.rm = TRUE) #2532 less than 0
+
+head(which(almond2.0m_AD50$GW.ET.growing < 0))
+almond2.0m_AD50[476990,]
+n <- 25
+mean(almond2.0m_AD50$E.annual[(n*15-14):(n*15)], na.rm = TRUE)
+
 ##data exploration
 mean(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
 hist(model.scaffold.results$GW.ET.growing)
