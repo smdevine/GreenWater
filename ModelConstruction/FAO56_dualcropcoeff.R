@@ -72,15 +72,15 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-# cropname <- 'alfalfa.imperial'
-# cropcode <- alfalfa_code
-# AD.percentage <- 50
-# root_depth <- '2.0m'
-# irr.type <- 'Border'
-# results_file <- 'new'
-# row_start <- 1
-# RDI.min <- NA
-# alfalfa.zone <- 'Imperial Valley'
+cropname <- 'walnut.mature'
+cropcode <- walnut_code
+AD.percentage <- 50
+root_depth <- '2.0m'
+irr.type <- 'Microspray, orchards'
+results_file <- 'new'
+row_start <- 1
+RDI.min <- NA
+alfalfa.zone <- NA
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
 grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
@@ -465,7 +465,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   
   #determine deep percolation and annual water balance using subsetting by year
   DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
-    #df <- model.result[which(model.result$years==2003), ]
+    #df <- model.result[which(model.result$years==2017), ]
     #print(df$years[1])
     jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-01-01')))
     first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
@@ -488,7 +488,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) == 0) { #winter deep perc only
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=NA, fall.deep.perc = NA)
       }
-      else if (length(jan.1.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #winter and post Irr deep perc
+      else if (length(jan.1.index) != 0 & length(jul.1.index) != 0 & length(dec.31.index) == 0) { #winter and post Irr deep perc
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = NA)
       }
       else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #only Spring deep perc available
@@ -615,7 +615,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   } else {save.times <- 5000}
   for (n in row_start:nrow(model.scaffold.crop)) {
-    #n <- 1
+    #n <- 2
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
