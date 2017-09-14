@@ -36,7 +36,7 @@ model_scaffold <- read.csv("model_scaffold_codes8.17.17.csv")
 #get number of cokeys per mukey (can rewrite as function to end up with n set of model matrices for each scenario of allowable depletion assumptions and rooting depth)
 setwd(comp_data_dir)
 #list.files()
-soil_comp_data <- read.csv("CA_all_comps_summary_dbmodified_FINAL2017-07-27.csv")
+soil_comp_data <- read.csv("CA_all_comps_summary_dbmodified_FINAL2017-09-12.csv") #re-ran soils aggregation on 9/12 to include 3 m root zone PAW estimate
 #head(soil_comp_data)
 compkeys_n <- function(x) {length(unique(x))}
 soilcomps_n <- as.data.frame(tapply(soil_comp_data$cokey, soil_comp_data$mukey, compkeys_n))
@@ -57,7 +57,7 @@ maxcomps <- max(model_scaffold2$n_compkeys)
 #head(model_scaffold2)
 soil_comp_data <- soil_comp_data[order(soil_comp_data$mukey, soil_comp_data$comppct_r, soil_comp_data$cokey, decreasing=c(F, T, F)), ] #this works as confirmed by writing to csv below
 colnames(soil_comp_data)
-soil_comp_data <- soil_comp_data[ ,c(1:5, 22:26, 32:39)]
+soil_comp_data <- soil_comp_data[ ,c(1:5, 22:27, 34:42)]
 # missing_mukeys <- model_scaffold2$mukey[!(model_scaffold2$mukey %in% soil_comp_data$mukey)]
 # mukeys <- model_scaffold2$mukey[model_scaffold2$mukey %in% soil_comp_data$mukey]
 #setwd(model_scaffoldDir)
@@ -67,32 +67,30 @@ for (i in seq_len(maxcomps)) {
   temp <- soil_comp_data[soilcomp_rownums, ]
   temp$mukey <- NULL
   temp2 <- cbind(model_scaffold2, temp)
-  setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentAug2017'))
+  setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentSep2017'))
   write.csv(temp2, paste0('model_scaffold_comp', as.character(i), '.csv'), row.names=F) #save the file for modeling purposes later
   model_scaffold2 <- model_scaffold2[-which(model_scaffold2$n_compkeys==i), ] #now get rid of model codes with i number of cokeys.  they don't need to be included in additional model scaffolds
   soilcomp_rownums <- unique(soilcomp_rownums)
   soil_comp_data <- soil_comp_data[-soilcomp_rownums, ] #get rid of the cokeys already covered
 }
 
-setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentAug2017'))
+setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentSep2017'))
 fnames <- list.files(pattern = glob2rx('*csv'))
 master.file <- do.call(rbind, lapply(fnames, read.csv))
 dim(master.file)
-#1,177,027 unique soil components, climate, and crop; now, 1,681,860
+#1,177,027 unique soil components, climate, and crop; now, 1,681,860 (verified again 9/12)
 j <- which(master.file$comppct_r >= 15)
-length(j) #but only 277,477 are major components; now, 387,970
+length(j) #but only 277,477 are major components; now, 387,970 (verified again 9/12)
 sum(master.file$majcompflag=='Yes')
 #model_scaffold_majcomps_almonds <- master.file[master.file$comppct_r >= 15 & master.file$crop_code==almond_code,]
 #dim(model_scaffold_majcomps_almonds)
 #setwd(file.path(model_scaffoldDir, 'run_model/July2017'))
 #write.csv(model_scaffold_majcomps_almonds, 'model_scaffold_majcomps_almonds.csv', row.names = F)
-model_scaffold_majcomps <- master.file[master.file$comppct_r >= 15, ]
+model_scaffold_majcomps <- master.file[which(master.file$comppct_r >= 15), ]
 dim(model_scaffold_majcomps)
-setwd(file.path(model_scaffoldDir, 'run_model/Aug2017'))
-write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.csv', row.names = F)
 #add alfalfa zones to model scaffold
+setwd(file.path(model_scaffoldDir, 'run_model/Sep2017'))
 alfalfa_zones_codes <- read.csv('alfalfa_zones_codes.csv', stringsAsFactors = FALSE)
-model_scaffold_majcomps <- read.csv('model_scaffold_majcomps.csv', stringsAsFactors = FALSE)
 model_scaffold_majcomps$alfalfa.zone <- alfalfa_zones_codes$zone[match(model_scaffold_majcomps$unique_model_code, alfalfa_zones_codes$unique_model_code)]
 setwd(file.path(model_scaffoldDir, 'run_model/Sep2017'))
 write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.csv', row.names = F)

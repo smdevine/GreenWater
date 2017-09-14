@@ -1,4 +1,4 @@
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
 setwd(modelscaffoldDir)
 precip <- read.csv('PRISM_precip_data.csv') #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
 which(is.na(precip)) #no NAs in PRISM as of 6/26/17
@@ -72,6 +72,55 @@ for (i in 1:length(column_indices)) {
 }
 setwd(modelscaffoldDir)
 write.csv(ETo, 'SpatialCIMIS_ETo_rounded_QCpass.csv', row.names = F)
+
+#code to check data updates for problems
+
+#precip <- read.csv('PRISM_precip_data.csv') #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
+which(is.na(precip)) #no NAs in PRISM as of 6/26/17
+
+setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
+RHmin <- read.csv('SpatialCIMIS.minRHupdate.rounded.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
+na_indices_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {which(is.na(x))})
+head(na_indices_RHmin)
+which(names(RHmin)=='cell_148533')
+head(RHmin$cell_148533)
+head(RHmin[,10018])
+for (i in 1:length(na_indices_RHmin)) {
+  if (length(na_indices_RHmin[[i]]) == 1) {
+    next
+  }
+  else(print(i))
+}
+#all ok except cell_148533
+
+U2 <- read.csv('SpatialCIMIS.U2update.rounded.csv') #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script
+na_indices_U2 <- lapply(U2[,6:ncol(U2)], function(x) {which(is.na(x))})
+for (i in 1:length(na_indices_U2)) {
+  if (length(na_indices_U2[[i]]) == 0) { #could set to 1 also as above
+    next
+  }
+  else(print(i))
+} #i=9524 is all NA; no other NAs present
+names(na_indices_U2)[10013] #"cell_148533" is NA; same for RHmin
+#no changes made to 'SpatialCIMIS_U2_rounded.csv'
+
+ETo <- read.csv('SpatialCIMIS.EToupdate.rounded.csv') #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script
+na_indices_ETo <- lapply(ETo, function(x) {which(is.na(x))})
+j <- c()
+for (i in 1:length(na_indices_ETo)) {
+  if (length(na_indices_ETo[[i]]) == 0) { #could set to 1 also as above
+    next
+  }
+  else if (length(j) == 0) {
+    j <- i
+    next
+  }
+  else{j <- c(j,i)}
+}
+for (i in 1:length(j)) {
+  print(na_indices_ETo[j][i])
+} #only cell_148533 has NA
+#proceed with all SpCiMIS update files as is (9/13/2017)
 
 #tests for assurance of gap-filling (these worked 6/26/17)
 ETo$cell_77141[2600:2620]

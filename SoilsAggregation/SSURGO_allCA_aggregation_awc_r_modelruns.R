@@ -407,10 +407,12 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   list.files(SoilsDataDir, pattern = glob2rx('*.csv'))
   list.files(results, pattern = glob2rx('*.csv'))
   setwd(results)
-  ssurgo_horizon_no_Cr_R <- read.csv('ssurgo_horizon_no_Cr_R2017-07-26.csv')
-  ssurgo_horizon_Cr_R <- read.csv('ssurgo_horizon_Cr_R2017-07-26.csv')
-  ssurgo_comp_no_rock <- read.csv('CA_all_comp_data_no_rock2017-07-26.csv')
-  ssurgo_comp_rock <- read.csv('CA_all_comp_data_rock2017-07-26.csv')
+  ssurgo_horizon_no_Cr_R <- read.csv('ssurgo_horizon_no_Cr_R2017-07-27.csv')
+  ssurgo_horizon_Cr_R <- read.csv('ssurgo_horizon_Cr_R2017-07-27.csv')
+  ssurgo_comp_no_rock <- read.csv('CA_all_comp_data_no_rock2017-07-27.csv')
+  ssurgo_comp_rock <- read.csv('CA_all_comp_data_rock2017-07-27.csv')
+  surface.data_Cr_R <- read.csv('CA.all.surface.data_Cr_R2017-07-27.csv')
+  surface.data_no_Cr_R <- read.csv('CA.all.surface.data_no_Cr_R2017-07-27.csv')
   setwd(SoilsDataDir)
   ssurgo_mu <- read.csv("CA_all_mu_data_2017-07-19.csv")
   
@@ -447,16 +449,19 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_horizon_Cr_R$z1.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 100, 'awc_r')
   ssurgo_horizon_Cr_R$z1.5m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 150, 'awc_r')
   ssurgo_horizon_Cr_R$z2.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_Cr_R$z3.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 300, 'awc_r')
   ssurgo_horizon_Cr_R$z4.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_Cr_R, 400, 'awc_r')
   ssurgo_horizon_Cr_R$z0.5m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_Cr_R, 50, 'awc_r')
   ssurgo_horizon_Cr_R$z1.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_Cr_R, 100, 'awc_r')
   ssurgo_horizon_Cr_R$z1.5m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_Cr_R, 150, 'awc_r')
   ssurgo_horizon_Cr_R$z2.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_Cr_R$z3.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_Cr_R, 300, 'awc_r')
   ssurgo_horizon_Cr_R$z4.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_Cr_R, 400, 'awc_r')
   ssurgo_horizon_Cr_R$z0.5m_cmH2O_modified <- ssurgo_horizon_Cr_R$z0.5m_cmH2O_unmodified
   ssurgo_horizon_Cr_R$z1.0m_cmH2O_modified <- ssurgo_horizon_Cr_R$z1.0m_cmH2O_unmodified
   ssurgo_horizon_Cr_R$z1.5m_cmH2O_modified <- ssurgo_horizon_Cr_R$z1.5m_cmH2O_unmodified
   ssurgo_horizon_Cr_R$z2.0m_cmH2O_modified <- ssurgo_horizon_Cr_R$z2.0m_cmH2O_unmodified
+  ssurgo_horizon_Cr_R$z3.0m_cmH2O_modified <- ssurgo_horizon_Cr_R$z3.0m_cmH2O_unmodified
   ssurgo_horizon_Cr_R$z4.0m_cmH2O_modified <- ssurgo_horizon_Cr_R$z4.0m_cmH2O_unmodified
   
 #now sum up AD H2O and soil thickness used in the calculation by cokey
@@ -473,19 +478,21 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_horizon_no_Cr_R$z1.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 100, 'awc_r')
   ssurgo_horizon_no_Cr_R$z1.5m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 150, 'awc_r')
   ssurgo_horizon_no_Cr_R$z2.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z3.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 300, 'awc_r')
   ssurgo_horizon_no_Cr_R$z4.0m_cmH2O_unmodified <- sum_PAW_cmH2O(ssurgo_horizon_no_Cr_R, 400, 'awc_r')
   ssurgo_horizon_no_Cr_R$z0.5m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 50, 'awc_r')
   ssurgo_horizon_no_Cr_R$z1.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 100, 'awc_r')
   ssurgo_horizon_no_Cr_R$z1.5m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 150, 'awc_r')
   ssurgo_horizon_no_Cr_R$z2.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 200, 'awc_r')
+  ssurgo_horizon_no_Cr_R$z3.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 300, 'awc_r')
   ssurgo_horizon_no_Cr_R$z4.0m_soilthickness_unmodified <- sum_PAW_soilthickness(ssurgo_horizon_no_Cr_R, 400, 'awc_r')
   
   
   #see https://stackoverflow.com/questions/8091303/simultaneously-merge-multiple-data-frames-in-a-list
-  comps.R.Cr <- Reduce(function(...) merge(..., all=T), list(sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_cmH2O_modified'))) #modified columns are added using the same methodology as unmodified so as to match dim of comps.no.R.Cr
+  comps.R.Cr <- Reduce(function(...) merge(..., all=T), list(sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z3.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z3.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z0.5m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.0m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z1.5m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z2.0m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z3.0m_cmH2O_modified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_Cr_R, 'z4.0m_cmH2O_modified'))) #modified columns are added using the same methodology as unmodified so as to match dim of comps.no.R.Cr
   #out of these, 235 have a sum of 0 and 766 are NA
   
-  comps.no.R.Cr <- Reduce(function(...) merge(..., all=T), list(sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z0.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z2.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z4.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z0.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z2.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z4.0m_soilthickness_unmodified')))
+  comps.no.R.Cr <- Reduce(function(...) merge(..., all=T), list(sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z0.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.5m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z2.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z3.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z4.0m_cmH2O_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z0.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z1.5m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z2.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z3.0m_soilthickness_unmodified'), sum_PAW_cmH2O_bycokey(ssurgo_horizon_no_Cr_R, 'z4.0m_soilthickness_unmodified')))
 #third, for walnuts, almonds, and grapes, sum up awc by cokey for those without paralithic or lithic contacts by adding missing AD data for the portion of the profile of the rooting zone without it, assuming profile wtd avgs of the portion of the profile that has data for the missing data.
 
 #out of these, 169 have a sum of 0 and 453 are NA for awc and 623 are NA for soilthickness, because NAs for soil thickness include those that had 0 awc
@@ -494,6 +501,7 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   comps.no.R.Cr$z1.0m_cmH2O_modified_comp <- AD_sum_modified(comps.no.R.Cr, 'z1.0m_cmH2O_unmodified_comp', 100, 'z1.0m_soilthickness_unmodified_comp', 100)
   comps.no.R.Cr$z1.5m_cmH2O_modified_comp <- AD_sum_modified(comps.no.R.Cr, 'z1.5m_cmH2O_unmodified_comp', 150, 'z1.5m_soilthickness_unmodified_comp', 100)
   comps.no.R.Cr$z2.0m_cmH2O_modified_comp <- AD_sum_modified(comps.no.R.Cr, 'z2.0m_cmH2O_unmodified_comp', 200, 'z2.0m_soilthickness_unmodified_comp', 100)
+  comps.no.R.Cr$z3.0m_cmH2O_modified_comp <- AD_sum_modified(comps.no.R.Cr, 'z3.0m_cmH2O_unmodified_comp', 300, 'z3.0m_soilthickness_unmodified_comp', 100)
   comps.no.R.Cr$z4.0m_cmH2O_modified_comp <- AD_sum_modified(comps.no.R.Cr, 'z4.0m_cmH2O_unmodified_comp', 400, 'z4.0m_soilthickness_unmodified_comp', 100)  
   lapply(comps.no.R.Cr, summary)
   lapply(comps.R.Cr, summary)
@@ -518,6 +526,7 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   df
   }
   ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z4.0m_cmH2O_unmodified_comp", "z4.0m_soilthickness_unmodified_comp", 400)
+  ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z3.0m_cmH2O_unmodified_comp", "z3.0m_soilthickness_unmodified_comp", 300)
   ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z2.0m_cmH2O_unmodified_comp", "z2.0m_soilthickness_unmodified_comp", 200)
   ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z1.5m_cmH2O_unmodified_comp", "z1.5m_soilthickness_unmodified_comp", 150)
   ssurgo_comp_no_rock <- NoReskindAddH2O(ssurgo_comp_no_rock, "z1.0m_cmH2O_unmodified_comp", "z1.0m_soilthickness_unmodified_comp", 100)
@@ -572,11 +581,13 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.0m_cmH2O_unmodified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.5m_cmH2O_unmodified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z2.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z3.0m_cmH2O_unmodified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z4.0m_cmH2O_unmodified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z0.5m_cmH2O_modified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.0m_cmH2O_modified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z1.5m_cmH2O_modified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z2.0m_cmH2O_modified_comp")
+  ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z3.0m_cmH2O_modified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "z4.0m_cmH2O_modified_comp")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "TEW")
   ssurgo_comp_no_rock <- area_weighted_average(ssurgo_comp_no_rock, "REW")
@@ -587,11 +598,13 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z1.0m_cmH2O_unmodified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z1.5m_cmH2O_unmodified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z2.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z3.0m_cmH2O_unmodified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z4.0m_cmH2O_unmodified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z0.5m_cmH2O_modified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z1.0m_cmH2O_modified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z1.5m_cmH2O_modified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z2.0m_cmH2O_modified_comp")
+  ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z3.0m_cmH2O_modified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "z4.0m_cmH2O_modified_comp")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "TEW")
   ssurgo_comp_rock <- area_weighted_average(ssurgo_comp_rock, "REW")
@@ -604,7 +617,7 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   summary(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp[ssurgo_comp_all$compname=='Rock outcrop'])
   #CHECK COLUMN REFERENCES HERE
   colnames(ssurgo_comp_all)
-  ssurgo_comp_all[ssurgo_comp_all$compname=='Rock outcrop', 22:39] <- 0 #change all paw related variables to 0 where component name is Rock Outcrop
+  ssurgo_comp_all[ssurgo_comp_all$compname=='Rock outcrop', 22:42] <- 0 #change all paw related variables to 0 where component name is Rock Outcrop
   ssurgo_comp_all <- ssurgo_comp_all[order(ssurgo_comp_all$mukey, ssurgo_comp_all$comppct_r, decreasing = c(FALSE, TRUE)), ]
   setwd(results)
   write.csv(ssurgo_comp_all, paste0('CA_all_comps_summary_dbmodified', Sys.Date(), '.csv'), row.names = FALSE) # can read this in to shorten script
@@ -614,11 +627,13 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.0m_cmH2O_unmodified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.5m_cmH2O_unmodified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z2.0m_cmH2O_unmodified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z3.0m_cmH2O_unmodified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z4.0m_cmH2O_unmodified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z0.5m_cmH2O_modified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.0m_cmH2O_modified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z1.5m_cmH2O_modified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z2.0m_cmH2O_modified_comp")
+  ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z3.0m_cmH2O_modified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z4.0m_cmH2O_modified_comp")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "TEW")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "REW")
