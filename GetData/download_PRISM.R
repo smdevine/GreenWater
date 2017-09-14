@@ -3,13 +3,13 @@
 library(prism)
 library(raster)
 PRISMdir <- "C:/Users/smdevine/Desktop/Allowable_Depletion/PRISMdaily"
-cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
-for (i in 2017:2017) {
+cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
+for (i in 2016:2016) {
   if (file.exists(file.path(PRISMdir, as.character(i))) == FALSE) {
     dir.create(file.path(PRISMdir, as.character(i)))
   }
   options(prism.path = paste0(PRISMdir, '/', as.character(i)))
-  get_prism_dailys(type='ppt', minDate = paste0(as.character(i),'-01-01'), maxDate = paste0(as.character(i), '-06-30'), keepZip = FALSE)
+  get_prism_dailys(type='ppt', minDate = paste0(as.character(i),'-12-01'), maxDate = paste0(as.character(i), '-12-31'), keepZip = FALSE)
 }
 setwd(file.path(PRISMdir, '2003'))
 
@@ -17,10 +17,10 @@ setwd(cellsofinterestDir)
 cellsofinterest <- read.csv("PRISM_cells_unique.csv")
 cellsofinterest <- cellsofinterest[order(cellsofinterest$PRISM_cells), ]
 cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
-startyear <- '2003'
+startyear <- '2016'
 endyear <- '2017' #only available through 11/30/2016 on 6/9/17 download date
-startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
-enddate <- strptime(paste0("06/25/", endyear), '%m/%d/%Y')
+startdate <- strptime(paste0("12/1/", startyear), '%m/%d/%Y')
+enddate <- strptime(paste0("09/12/", endyear), '%m/%d/%Y')
 datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
 prism_data <- as.data.frame(matrix(nrow=length(datesequence), ncol=(length(cellsofinterest)+5)))
 colnames(prism_data) <- c('dates', 'month', 'day', 'year', 'DOY', cellsofinterest_names)
@@ -29,7 +29,6 @@ prism_data$month <- as.integer(format.Date(datesequence, '%m'))
 prism_data$day <- as.integer(format.Date(datesequence, '%d'))
 prism_data$year <- as.integer(format.Date(datesequence, '%Y'))
 prism_data$DOY <- as.integer(format.Date(datesequence, '%j'))
-i <- 536
 for (i in 1:length(datesequence)) {
   day <- format.Date(datesequence[i], '%d')
   mnth <- format.Date(datesequence[i], '%m')
@@ -63,4 +62,4 @@ summary(prism_data$cell_267008)
 which(is.na(prism_data$cell_267008))
 #write results to file
 setwd(cellsofinterestDir)
-write.csv(prism_data, 'PRISM_precip_data.csv', row.names = F)
+write.csv(prism_data, 'PRISM_precip_data_update.csv', row.names = F)
