@@ -5,44 +5,47 @@ library(XML)
 library(httr)
 #NOTE: 1/1/2003-2/19/2003, 3/7/2003-3/9/2003, 4/9/2003-4/10/2003, 6/15/2003, 6/17/2003, 6/19/2003-6/22/2003, 6/24/2003, and a number more dates before 9/30/2003 are missing. 2004 water year to the present is good to go.
 californiaDir <- 'C:/Users/smdevine/Desktop/SpatialData/CA_counties/government_units'
-cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Aug2017'
+cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
 #below is specific to downloading data
 ca_ta <- showP4(showWKT("+init=epsg:3310"))
 spatialCIMISdir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/SpatialCIMIS'
 #'C:/Users/smdevine/Desktop/Allowable_Depletion/SpatialCIMIS'
-startyear <- '2003'
+startyear <- '2017' #was 2003
 endyear <- '2017'
-startdate <- strptime(paste0("10/01/", startyear), '%m/%d/%Y')
-enddate <- strptime(paste0("06/13/", endyear), '%m/%d/%Y')
+startdate <- strptime(paste0("06/14/", startyear), '%m/%d/%Y') #was 10/01
+enddate <- strptime(paste0("09/12/", endyear), '%m/%d/%Y') #was 6/13
 datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
 base_url <- 'http://cimis.casil.ucdavis.edu/cimis/'
-varofinterest <- 'U2.asc.gz'
-varDir <- 'U2'
-#i <- 1
-for (i in 1:length(datesequence)) {
-  day <- format.Date(datesequence[i], '%d')
-  mnth <- format.Date(datesequence[i], '%m')
-  yr <- format.Date(datesequence[i], '%Y')
-  if (file.exists(file.path(spatialCIMISdir, varDir)) == FALSE) {
-    dir.create(file.path(spatialCIMISdir, varDir))
+varnames <- c('ETo.asc.gz', 'Tn.asc.gz', 'Tx.asc.gz', 'Tdew.asc.gz', 'U2.asc.gz')
+dirnames <- c('ETo', 'Tmin', 'Tmax', 'Tdew', 'U2')
+for (j in seq_along(varnames)) {
+  varofinterest <- varnames[j]
+  varDir <- dirnames[j]
+  for (i in 1:length(datesequence)) {
+    day <- format.Date(datesequence[i], '%d')
+    mnth <- format.Date(datesequence[i], '%m')
+    yr <- format.Date(datesequence[i], '%Y')
+    if (file.exists(file.path(spatialCIMISdir, varDir)) == FALSE) {
+      dir.create(file.path(spatialCIMISdir, varDir))
+    }
+    if (file.exists(file.path(spatialCIMISdir, varDir, yr)) == FALSE) {
+      dir.create(file.path(spatialCIMISdir, varDir, yr))
+    }
+    url_download <- paste0(base_url, yr, '/', mnth, '/', day, '/', varofinterest)
+    setwd(file.path(spatialCIMISdir, varDir, yr))
+    error_catch <- try(download.file(url_download, destfile = varofinterest, quiet = TRUE, mode = 'wb'))
+    if (class(error_catch)=='try-error') {
+      print(error_catch)
+      next
+    }
+    cimis_table <- read.table(varofinterest, skip=6, na.strings="-9999")
+  #this two step operation is much faster than the "for loop" solution
+    cimis_table <- t(cimis_table)
+    cimis_values <- as.vector(cimis_table)
+    cimis_raster <- raster(ncol=510, nrow=560, xmx=610000, xmn=-410000, ymn=-660000, ymx=460000, crs=ca_ta, vals=cimis_values)
+    writeRaster(cimis_raster, filename = paste0(varDir, yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE) #each Gtiff will be 1092 KB
+    file.remove(varofinterest)
   }
-  if (file.exists(file.path(spatialCIMISdir, varDir, yr)) == FALSE) {
-    dir.create(file.path(spatialCIMISdir, varDir, yr))
-  }
-  url_download <- paste0(base_url, yr, '/', mnth, '/', day, '/', varofinterest)
-  setwd(file.path(spatialCIMISdir, varDir, yr))
-  error_catch <- try(download.file(url_download, destfile = varofinterest, quiet = TRUE, mode = 'wb'))
-  if (class(error_catch)=='try-error') {
-    print(error_catch)
-    next
-  }
-  cimis_table <- read.table(varofinterest, skip=6, na.strings="-9999")
-#this two step operation is much faster than the "for loop" solution
-  cimis_table <- t(cimis_table)
-  cimis_values <- as.vector(cimis_table)
-  cimis_raster <- raster(ncol=510, nrow=560, xmx=610000, xmn=-410000, ymn=-660000, ymx=460000, crs=ca_ta, vals=cimis_values)
-  writeRaster(cimis_raster, filename = paste0(varDir, yr, mnth, day, '.tif'), format='GTiff', overwrite=TRUE) #each Gtiff will be 1092 KB
-  file.remove(varofinterest)
 }
 
 #plot some files to check
@@ -62,12 +65,12 @@ plot(california, add=T)
 if (file.exists(file.path(spatialCIMISdir, 'minRH')) == FALSE) {
   dir.create(file.path(spatialCIMISdir, 'minRH'))
 }
-startyear <- '2003'
-endyear <- '2017'
-startdate <- strptime(paste0("10/01/", startyear), '%m/%d/%Y')
-enddate <- strptime(paste0("06/13/", endyear), '%m/%d/%Y')
-datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
-i <- 90
+# startyear <- '2003'
+# endyear <- '2017'
+# startdate <- strptime(paste0("10/01/", startyear), '%m/%d/%Y')
+# enddate <- strptime(paste0("06/13/", endyear), '%m/%d/%Y')
+# datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
+#used datesequence created 
 for (i in 1:length(datesequence)) {
   day <- format.Date(datesequence[i], '%d')
   mnth <- format.Date(datesequence[i], '%m')
@@ -91,16 +94,14 @@ for (i in 1:length(datesequence)) {
 
 #get SpatialCIMIS into matrix for cells of interest
 #file naming convention for U2 rasters forgot '_' between 'U2' and date; hence the if/else statement below
-SpCIMISExtract <- function(varname) {
+SpCIMISExtract <- function(varname, startyear, endyear, startdate, enddate) {
   setwd(cellsofinterestDir)
   cellsofinterest <- read.csv("CIMIS_cells_unique.csv")
   cellsofinterest <- cellsofinterest[order(cellsofinterest$CIMIS_cells), ]
   cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
 #varname <- 'U2'
-  startyear <- '2003'
-  endyear <- '2017'
-  startdate <- strptime(paste0("10/1/", startyear), '%m/%d/%Y')
-  enddate <- strptime(paste0("6/13/", endyear), '%m/%d/%Y')
+  startdate <- strptime(paste0(startdate, startyear), '%m/%d/%Y')
+  enddate <- strptime(paste0(enddate, endyear), '%m/%d/%Y')
   datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
   cimis_data <- as.data.frame(matrix(nrow=length(datesequence), ncol=(length(cellsofinterest)+5)))
   colnames(cimis_data) <- c('dates', 'month', 'day', 'year', 'DOY', cellsofinterest_names)
@@ -115,20 +116,21 @@ SpCIMISExtract <- function(varname) {
     mnth <- format.Date(datesequence[i], '%m')
     yr <- format.Date(datesequence[i], '%Y')
     setwd(file.path(spatialCIMISdir, varname, yr))
-    if (varname == 'U2') {
+    if (varname == 'U2' | varname == 'ETo') {
       spCIMIS <- raster(paste0(varname, yr, mnth, day, '.tif'))
     } else {spCIMIS <- raster(paste0(varname, '_', yr, mnth, day, '.tif'))}
     cimis_data[i, 6:ncol(cimis_data)] <- extract(spCIMIS, cellsofinterest)
     print(i)
   }
-  setwd(cellsofinterestDir)
+  setwd(file.path(cellsofinterestDir, 'SpCIMIS'))
 #write.csv(cimis_data, paste0('SpatialCIMIS_', varname, '_data.csv'), row.names = F)
 #cimis_data <- read.csv('SpatialCIMIS_data.csv') #this has 86,600,954 cells
   cimis_data2 <- cbind(cimis_data[ ,1:5], round(cimis_data[ ,6:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
-  write.csv(cimis_data2, paste0('SpatialCIMIS_', varname, '_rounded.csv'), row.names=F)
+  write.csv(cimis_data2, paste0('SpatialCIMIS.', varname, 'update.rounded.csv'), row.names=F)
 }
-SpCIMISExtract('U2')
-SpCIMISExtract('minRH')
+SpCIMISExtract('U2', '2017', '2017', '06/14/', '09/12/')
+SpCIMISExtract('minRH', '2017', '2017', '06/14/', '09/12/')
+SpCIMISExtract('ETo', '2017', '2017', '06/14/', '09/12/')
 #parallel execution with foreach
 library(foreach)
 library(doSNOW)
