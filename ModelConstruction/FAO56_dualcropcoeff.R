@@ -15,24 +15,48 @@
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017' #location of input data
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Aug2017'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
 crop.parameters.df <- read.csv('crop_parameters.csv', stringsAsFactors = F) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
-P.df <- read.csv('PRISM_precip_data.csv', stringsAsFactors = F) #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download); blanks checked for in 'data_QA_QC.R'
-U2.df <- read.csv('SpatialCIMIS_U2_rounded.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
-RHmin.df <- read.csv('SpatialCIMIS_minRH_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
-ETo.df <- read.csv('SpatialCIMIS_ETo_rounded_QCpass.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
+P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download); blanks checked for in 'data_QA_QC.R'
+U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
+RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
+ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
 model.scaffold <- read.csv('model_scaffold_majcomps.csv', stringsAsFactors = F)
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 model.scaffold$longitude_AEA <- NULL
 model.scaffold$latitude_AEA <- NULL
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 
-#temp arg for model.scaffold alfalfa work
-
-
+#now merge SpCIMIS data updates
+# setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
+# U2.update <- read.csv('SpatialCIMIS.U2update.rounded.csv')
+# ETo.update <- read.csv('SpatialCIMIS.EToupdate.rounded.csv')
+# RHmin.update <- read.csv('SpatialCIMIS.minRHupdate.rounded.csv', stringsAsFactors = F)
+# setwd(modelscaffoldDir)
+# P.update <- read.csv('PRISM_precip_data_update.csv', stringsAsFactors = FALSE)
+# dim(U2.update)
+# dim(U2.df)
+# U2.df <- rbind(U2.df, U2.update)
+# dim(U2.df)
+# dim(ETo.df)
+# dim(ETo.update)
+# ETo.df <- rbind(ETo.df, ETo.update)
+# dim(RHmin.df)
+# dim(RHmin.update)
+# RHmin.df <- rbind(RHmin.df, RHmin.update)
+# dim(P.df)
+# P.df[nrow(P.df),1:20] #last date was 6/25/17 from June 26 2017 download
+# P.df <- P.df[-(which(P.df$dates=='12_01_2016'):nrow(P.df)), ]
+# dim(P.df)
+# P.df[nrow(P.df),1:20]
+# P.df <- rbind(P.df, P.update)
+# write.csv(P.df, 'PRISM.precip.data.updated9.13.17.csv', row.names=FALSE)
+# write.csv(U2.df, 'SpatialCIMIS.U2.updated9.13.17.csv', row.names=FALSE)
+# write.csv(ETo.df, 'SpatialCIMIS.ETo.updated9.13.17.csv', row.names=FALSE)
+# write.csv(RHmin.df, 'SpatialCIMIS.RHmin.updated9.13.17.csv', row.names=FALSE)
 #define functions implement FA56 dual crop coefficients
 #includes subroutine that separates evaporable water as P vs. Irr sourced
 #all these tasks only done once per run where run is initialzing model and then looping through all rows in model.scaffold and pasting results from all
@@ -48,15 +72,15 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-cropname <- 'alfalfa.intermountain'
-cropcode <- alfalfa_code
-AD.percentage <- 50
-root_depth <- '2.0m'
-irr.type <- 'Border'
-results_file <- 'new'
-row_start <- 1
-RDI.min <- NA
-alfalfa.zone <- 'Intermountain'
+# cropname <- 'alfalfa.imperial'
+# cropcode <- alfalfa_code
+# AD.percentage <- 50
+# root_depth <- '2.0m'
+# irr.type <- 'Border'
+# results_file <- 'new'
+# row_start <- 1
+# RDI.min <- NA
+# alfalfa.zone <- 'Imperial Valley'
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
 grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
@@ -240,7 +264,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #need to refine days.no.irr based on ETo data for a given location
   DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv, buffer.days=30) {
     if (cropname=='alfalfa.imperial') {
-      return(NA)
+      return(0)
     }
     else if (cropname == 'alfalfa.CV' | cropname == 'alfalfa.intermountain') {
       last.irr.possible <- harvest.days[length(harvest.days)] + buffer.days
@@ -371,9 +395,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
         if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
           which(df$Ir > 0)} else {vector()}
       }
-    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
       tail(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
           which(df$Ir > 0)} else {vector()}
       }
     if (length(first.irr.index) == 0 & length(last.irr.index) == 0) {
@@ -394,9 +418,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  However a correction is applied to the growing season ET for residual irrigation water storage to correctly estimate green water utilization within the same year.
   WaterBalanceCalc <- function(df) { #concept is to run by year on a data.frame trimmed to Jdev-Jharv each year
     #df <- model.result[which(model.result$years==2004),]
-    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
       tail(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
           which(df$Ir > 0)} else {vector()}
       }
     jharv_index <- which(df$doys.model==Jharv)
@@ -449,9 +473,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
         if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
           which(df$Ir > 0)} else {vector()}
       }
-    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
       tail(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] > Jharv - days.no.irr) {
+        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
           which(df$Ir > 0)} else {vector()}
       }
     jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01')))
@@ -487,10 +511,12 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   
   #determine green water capture from leaf-drop to flowering
   GreenWaterCaptureCalc <- function(df) {
-    if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
+    if (cropname=='alfalfa.imperial') {
       return(data.frame(GW.capture.net = NA))
+    } else if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
+        return(data.frame(GW.capture.net = NA))
     } else {
-      return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
+        return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc))
@@ -541,7 +567,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     paw.vector <- model.scaffold.crop[[paw.var]]
   #print(head(paw.vector))
     #mukey	crop_code	PRISMcellnumber	CIMIScellnumber	unique_model_code	full_matrix_rownum	n_compkeys	cokey	compname	comppct_r	majcompflag	TEW	REW	surface.depth	z2.0m_cmH2O_modified_comp	Model.Year
-    model.scaffold2 <- model.scaffold.crop[ ,c(-11:-20, -24)] #takes out paw data and alfalfa.zone from model scaffold for pasting results later
+    model.scaffold2 <- model.scaffold.crop[ ,c(-11:-22, -26)] #takes out paw data and alfalfa.zone from model scaffold for pasting results later
     model.scaffold2$paw <- paw.vector
     colnames(model.scaffold2)[14] <- paw.var
     model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
@@ -587,7 +613,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   if (nrow(model.scaffold.crop) > 10000) {
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  }
+  } else {save.times <- 5000}
   for (n in row_start:nrow(model.scaffold.crop)) {
     #n <- 1
     model.code <- model.scaffold.crop$unique_model_code[n]
@@ -740,7 +766,7 @@ FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchard
 ##test of revised function for alfalfa 9/10 
 FAO56DualCropCalc('alfalfa.intermountain', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Intermountain')
 FAO56DualCropCalc('alfalfa.CV', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Central Valley')
-
+FAO56DualCropCalc('alfalfa.imperial', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Imperial Valley')
 
 #parallel execution with foreach
 #this was a pain to figure out
