@@ -72,14 +72,14 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-cropname <- 'walnut.mature'
-cropcode <- walnut_code
+cropname <- 'grapes.wine'
+cropcode <- grape_code
 AD.percentage <- 50
-root_depth <- '2.0m'
-irr.type <- 'Microspray, orchards'
+root_depth <- '3.0m'
+irr.type <- 'Drip'
 results_file <- 'new'
 row_start <- 1
-RDI.min <- NA
+RDI.min <- 0.2
 alfalfa.zone <- NA
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
 grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
@@ -207,6 +207,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   KrCalc <- function(TEW, REW, De.initial, i) { #can be used to calculate Kri or Krp
     max(0, if(De.initial[i] < REW) { #could initialize this in vector above
       1
+    } else if(TEW==REW) {
+      0
     } else {
       (TEW - De.initial[i]) / (TEW - REW)
     })
@@ -227,7 +229,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   }
   KepCalc <- function(Krp, W, Kcmax, Kcb, fewp, TEW, Dep.end, DPep, P, ETo, i) {
     Kep.est <- min(Krp[i] * (1 - W[i]) * (Kcmax[i] - Kcb[i]), fewp[i] * Kcmax[i])
+    #print(Kep.est)
     TEW.check <- max(Dep.end[i - 1] - P[i] + (Kep.est * ETo[i]) / fewp[i] + DPep[i], 0)
+    #print(TEW.check)
     if (TEW.check > TEW) {
       return(fewp[i] * (TEW - Dep.end[i - 1] + P[i] - DPep[i]) / ETo[i]) #as revised Kep estimate
     } else {
@@ -615,7 +619,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   } else {save.times <- 5000}
   for (n in row_start:nrow(model.scaffold.crop)) {
-    #n <- 2
+    #n <- 28622
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
