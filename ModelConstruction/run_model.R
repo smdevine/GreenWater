@@ -46,10 +46,10 @@ foreach(i=1:12) %dopar% {
 stopCluster(cl)
 
 #re-run 9 scenarios per crop x soil x climate combination
-#started 9:58 PM on 9/13/17
-root.depths <- c('1.0m', '2.0m', '3.0m')
-AD.percentage <- c(30, 50, 80)
-cropnames <- c('almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial')
+#re-started again 9:40 AM on 9/14/17
+#root.depths <- c('1.0m', '2.0m', '3.0m')
+#AD.percentage <- c(30, 50, 80)
+#cropnames <- c('almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial')
 modelgrid <- expand.grid(root.depths = c('1.0m', '2.0m', '3.0m'), AD.percentage = c(30, 50, 80), cropnames = c('almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial'))
 modelgrid$root.depths <- as.character(modelgrid$root.depths)
 modelgrid$cropnames <- as.character(modelgrid$cropnames)
