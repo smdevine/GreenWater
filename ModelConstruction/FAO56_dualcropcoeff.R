@@ -585,6 +585,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     #fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
     #model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
     model.scaffold.results <- read.csv(results_file, stringsAsFactors = FALSE)
+    model.scaffold.results$Irr.1 <- as.Date(model.scaffold.results$Irr.1)
+    model.scaffold.results$Irr.Last <- as.Date(model.scaffold.results$Irr.Last)
   }
   crop.parameters <- CropParametersDefine(crop.parameters.df, cropname)
   Kcb.std <- KcbDefine(doys.model, cropname) #this will be substituted with a crop code
