@@ -39,6 +39,28 @@ allcrops2.0m_AD50 <- rbind(almond2.0m_AD50, walnut2.0m_AD50, pistachio2.0m_AD50,
 dim(allcrops2.0m_AD50) #3,432,480 rows
 length(unique(allcrops2.0m_AD50$unique_model_code)) #200,090 unique model codes
 
+#needs development work to get mu aggregated
+MUAggregate <- function(df, varname, func, ...) {
+  var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
+  mukeys <- tapply(df$mukey, df$unique_model_code_final, unique)
+  comppct_r <- tapply(df$comppct_r, df$unique_model_code_final, unique)
+  modelcode <- tapply(df$unique_model_code, df$unique_model_code_final, unique)
+  results <- cbind(var.by.year, mukeys, comppct_r, modelcode)
+  results <- as.data.frame(results)
+  compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$var.by.year)], results$modelcode[!is.na(results$var.by.year)], sum))
+  colnames(compsums) <- 'compsums'
+  compsums$modelcode <- rownames(compsums)
+  results <- merge(results, compsums, by='modelcode')
+  var.final <- tapply(results$var.by.year*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
+  var.final <- as.data.frame(var.final)
+  colnames(var.final) <- 'var.final'
+  var.final$unique_model_code <- rownames(var.final)
+  var.final$var.final <- as.numeric(var.final$var.final)
+  var.final <- var.final[,c(2,1)]
+  colnames(var.final)[2] <- varname
+  var.final
+}
+
 #this aggregates results across all years by mukey and unique model code
 AggregateResults <- function(df, varname, func, ...) {
   var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
@@ -62,12 +84,14 @@ AggregateResults <- function(df, varname, func, ...) {
 }
 almond_gw_et <- AggregateResults(almond2.0m_AD50, 'GW.ET.growing', mean, na.rm=TRUE)
 almond_paw <- AggregateResults(almond2.0m_AD50, 'z2.0m_cmH2O_modified_comp', unique)
+almond_et <- AggregateResults(almond2.0m_AD50, 'ET.growing', mean, na.rm=TRUE)
 
 setwd(file.path(resultsDir, 'data.frames/Aug2017'))
 model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
 almond_points <- model_points[which(model_points$crop_code==75),]
 almond_gw_et <- merge(almond_points, almond_gw_et, by='unique_model_code')
 almond_gw_et <- merge(almond_gw_et, almond_paw, by='unique_model_code')
+almond_gw_et <- merge(almond_gw_et, almond_et, by='unique_model_code')
 plot(almond_gw_et$GW.ET.growing, almond_gw_et$z2.0m_cmH2O_modified_comp)
 storage_vs_GW <- lm(almond_gw_et$GW.ET.growing ~ almond_gw_et$z2.0m_cmH2O_modified_comp)
 summary(storage_vs_GW)
@@ -79,7 +103,7 @@ prism.by.year <- split(prism.data, prism.data$water.year)
 for (j in 1:length(prism.by.year)) { #get the unnecessary columns out now
   prism.by.year[[j]] <- prism.by.year[[j]][,6:(ncol(prism.by.year[[j]])-1)]
 }
-prism.annual.sums <- do.call(rbind, lapply(prism.by.year, sapply, sum)) #sapply was necessary so that the "cell" of the matrix was not returned as a list object
+prism.annual.sums <- do.call(rbind, lapply(prism.by.year, sapply, sum)) #sapply was necessary so that each "cell" of the results matrix was not returned as a list object
 prism.annual.sums <- t(prism.annual.sums)
 prism.annual.sums <- as.data.frame(prism.annual.sums)
 prism.annual.sums$cell_name <- rownames(prism.annual.sums)
@@ -88,12 +112,17 @@ colnames(prism.annual.sums)
 prism.annual.sums$mean.annual.P <- apply(prism.annual.sums[,1:15], 1, mean)
 
 #now, merge with results above
+#better to do all of this modelling with the annual data itself; not means
 almond_gw_et <- merge(almond_gw_et, prism.annual.sums[,c('mean.annual.P', 'PRISMcellnumber')], by='PRISMcellnumber')
-mean(almond_gw_et$mean.annual.P)
+mean(almond_gw_et$mean.annual.P) #273 mm
+mean(almond_gw_et$GW.ET.growing) #171 mm
 almond_gw_et$GW.ET.growing[which(almond_gw_et$GW.ET.growing < 0)] <- 0
 summary(almond_gw_et$GW.ET.growing/almond_gw_et$mean.annual.P)
 almond_gw_et$paw_mm <- 10*almond_gw_et$z2.0m_cmH2O_modified_comp
 GW_vs_P2_AWS <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm, data=almond_gw_et)
+summary(GW_vs_P2_AWS)
+GW_vs_P2_AWS2 <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2), data=almond_gw_et)
+summary(GW_vs_P2_AWS2)
 GW_vs_P <- lm(GW.ET.growing ~ mean.annual.P, data=almond_gw_et)
 summary(GW_vs_P)
 GW_vs_P2_AWS_interact <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + paw_mm*mean.annual.P, data=almond_gw_et)
