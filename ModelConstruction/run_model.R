@@ -65,3 +65,9 @@ foreach(i=1:63) %dopar% {
   FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = modelgrid$alfalfa.zone[i])
   print(i)
 }
+
+#wine grape runs on Lenovo Yoga 3 laptop
+FAO56DualCropCalc('grapes.wine', grape_code, 50, '3.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='grapes.wine3.0mRDI.min0.2_FAO56results.csv', row_start='20001', RDI.min = 0.2, alfalfa.zone = NA)
+FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = 0.5, alfalfa.zone = NA)
+#almond re-run at row 60,001
+FAO56DualCropCalc('almond.mature', almond_code, 50, '3.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature3.0mAD50_FAO56results.csv', row_start=60001, RDI.min = NA, alfalfa.zone = NA)
