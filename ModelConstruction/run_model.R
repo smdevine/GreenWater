@@ -69,5 +69,18 @@ foreach(i=1:63) %dopar% {
 #wine grape runs on Lenovo Yoga 3 laptop
 FAO56DualCropCalc('grapes.wine', grape_code, 50, '3.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='grapes.wine3.0mRDI.min0.2_FAO56results.csv', row_start='20001', RDI.min = 0.2, alfalfa.zone = NA)
 FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = 0.5, alfalfa.zone = NA)
-#almond re-run at row 60,001
+
+#wine grape re-run at row 50,001
+FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='grapes.wine2.0mRDI.min0.5_FAO56results.csv', row_start=50001, RDI.min = 0.5, alfalfa.zone = NA)
+
+#almond 3.0 m, 50% AD re-run at row 60,001
 FAO56DualCropCalc('almond.mature', almond_code, 50, '3.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature3.0mAD50_FAO56results.csv', row_start=60001, RDI.min = NA, alfalfa.zone = NA)
+
+#almond 3.0 m, 80% AD re-run at row 70,001
+FAO56DualCropCalc('almond.mature', almond_code, 80, '3.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature3.0mAD80_FAO56results.csv', row_start=70001, RDI.min = NA, alfalfa.zone = NA)
+
+#almond 2.0 m, 80% AD re-run at row 70,001
+FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature2.0mAD80_FAO56results.csv', row_start=70001, RDI.min = NA, alfalfa.zone = NA)
+
+#alfalfa.intermountain 1.0 m, 30% AD re-run from scratch
+FAO56DualCropCalc('alfalfa.intermountain', alfalfa_code, 30, '1.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Intermountain')
