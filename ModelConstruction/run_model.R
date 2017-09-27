@@ -47,6 +47,7 @@ stopCluster(cl)
 
 #re-run 9 scenarios per crop x soil x climate combination
 #re-started again 9:40 AM on 9/14/17
+#re-starting at scenario 16 at 3:20 PM on 9/20/17
 #root.depths <- c('1.0m', '2.0m', '3.0m')
 #AD.percentage <- c(30, 50, 80)
 #cropnames <- c('almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial')
@@ -61,7 +62,7 @@ modelgrid
 cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
 clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
 registerDoSNOW(cl)
-foreach(i=1:63) %dopar% {
+foreach(i=16:63) %dopar% {
   FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = modelgrid$alfalfa.zone[i])
   print(i)
 }
@@ -73,3 +74,18 @@ FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters
 
 #almond re-run at row 60,001
 FAO56DualCropCalc('almond.mature', almond_code, 50, '3.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature3.0mAD50_FAO56results.csv', row_start=60001, RDI.min = NA, alfalfa.zone = NA)
+
+#wine grape re-run at row 50,001
+FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='grapes.wine2.0mRDI.min0.5_FAO56results.csv', row_start=50001, RDI.min = 0.5, alfalfa.zone = NA)
+
+#almond 3.0 m, 50% AD re-run at row 60,001
+FAO56DualCropCalc('almond.mature', almond_code, 50, '3.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature3.0mAD50_FAO56results.csv', row_start=60001, RDI.min = NA, alfalfa.zone = NA)
+
+#almond 3.0 m, 80% AD re-run at row 70,001
+FAO56DualCropCalc('almond.mature', almond_code, 80, '3.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature3.0mAD80_FAO56results.csv', row_start=70001, RDI.min = NA, alfalfa.zone = NA)
+
+#almond 2.0 m, 80% AD re-run at row 70,001
+FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='almond.mature2.0mAD80_FAO56results.csv', row_start=70001, RDI.min = NA, alfalfa.zone = NA)
+
+#alfalfa.intermountain 1.0 m, 30% AD re-run from scratch
+FAO56DualCropCalc('alfalfa.intermountain', alfalfa_code, 30, '1.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Intermountain')
