@@ -72,21 +72,21 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-cropname <- 'grapes.wine'
-cropcode <- grape_code
-AD.percentage <- 50
-root_depth <- '3.0m'
-irr.type <- 'Drip'
+cropname <- 'alfalfa.intermountain'
+cropcode <- alfalfa_code
+AD.percentage <- 30
+root_depth <- '1.0m'
+irr.type <- 'Border'
 results_file <- 'new'
 row_start <- 1
-RDI.min <- 0.2
-alfalfa.zone <- NA
+RDI.min <- NA
+alfalfa.zone <- 'Intermountain'
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
 grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
 almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
 walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
 pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
-FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone) {
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
   almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
@@ -546,7 +546,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
         paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
       } #need to add irr.type here
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
-    paw.var <- paste0('z', root_depth, '_cmH2O_unmodified_comp')
+    paw.var <- paste0('z', root_depth, '_cmH2O_unmodified_comp') 
   } else {
       paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
   }
@@ -561,7 +561,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   TEW.fraction <- 0.5
 #limit model.scaffold to cropname
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
-    model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ]
+    model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ] #further refine model.scaffold.crop if cropname == alfalfa according to geography
+  } else if (cropname=='grapes.table' | cropname=='grapes.wine') {
+    model.scaffold.crop <- model.scaffold[which(model.scaffold.crop$crop_code==cropcode & model.scaffold$grape.zone %in% grape.zone), ]#further refine model.scaffold.crop if cropname == grape according to geography; wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range'
   } else {
       model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
   }
@@ -594,7 +596,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   if (cropname == 'alfalfa.intermountain' | cropname == 'alfalfa.CV' | cropname == 'alfalfa.imperial') {
     harvest.days <- HarvestDays(cropname)
   }
-  
   if (cropname=='alfalfa.intermountain') {
     Jdev <- crop.parameters$Jini[which(crop.parameters$crop==cropname)] #Jdev is intended to represent start of growing season as DOY
   } else if (cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
@@ -621,10 +622,10 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   } else {save.times <- 5000}
   for (n in row_start:nrow(model.scaffold.crop)) {
-    #n <- 28622
+    #n <- 3164
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
-    AD <- (AD.percentage/100)*PAW #converts AD in cm to mm; can redefine this script based on PAW
+    AD <- (AD.percentage/100)*PAW
     cokey <- model.scaffold.crop$cokey[n]
     REW.parameter <- model.scaffold.crop$REW[n]
     TEW.parameter <- model.scaffold.crop$TEW[n]
@@ -632,7 +633,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       next(print(paste('Soils data is missing for cokey ', as.character(cokey)))) #TO-DO: write this result to separate file of NAs
     }
     if (AD==0 | TEW.parameter==0 | REW.parameter==0) {
-      next(print(paste('AD is 0 for cokey ', as.character(cokey)))) ##TO-DO: write this result to separate file of NAs
+      print(paste('AD, TEW, or REW is 0 for cokey ', as.character(cokey)))
+      next
     }
     if (REW.parameter > TEW.parameter) { #there are several hundered instances where this was the result of the SSURGO aggregation work
       REW.parameter <- TEW.parameter
@@ -652,6 +654,10 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Kcb.df <- KcbAdj(Kcb.std, crop.parameters=crop.parameters, cropname, U2, RHmin) #object 'crop.parameters' not found
     Kcb.adjusted <- Kcb.df$Kcb.climate.adj
     days.no.irr <- DaysNoIrr(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv)
+    if (is.null(days.no.irr)) {
+      print(paste0('Null value returned for days.no.irr for model.scaffold.crop n = ', as.character(n), ', likely a result of a low PAW: ', as.character(PAW), ' mm.'))
+      next
+    }
     Kcmax <- Kcb.df$Kc.max
     Dei.initial <- numeric(length = model.length)
     DPei <- numeric(length = model.length)
@@ -941,4 +947,5 @@ which(model.scaffold.crop$unique_model_code==218045)
 model.scaffold.ofinterest <- model.scaffold[which(model.scaffold$crop_code %in% c(alfalfa_code, almond_code, pistachio_code, grape_code, walnut_code)),]
 nrow(model.scaffold.ofinterest) #304213 unique scenarios of soil major component, climate, and crop for alfalfa, almond, grape, pistachio, and walnut
 304213*12*0.5/(3600*24)
+
 #21.1 days to run
