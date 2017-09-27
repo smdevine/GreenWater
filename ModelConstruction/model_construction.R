@@ -92,8 +92,10 @@ dim(model_scaffold_majcomps)
 setwd(file.path(model_scaffoldDir, 'run_model/Sep2017'))
 alfalfa_zones_codes <- read.csv('alfalfa_zones_codes.csv', stringsAsFactors = FALSE)
 model_scaffold_majcomps$alfalfa.zone <- alfalfa_zones_codes$zone[match(model_scaffold_majcomps$unique_model_code, alfalfa_zones_codes$unique_model_code)]
+grape_zones_codes <- read.csv('grape_zones_codes.csv', stringsAsFactors = FALSE)
+model_scaffold_majcomps$grape.zone <- grape_zones_codes$grape.zone[match(model_scaffold_majcomps$unique_model_code, grape_zones_codes$unique_model_code)]
 setwd(file.path(model_scaffoldDir, 'run_model/Sep2017'))
-write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.csv', row.names = F)
+write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.v2.csv', row.names = F)
 
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
