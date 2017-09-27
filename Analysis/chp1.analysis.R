@@ -1,4 +1,11 @@
+#TO-DO
+# (1) add spatial CIMIS ETo data to almond_points_allyrs
+# (2) test green water availability models for almond_points_allyrs
+
 library(raster)
+library(extrafont)
+library(extrafontdb)
+#font_import() #only needs to be done once?
 options(digits = 22)
 max_modified <- function(x) {
   if(all(is.na(x))) {
@@ -12,56 +19,31 @@ min_modified <- function(x) {
   }
   else {min(x, na.rm = TRUE)}
 }
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
-setwd(modelscaffoldDir)
-cell_numbers_of_interest <- read.csv('cellnumbers_to_modelcodes.csv', stringsAsFactors = FALSE)
-raster.model.codes <- raster('model.codes.Aug2017.tif')
-prism.data <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = FALSE)
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results'
-scenario.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/scenario results/Sep2017' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
-setwd(scenario.resultsDir)
-list.files()
-almond2.0m_AD50 <- read.csv('almond.mature2.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
-almond2.0m_AD50$full_matrix_rownum <- NULL
-dim(almond2.0m_AD50) #1206045 rows
-walnut2.0m_AD50 <- read.csv('walnut.mature2.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
-walnut2.0m_AD50$full_matrix_rownum <- NULL
-dim(walnut2.0m_AD50)
-pistachio2.0m_AD50 <- read.csv('pistachios2.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
-dim(pistachio2.0m_AD50)
-grapes.wine2.0m_0.2minRDI <- read.csv('grapes.wine2.0mRDI.min0.2_FAO56results.csv', stringsAsFactors = FALSE)
-mean(grapes.wine2.0m_0.2minRDI$GW.ET.growing , na.rm = TRUE) #134.931 mm
-hist(grapes.wine2.0m_0.2minRDI$GW.ET.growing)
-sum(grapes.wine2.0m_0.2minRDI$GW.ET.growing < 0, na.rm = TRUE) #38591 scenario years less than 0
-grapes.wine2.0m_0.2minRDI$H2O.stress <- NULL
-dim(grapes.wine2.0m_0.2minRDI)
-allcrops2.0m_AD50 <- rbind(almond2.0m_AD50, walnut2.0m_AD50, pistachio2.0m_AD50, grapes.wine2.0m_0.2minRDI)
-dim(allcrops2.0m_AD50) #3,432,480 rows
-length(unique(allcrops2.0m_AD50$unique_model_code)) #200,090 unique model codes
 
-#needs development work to get mu aggregated
-MUAggregate <- function(df, varname, func, ...) {
-  var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
-  mukeys <- tapply(df$mukey, df$unique_model_code_final, unique)
-  comppct_r <- tapply(df$comppct_r, df$unique_model_code_final, unique)
-  modelcode <- tapply(df$unique_model_code, df$unique_model_code_final, unique)
-  results <- cbind(var.by.year, mukeys, comppct_r, modelcode)
-  results <- as.data.frame(results)
-  compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$var.by.year)], results$modelcode[!is.na(results$var.by.year)], sum))
+#this aggregates the model results by map unit, so that there are no duplicate unique model codes in the results (i.e. unique model codes with more than one major component have their results averaged as a component weighted average).  For this function, results for all model years are maintained, whereas in AggregateResults() below, multiple years data is compressed into a single statistic.
+MUAggregate <- function(df, varname) {
+  #df <- almond2.0m_AD50[which(almond2.0m_AD50$Model.Year==2004),]
+  year <- df$Model.Year[1]
+  print(year)
+  compsums <- as.data.frame(tapply(df$comppct_r[!is.na(df[[varname]])], df$unique_model_code[!is.na(df[[varname]])], sum))
   colnames(compsums) <- 'compsums'
-  compsums$modelcode <- rownames(compsums)
-  results <- merge(results, compsums, by='modelcode')
-  var.final <- tapply(results$var.by.year*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
+  compsums$unique_model_code <- as.integer(rownames(compsums))
+  results <- cbind(df[!is.na(df[[varname]]), c(varname, 'comppct_r')], compsums[match(df$unique_model_code[!is.na(df[[varname]])], compsums$unique_model_code), ])
+  var.final <- tapply(results[[varname]]*(results$comppct_r/results$compsums), results$unique_model_code, sum)
   var.final <- as.data.frame(var.final)
   colnames(var.final) <- 'var.final'
   var.final$unique_model_code <- rownames(var.final)
+  rownames(var.final) <- NULL
   var.final$var.final <- as.numeric(var.final$var.final)
   var.final <- var.final[,c(2,1)]
   colnames(var.final)[2] <- varname
+  #var.final$Model.Year <- year
+  var.final <- cbind(var.final, df[match(var.final$unique_model_code, df$unique_model_code), 'Model.Year'])
+  colnames(var.final)[3] <- 'Model.Year'
   var.final
 }
 
-#this aggregates results across all years by mukey and unique model code
+#this aggregates results across all years by mukey and unique model code according to the 'func', such as taking the mean GW.ET.growing for each unique combination of climate, soil, and crop from 2004-2016, with major component weighted averages
 AggregateResults <- function(df, varname, func, ...) {
   var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
   mukeys <- tapply(df$mukey, df$unique_model_code_final, unique)
@@ -82,56 +64,106 @@ AggregateResults <- function(df, varname, func, ...) {
   colnames(var.final)[2] <- varname
   var.final
 }
-almond_gw_et <- AggregateResults(almond2.0m_AD50, 'GW.ET.growing', mean, na.rm=TRUE)
-almond_paw <- AggregateResults(almond2.0m_AD50, 'z2.0m_cmH2O_modified_comp', unique)
-almond_et <- AggregateResults(almond2.0m_AD50, 'ET.growing', mean, na.rm=TRUE)
 
-setwd(file.path(resultsDir, 'data.frames/Aug2017'))
-model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
-almond_points <- model_points[which(model_points$crop_code==75),]
-almond_gw_et <- merge(almond_points, almond_gw_et, by='unique_model_code')
-almond_gw_et <- merge(almond_gw_et, almond_paw, by='unique_model_code')
-almond_gw_et <- merge(almond_gw_et, almond_et, by='unique_model_code')
-plot(almond_gw_et$GW.ET.growing, almond_gw_et$z2.0m_cmH2O_modified_comp)
-storage_vs_GW <- lm(almond_gw_et$GW.ET.growing ~ almond_gw_et$z2.0m_cmH2O_modified_comp)
-summary(storage_vs_GW)
-
-#get the mean water year P by cell number, excluding 2017
-prism.data$water.year <- prism.data$year
-prism.data$water.year[which(prism.data$months >= 10)] <- prism.data$water.year[which(prism.data$months >= 10)] + 1
-prism.by.year <- split(prism.data, prism.data$water.year)
-for (j in 1:length(prism.by.year)) { #get the unnecessary columns out now
-  prism.by.year[[j]] <- prism.by.year[[j]][,6:(ncol(prism.by.year[[j]])-1)]
+#function to set point values according to the stats produced by 'Aggregate Result
+SetPointValues <- function(points_df, var_df, varname){
+  points_df[[varname]] <- var_df[[varname]][match(points_df$unique_model_code, var_df$unique_model_code)]
+  points_df
 }
-prism.annual.sums <- do.call(rbind, lapply(prism.by.year, sapply, sum)) #sapply was necessary so that each "cell" of the results matrix was not returned as a list object
-prism.annual.sums <- t(prism.annual.sums)
-prism.annual.sums <- as.data.frame(prism.annual.sums)
-prism.annual.sums$cell_name <- rownames(prism.annual.sums)
-prism.annual.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', prism.annual.sums$cell_name))
-colnames(prism.annual.sums)
-prism.annual.sums$mean.annual.P <- apply(prism.annual.sums[,1:15], 1, mean)
+SetPointPrecipValues_MeanAnnual <- function(points_df){
+  points_df$mean.annual.P <- prism.annual.sums$mean.annual.P[match(points_df$PRISMcellnumber, prism.annual.sums$PRISMcellnumber)]
+  points_df
+}
+SetPointValues.AllYrs <- function(var_df, varname, points_df) {
+  if (is.null(points_df$Model.Year)) {
+    model.year <- var_df$Model.Year[1]
+    points_df$Model.Year <- model.year
+    points_df[[varname]] <- var_df[[varname]][match(points_df$unique_model_code, var_df$unique_model_code)]
+    points_df
+  } else {
+    model.year <- var_df$Model.Year[1]
+    subset_points_df <- points_df[which(points_df$Model.Year==model.year),]
+    subset_points_df[[varname]] <- var_df[[varname]][match(subset_points_df$unique_model_code, var_df$unique_model_code)]
+    subset_points_df
+  }
+}
 
-#now, merge with results above
-#better to do all of this modelling with the annual data itself; not means
-almond_gw_et <- merge(almond_gw_et, prism.annual.sums[,c('mean.annual.P', 'PRISMcellnumber')], by='PRISMcellnumber')
-mean(almond_gw_et$mean.annual.P) #273 mm
-mean(almond_gw_et$GW.ET.growing) #171 mm
-almond_gw_et$GW.ET.growing[which(almond_gw_et$GW.ET.growing < 0)] <- 0
-summary(almond_gw_et$GW.ET.growing/almond_gw_et$mean.annual.P)
-almond_gw_et$paw_mm <- 10*almond_gw_et$z2.0m_cmH2O_modified_comp
-GW_vs_P2_AWS <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm, data=almond_gw_et)
-summary(GW_vs_P2_AWS)
-GW_vs_P2_AWS2 <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2), data=almond_gw_et)
-summary(GW_vs_P2_AWS2)
-GW_vs_P <- lm(GW.ET.growing ~ mean.annual.P, data=almond_gw_et)
-summary(GW_vs_P)
-GW_vs_P2_AWS_interact <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + paw_mm*mean.annual.P, data=almond_gw_et)
-summary(GW_vs_P2_AWS_interact)
-GW_vs_P2_AWS2_interact <- lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2) + paw_mm*mean.annual.P, data=almond_gw_et)
-summary(GW_vs_P2_AWS2_interact)
-GW_vs_P_AWS_interact <- lm(GW.ET.growing ~ mean.annual.P + paw_mm + paw_mm*mean.annual.P, data=almond_gw_et)
-summary(GW_vs_P_AWS_interact)
-#builds a raster based upon aggregation process above
+SetPointPrecipValues.AllYrs <- function(df){
+  model.year <- as.character(df$Model.Year[1])
+  df$annual.P <- prism.annual.sums[[model.year]][match(df$PRISMcellnumber, prism.annual.sums$PRISMcellnumber)]
+  df
+}
+
+CustomBP <- function(x){
+  stats.x <- summary(x) #in this order: (1)Min. (2)1st Qu.  (3)Median    (4)Mean (5)3rd Qu.   (6) Max.    NA's 
+  min.x <- stats.x[1]
+  q1.x <- stats.x[2]
+  med.x <- stats.x[3]
+  mean.x <- stats.x[4]
+  q3.x <- stats.x[5]
+  max.x <- stats.x[6]
+  sd.x <- sd(x, na.rm = TRUE)
+  c(max(mean.x - 1.96*sd.x, min.x), q1.x, med.x, q3.x, min(mean.x + 1.96*sd.x, max.x))
+}
+
+#plotting function
+MakeBP <- function(varname, var_df, fname_header, bxfill, yaxis_lab, years=2004:2016) {
+  loadfonts(quiet=TRUE, device='win')
+  bp <- boxplot(varname ~ Model.Year, data=var_df, plot=FALSE)
+  for (i in 1:ncol(bp$stats)) {
+    df <- var_df[which(var_df$Model.Year==years[i]),]
+    bp$stats[,i] <- CustomBP(df[[varname]])
+    setwd(file.path(SepResultsDir, 'figures'))
+    png(paste0(fname_header, '.', varname, '.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
+    par(mai=c(0.9, 0.9, 0.2, 0.2))
+    bxp(bp, outline = FALSE, boxfill=bxfill, las=2, ylab='', xlab='')
+    mtext(text='Year', side=1, line=3.5)
+    mtext(text=yaxis_lab, side=2, line=3.5)
+    dev.off()
+    
+  }
+}
+
+#playing with Dr trends across rooting assumptions
+setwd(file.path(SepResultsDir, 'almond.mature_majcomps/scenario_2.0m50AD'))
+fnames <- list.files()
+crop.soil.WB <- read.csv('almond.mature2.0mAD50_101839_13095536_2017-09-15.csv', stringsAsFactors = FALSE)
+# plot(as.Date(crop.soil.WB$dates), crop.soil.WB$Dr.end, type='l') #needs to be smoothed
+# first100 <- head(crop.soil.WB$Dr.end, 100)
+# for (i in 1:length(crop.soil.WB$Dr.end)) {
+#   if (i > 4) {
+#     crop.soil.WB$Dr.end[i] <- mean(crop.soil.WB$Dr.end[(i-4):(i+5)])
+#   } else {next}
+# }
+# first100
+# head(crop.soil.WB$Dr.end, 100)
+plot(as.Date(crop.soil.WB$dates), crop.soil.WB$Dr.end, type='l', col='green')
+dataWY2005 <- crop.soil.WB[which(crop.soil.WB$dates=='2004-10-01'):which(crop.soil.WB$dates=='2005-06-01'), ]
+dataWY2011 <- crop.soil.WB[which(crop.soil.WB$dates=='2010-10-01'):which(crop.soil.WB$dates=='2011-06-01'), ]
+dataWY2014 <- crop.soil.WB[which(crop.soil.WB$dates=='2013-10-01'):which(crop.soil.WB$dates=='2014-06-01'), ]
+dataWY2016 <- crop.soil.WB[which(crop.soil.WB$dates=='2015-10-01'):which(crop.soil.WB$dates=='2016-06-01'), ]
+dataWY2017 <- crop.soil.WB[which(crop.soil.WB$dates=='2016-10-01'):which(crop.soil.WB$dates=='2017-06-01'), ]
+dataWY2005_365 <- crop.soil.WB[which(crop.soil.WB$dates=='2004-10-01'):which(crop.soil.WB$dates=='2005-09-30'), ]
+dataWY2014_365 <- crop.soil.WB[which(crop.soil.WB$dates=='2013-10-01'):which(crop.soil.WB$dates=='2014-09-30'), ]
+#format.Date(as.Date(dataWY2011$dates), '%b-%d')
+plot(1:length(dataWY2014$Dr.end), dataWY2014$Dr.end, type='l', col='blue', xlab='Dates', ylab='Soil water depletion (mm)', axes=FALSE)
+# now tell it that annotations will be rotated by 90* (see ?par)
+par(las=2)
+# now draw the first axis
+axis(1, at=seq(from=1, to=length(dataWY2014$dates), by=21), labels=format.Date(as.Date(dataWY2014$dates), '%b-%d')[seq(from=1, to=length(dataWY2014$dates), by=21)])
+#lines(1:length(dataWY2011$Dr.end), dataWY2011$Dr.end, type='l', col='green')
+lines(1:length(dataWY2017$Dr.end), dataWY2017$Dr.end, type='l', col='turquoise')
+lines(1:length(dataWY2016$Dr.end), dataWY2016$Dr.end, type='l', col='orange')
+lines(1:length(dataWY2005$Dr.end), dataWY2005$Dr.end, type='l', col='darkgreen')
+
+#plot whole year's data
+plot(1:length(dataWY2014_365$Dr.end), dataWY2014_365$Dr.end, type='l', col='blue', xlab='', ylab='Soil water depletion (mm)', axes=FALSE)
+axis(1, at=seq(from=1, to=length(dataWY2005_365$dates), by=31), labels=format.Date(as.Date(dataWY2005_365$dates), '%b')[seq(from=1, to=length(dataWY2005_365$dates), by=31)])
+axis(2)
+lines(1:length(dataWY2005_365$Dr.end), dataWY2005_365$Dr.end, type='l', col='green')
+
+
+#build a raster based upon data aggregation process above in AggregateResults func.
 RasterBuild <- function(df, varname, rasterfname, func, ...) {
   var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
   mukeys <- tapply(df$mukey, df$unique_model_code_final, unique)
@@ -168,6 +200,51 @@ RasterBuild("deep.perc.annual", 'deep.perc.annual.Aug2017runs.tif', mean, na.rm=
 RasterBuild("z2.0m_cmH2O_modified_comp", 'paw.cmH2O.Aug2017runs.tif', unique)
 RasterBuild("TEW", 'TEW.surface.Aug2017runs.tif', unique)
 RasterBuild("Dr.end.season", 'Dr.end.season.Aug2017runs.tif', mean, na.rm=TRUE)
+
+
+#some GW modeling
+#better to do all of this modelling with the annual data itself; not means;
+#use almond_GW_ET_allyrs produced above in place of almond_points
+#merging P with almond_points first
+almond_points <- SetPointPrecipValues_MeanAnnual(almond_points)
+mean(almond_points$mean.annual.P) #281 mm
+mean(almond_points$GW.ET.growing, na.rm=TRUE) #171 mm
+almond_points$GW.ET.growing[which(almond_points$GW.ET.growing < 0)] <- 0
+summary(almond_points$GW.ET.growing)
+summary(almond_points$GW.ET.growing/almond_points$mean.annual.P)
+hist(almond_points$GW.ET.growing/almond_points$mean.annual.P)
+almond_points$GW.ET.to.P <- almond_points$GW.ET.growing/almond_points$mean.annual.P
+summary(lm(almond_points$GW.ET.to.P ~ almond_points$paw_mm))
+rows.to.sample <- sample(1:nrow(almond_points), 0.02*nrow(almond_points))
+#plot of GW.ET:P vs. 
+plot(almond_points$paw_mm[rows.to.sample], almond_points$GW.ET.to.P[rows.to.sample])
+plot(almond_points$paw_mm[rows.to.sample], almond_points$GW.ET.growing[rows.to.sample])
+paw_sd <- sd(almond_points$paw_mm, na.rm = TRUE)
+paw_median <- median(almond_points$paw_mm, na.rm=TRUE)
+p_sd <- sd(almond_points$mean.annual.P)
+p_mean <- mean(almond_points$mean.annual.P)
+almond_points$paw_symbol <- NA
+almond_points$paw_symbol[which(!is.na(almond_points$paw_mm))] <-rgb(0, 197, 255, maxColorValue = 255)
+almond_points$paw_symbol[which(almond_points$paw_mm < (paw_median - 0.43*paw_sd))] <- rgb(190, 232, 255, maxColorValue = 255)
+almond_points$paw_symbol[which(almond_points$paw_mm > (paw_median + 0.43*paw_sd))] <- rgb(0, 77, 168, maxColorValue = 255)
+plot(almond_points$mean.annual.P[rows.to.sample], almond_points$GW.ET.growing[rows.to.sample], xlab='mean annual P (mm)', ylab='mean green water ET (mm)', col=almond_points$paw_symbol[rows.to.sample])
+plot(almond_points$paw_mm[rows.to.sample], almond_points$E.growing[rows.to.sample])
+summary(almond_points$GW.ET.growing/almond_points$ET.growing)
+hist(almond_points$GW.ET.growing/almond_points$ET.growing)
+summary(lm(GW.ET.growing ~ mean.annual.P + paw_mm + ET.growing, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2), data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + paw_mm*mean.annual.P, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2) + paw_mm*mean.annual.P, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + paw_mm + paw_mm*mean.annual.P, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2) + ET.growing + I(ET.growing^2) + paw_mm*mean.annual.P, data=almond_points))
+summary(lm(GW.ET.growing ~ mean.annual.P + I(mean.annual.P^2) + paw_mm + I(paw_mm^2) + paw_mm*mean.annual.P + I(paw_mm*mean.annual.P^2), data=almond_points))
+
+
+
+#build a raster for a single year's data
+
 
 #rasterize model_points_sp, setting values to 'unique_model_code'
 setwd(file.path(resultsDir, 'data.frames/Aug2017'))
