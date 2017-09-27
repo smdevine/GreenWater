@@ -15,11 +15,19 @@ alfalfa_points_sp <- model_points_sp[which(model_points_sp$crop_code==36),]
 zones <- over(alfalfa_points_sp, alfalfa.zones)
 alfalfa_points_sp$zone <- zones$name
 summary(as.factor(alfalfa_points_sp$zone))
+#Central Valley   Imperial Valley   Intermountain   NA's 
+#3218637          906837            782290          108635
 unique.codes <- unique(alfalfa_points_sp$unique_model_code)
 alfalfa_points_sp_df <- as.data.frame(alfalfa_points_sp)
 alfalfa_codes_zones <- alfalfa_points_sp_df[match(unique.codes, alfalfa_points_sp_df$unique_model_code), c('unique_model_code', 'zone')]
 setwd(modelScaffoldDir)
 write.csv(alfalfa_codes_zones, 'alfalfa_zones_codes.csv', row.names = FALSE)
-
-#Central Valley Imperial Valley   Intermountain         NA's 
-    #3218637          906837          782290          108635
+alfalfa_codes_zones <- read.csv('alfalfa_zones_codes.csv', stringsAsFactors = FALSE)
+#retesting merge
+dim(alfalfa_codes_zones)
+head(alfalfa_points_sp_df)
+alfalfa_points_sp_df$zone <- alfalfa_codes_zones$zone[match(alfalfa_points_sp_df$unique_model_code, alfalfa_codes_zones$unique_model_code)]
+summary(as.factor(alfalfa_points_sp_df$zone))
+#Central Valley   Imperial Valley   Intermountain   NA's 
+#3218657          906444            782260          109038  #a few inconsistencies; this means a few "unique model codes" spanned more than one zone
+dim(alfalfa_points_sp_df)
