@@ -1,14 +1,15 @@
 #TO-DO:
-  #1. Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
-  #2. Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer [DONE].  
-  #3. Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix [DONE]
-  #5. Modify winter Kcb calculation for alfalfa: allow for fall growth in intermountain region before frost termination; allow for higher peak values in Fall then decline to 0.8 before rising again in Feb [DONE]
-  #6. Modify Fc equation for alfalfa, so that it is directly based off of Kcb values [DONE]
-  #7. Allow for winter residual "mulch" in intermountain alfalfa production (for every 10% effective surface coverage results in 5% reduction in TEW)
-  #8. Modify irrigation decision so that irrigations can't occur before 2/?? in Central Valley, even with drought stress but ensure this doesn't adversely affect results calculations that depend on definitions of Jdev [DONE]
+  #1.  Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
+  #2.  Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer [DONE].  
+  #3.  Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix [DONE]
+  #5.  Modify winter Kcb calculation for alfalfa: allow for fall growth in intermountain region before frost termination; allow for higher peak values in Fall then decline to 0.8 before rising again in Feb [DONE]
+  #6.  Modify Fc equation for alfalfa, so that it is directly based off of Kcb values [DONE]
+  #7.  Allow for winter residual "mulch" in intermountain alfalfa production (for every 10% effective surface coverage results in 5% reduction in TEW)
+  #8.  Modify irrigation decision so that irrigations can't occur before 2/?? in Central Valley, even with drought stress but ensure this doesn't adversely affect results calculations that depend on definitions of Jdev [DONE]
   #9. Add alfalfa zone to model scaffold [DONE]
-  #10 Add grape zone to model scaffold [DONE]
+  #10. Add grape zone to model scaffold [DONE]
 #modified KeiCalc and KepCalc on 9/11/17 to correct for overestimation of evaporation from sandy soils with very low TEW (i.e. <12 mm)
+  #11. Simple tests or monte-Carlo simulation of effect of following effects (1) climatic adjustment of Kcb values (2) bloom and leaf-drop assumptions (3) Kcb values themselves
 #changed order of DPei and DPep on 9/11/17  
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
@@ -650,7 +651,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     U2 <- U2.df[ ,which(colnames(U2.df)==paste0('cell_', as.character(spCIMIScell)))]
     RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
     if (all(is.na(P)) | all(is.na(ETo))) {
-      next(print(paste('Climate data is missing for scenario number', as.character(n)))) #TO-DO: write this result to separate file of NAs
+      print(paste('Climate data is missing for scenario number', as.character(n))) #TO-DO: write this result to separate file of NAs
+      next
     }
     Kcb.df <- KcbAdj(Kcb.std, crop.parameters=crop.parameters, cropname, U2, RHmin) #object 'crop.parameters' not found
     Kcb.adjusted <- Kcb.df$Kcb.climate.adj
