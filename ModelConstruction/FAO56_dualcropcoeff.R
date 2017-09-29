@@ -7,7 +7,7 @@
   #7. Allow for winter residual "mulch" in intermountain alfalfa production (for every 10% effective surface coverage results in 5% reduction in TEW)
   #8. Modify irrigation decision so that irrigations can't occur before 2/?? in Central Valley, even with drought stress but ensure this doesn't adversely affect results calculations that depend on definitions of Jdev [DONE]
   #9. Add alfalfa zone to model scaffold [DONE]
-
+  #10 Add grape zone to model scaffold [DONE]
 #modified KeiCalc and KepCalc on 9/11/17 to correct for overestimation of evaporation from sandy soils with very low TEW (i.e. <12 mm)
 #changed order of DPei and DPep on 9/11/17  
 # changed order of Ir and Ks calculation on 8/23/17
@@ -24,12 +24,13 @@ P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = F) #
 U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
 RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
 ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
-model.scaffold <- read.csv('model_scaffold_majcomps.csv', stringsAsFactors = F)
+model.scaffold <- read.csv('model_scaffold_majcomps.v2.csv', stringsAsFactors = F)
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 model.scaffold$longitude_AEA <- NULL
 model.scaffold$latitude_AEA <- NULL
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
-
+sum(model.scaffold$crop_code==grape_code)
+dim(model.scaffold)
 #now merge SpCIMIS data updates
 # setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
 # U2.update <- read.csv('SpatialCIMIS.U2update.rounded.csv')
@@ -563,7 +564,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
     model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ] #further refine model.scaffold.crop if cropname == alfalfa according to geography
   } else if (cropname=='grapes.table' | cropname=='grapes.wine') {
-    model.scaffold.crop <- model.scaffold[which(model.scaffold.crop$crop_code==cropcode & model.scaffold$grape.zone %in% grape.zone), ]#further refine model.scaffold.crop if cropname == grape according to geography; wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range'
+    model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$grape.zone %in% grape.zone), ]#further refine model.scaffold.crop if cropname == grape according to geography; wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range'
   } else {
       model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
   }
@@ -573,7 +574,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     paw.vector <- model.scaffold.crop[[paw.var]]
   #print(head(paw.vector))
     #mukey	crop_code	PRISMcellnumber	CIMIScellnumber	unique_model_code	full_matrix_rownum	n_compkeys	cokey	compname	comppct_r	majcompflag	TEW	REW	surface.depth	z2.0m_cmH2O_modified_comp	Model.Year
-    model.scaffold2 <- model.scaffold.crop[ ,c(-11:-22, -26)] #takes out paw data and alfalfa.zone from model scaffold for pasting results later
+    model.scaffold2 <- model.scaffold.crop[ ,c(-11:-22, -26:-27)] #takes out paw data, grape.zone, and alfalfa.zone from model scaffold for pasting results later
     model.scaffold2$paw <- paw.vector
     colnames(model.scaffold2)[14] <- paw.var
     model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
