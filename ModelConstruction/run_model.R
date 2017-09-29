@@ -89,3 +89,8 @@ FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchard
 
 #alfalfa.intermountain 1.0 m, 30% AD re-run from scratch
 FAO56DualCropCalc('alfalfa.intermountain', alfalfa_code, 30, '1.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Intermountain')
+
+#wine grape re-run according to geography (model scaffold had 'grape.zone' added)
+FAO56DualCropCalc('grapes.wine', grape_code, 50, '2.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = 0.5, alfalfa.zone = NA, grape.zone = 'Central California Foothills and Coastal Mountains')
+
+
