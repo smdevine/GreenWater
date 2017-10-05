@@ -57,7 +57,7 @@ maxcomps <- max(model_scaffold2$n_compkeys)
 #head(model_scaffold2)
 soil_comp_data <- soil_comp_data[order(soil_comp_data$mukey, soil_comp_data$comppct_r, soil_comp_data$cokey, decreasing=c(F, T, F)), ] #this works as confirmed by writing to csv below
 colnames(soil_comp_data)
-soil_comp_data <- soil_comp_data[ ,c(1:5, 22:27, 34:42)]
+soil_comp_data <- soil_comp_data[ ,c(1:5, 22:27, 34:43)]
 # missing_mukeys <- model_scaffold2$mukey[!(model_scaffold2$mukey %in% soil_comp_data$mukey)]
 # mukeys <- model_scaffold2$mukey[model_scaffold2$mukey %in% soil_comp_data$mukey]
 #setwd(model_scaffoldDir)
@@ -67,20 +67,20 @@ for (i in seq_len(maxcomps)) {
   temp <- soil_comp_data[soilcomp_rownums, ]
   temp$mukey <- NULL
   temp2 <- cbind(model_scaffold2, temp)
-  setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentSep2017'))
+  setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentSep28.2017'))
   write.csv(temp2, paste0('model_scaffold_comp', as.character(i), '.csv'), row.names=F) #save the file for modeling purposes later
   model_scaffold2 <- model_scaffold2[-which(model_scaffold2$n_compkeys==i), ] #now get rid of model codes with i number of cokeys.  they don't need to be included in additional model scaffolds
   soilcomp_rownums <- unique(soilcomp_rownums)
   soil_comp_data <- soil_comp_data[-soilcomp_rownums, ] #get rid of the cokeys already covered
 }
 
-setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentSep2017'))
+setwd(file.path(model_scaffoldDir, 'soil_climate_crop/by_componentSep28.2017'))
 fnames <- list.files(pattern = glob2rx('*csv'))
 master.file <- do.call(rbind, lapply(fnames, read.csv))
 dim(master.file)
 #1,177,027 unique soil components, climate, and crop; now, 1,681,860 (verified again 9/12)
-j <- which(master.file$comppct_r >= 15)
-length(j) #but only 277,477 are major components; now, 387,970 (verified again 9/12)
+j <- which(master.file$comppct_r >= 15 & master.file$SSURGO_awc_data=='Yes')
+length(j) #387,970 are major components (verified again 9/12); of these, 367,225 originally had data 
 sum(master.file$majcompflag=='Yes')
 #model_scaffold_majcomps_almonds <- master.file[master.file$comppct_r >= 15 & master.file$crop_code==almond_code,]
 #dim(model_scaffold_majcomps_almonds)
@@ -95,7 +95,7 @@ model_scaffold_majcomps$alfalfa.zone <- alfalfa_zones_codes$zone[match(model_sca
 grape_zones_codes <- read.csv('grape_zones_codes.csv', stringsAsFactors = FALSE)
 model_scaffold_majcomps$grape.zone <- grape_zones_codes$grape.zone[match(model_scaffold_majcomps$unique_model_code, grape_zones_codes$unique_model_code)]
 setwd(file.path(model_scaffoldDir, 'run_model/Sep2017'))
-write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.v2.csv', row.names = F)
+write.csv(model_scaffold_majcomps, 'model_scaffold_majcomps.v3.csv', row.names = F) #v1 included alfalfa.zone column; v2 includes both alfalfa and grape zone column; v3 also includes column identifying whether or not column originally had data
 
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
