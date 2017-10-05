@@ -29,8 +29,10 @@ model.scaffold <- read.csv('model_scaffold_majcomps.v2.csv', stringsAsFactors = 
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 model.scaffold$longitude_AEA <- NULL
 model.scaffold$latitude_AEA <- NULL
+model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Range')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, table grape, raisin, or low-quality wine grape
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
-sum(model.scaffold$crop_code==grape_code)
+sum(model.scaffold$crop_code==grape_code) #80312
+sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
 dim(model.scaffold)
 #now merge SpCIMIS data updates
 # setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
@@ -565,7 +567,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
     model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ] #further refine model.scaffold.crop if cropname == alfalfa according to geography
   } else if (cropname=='grapes.table' | cropname=='grapes.wine') {
-    model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$grape.zone %in% grape.zone), ]#further refine model.scaffold.crop if cropname == grape according to geography; wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range'
+    model.scaffold.crop <- model.scaffold[grepl(grape.zone, model.scaffold$grape.zone), ] #further refine model.scaffold.crop if cropname == grape according to geography; wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range', the latter is forced to 'Central California Valley' after reading in model scaffold for simplicity's sake
   } else {
       model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
   }
@@ -769,127 +771,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
   }
 }
-#run the function for each modelled scenario
-
-#single call to revised function for wine grapes
-FAO56DualCropCalc('grapes.wine', cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes'], 50, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = 0.2)
-
-#unit test of revised function 8/23-24
-FAO56DualCropCalc('grapes.table', grape_code, 80, '4.0m', "Drip", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA)
-FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA)
-
-##test of revised function for alfalfa 9/10 
-FAO56DualCropCalc('alfalfa.intermountain', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Intermountain')
-FAO56DualCropCalc('alfalfa.CV', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Central Valley')
-FAO56DualCropCalc('alfalfa.imperial', alfalfa_code, 50, '2.0m', "Border", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = 'Imperial Valley')
-
-#parallel execution with foreach
-#this was a pain to figure out
-library(foreach)
-library(doSNOW)
-cl<-makeCluster(4, type = 'SOCK') #change the number to your desired number of CPU cores  
-clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters"))
-registerDoSNOW(cl)
-foreach(i=1:4) %dopar% {  
-  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m')
-  FAO56DualCropCalc('grapes.table', 69, 50, root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = paste0('grapes.table', root_depth[i], 'AD50_FAO56results.csv'), row_start = 70001)
-}
-stopCluster(cl)
-
-#cluster run 8/17/17 for grapes.table @ 30% and 80% AD irr mgmt
-library(foreach)
-library(doSNOW)
-cl <- makeCluster(7, type = 'SOCK') #change the number to your desired number of CPU cores  
-clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters"))
-registerDoSNOW(cl)
-foreach(i=1:7) %dopar% {  
-  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m')
-  AD_percentage <- c(30, 30, 30, 30, 80, 80, 80)
-  FAO56DualCropCalc('grapes.table', 69, AD_percentage[i], root_depth[i], 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-}
-stopCluster(cl)
-
-#cluster run 8/18/17 for pistachios @ 50% AD irr mgmt at 1, 1.5, 2, and 4 m root zones and 30% AD irr mgmt at 1 and 1.5 m root zones.
-library(foreach)
-library(doSNOW)
-cl <- makeCluster(7, type = 'SOCK') #change the number to your desired number of CPU cores  
-clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", ""))
-registerDoSNOW(cl)
-foreach(i=1:12) %dopar% {
-  root_depth <- c('1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
-  AD_percentage <- c(30, 30, 30, 30, 50, 50, 50, 50, 80, 80, 80, 80)
-  FAO56DualCropCalc('pistachios', 204, AD_percentage[i], root_depth[i], 'Microspray, orchards', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1)
-}
-stopCluster(cl)
-
-#cluster run 8/24/17 for wine grapes with Ks defined by 50% AD and RDI.min set
-#at 0.2, 0.5, 0.8, equivalent to an allowed soil moisture depletion of 90%, 75%, 
-#and 60% of plant available water
-library(foreach)
-library(doSNOW)
-cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
-clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
-registerDoSNOW(cl)
-foreach(i=1:6) %dopar% {
-  root_depth <- c('2.0m', '4.0m', '1.0m', '1.5m', '2.0m', '4.0m')
-  RDI.min <- c(0.5, 0.5, 0.8, 0.8, 0.8, 0.8)
-  FAO56DualCropCalc(cropname = 'grapes.wine', cropcode = cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes'], AD.percentage = 50, root_depth = root_depth[i], irr.type = 'Drip', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = RDI.min[i])
-}
-stopCluster(cl)
-
-#parallel execution
-library(parallel)
-
-# Calculate the number of cores
-no_cores <- detectCores() - 4
-
-#exploratory debugging
-environment(FAO56DualCropCalc)
-environment(KcbDefine)
-#started at 4:15 PM 7/26
-#re-ran at 
-#test of 100 models took 143.87 seconds
-#so, for all almond major components x climate (80401 unique models), 
-#one scenario will take 32 hours
-mean(model.scaffold.results$GW.ET.growing, na.rm=TRUE)
-hist(model.scaffold.results$GW.ET.growing)
-hist(tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
-hist(tapply(model.scaffold.results$Irr.app.total, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
-plot(tapply(model.scaffold.results$Irr.app.total, model.scaffold.results$Model.Year, mean, na.rm=TRUE), tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
-plot(tapply(model.scaffold.results$ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE), tapply(model.scaffold.results$Irr.app.total, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
-plot(2003:2017, tapply(model.scaffold.results$ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE))
-(240/25.4)/12*1000000
-plot(tapply(model.scaffold.results$z1.0m_cmH2O_modified_comp, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE), tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$unique_model_code_final, mean, na.rm=TRUE))
-
-#look at model_results
-scenario.name <- 'grapes.table_majcomps/scenario_2.0m50AD'
-
-setwd(file.path(resultsDir, scenario.name))
-fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
-model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
-tail(model.scaffold.results, 6)
-model.scaffold.results[1049995:1050000,]
-plot(model.scaffold.results$GW.ET.growing, model.scaffold.results$Irr.app.total)
-summary(model.scaffold.results$ET.growing)
-#for writing overall results to disk
-setwd(file.path(resultsDir, scenario.name))
-output <- model.scaffold.results #need additional model_code to get these in order
-output <- output[order(output$unique_model_code_final, output$Model.Year), ]
-write.csv(output, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names = FALSE)
-#order(soil_comp_data$mukey, soil_comp_data$comppct_r, soil_comp_data$cokey, decreasing=c(F, T, F))
-#for comparing result in Excel spreadsheet model
-writeClipboard(as.character(PRISMcell))
-writeClipboard(as.character(spCIMIScell))
-writeClipboard(as.character(cokey))
-writeClipboard(as.character(model_code))
-writeClipboard(as.character(ETo))
-writeClipboard(as.character(Kcb.adjusted))
-writeClipboard(as.character(Kcmax))
-writeClipboard(as.character(P))
-writeClipboard(as.character(RHmin))
-writeClipboard(as.character(U2))
-#print coords
-
 
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
 #pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach
@@ -920,35 +801,3 @@ writeClipboard(as.character(U2))
 #where DPep,j=Pj-Dep,j-1 >= 0
 #Kr depends on daily water balance of surface layer (upper 10-15 cm); Few will also depend on daily water balance if separate calculations are done for soil wetted by precipitation vs. by both precip and irrigation (see "Separate Prediction of Evaporation from Soil Wetted by Precipitation Only" in Allen et al. 2005)
 
-#few stats
-sum(is.na(model.scaffold.results$z4.0m_cmH2O_modified_comp)) #32520
-sum(is.na(model.scaffold.results$GW.ET.growing)) - 2*nrow(model.scaffold.crop) #each model scaffold row will produce 2 NAs for GW ET growing, so the extra 34,697 NAs are mostly due to 
-sum(is.na(model.scaffold.crop$z1.0m_cmH2O_modified_comp)) #2168
-sum(is.na(model.scaffold.crop$TEW)) #2626
-sum(is.na(model.scaffold.crop$REW)) #2625
-
-plot(x=200tapply(model.scaffold.results$GW.ET.growing, model.scaffold.results$Model.Year, mean, na.rm=TRUE)
-
-#plot checks
-plot(Kcb.std, type='l')
-plot(Kcb.adjusted, type='l')
-plot(Kcmax, type='p')
-plot(fewi, type='l')
-plot(fc, type='l')
-plot(fewp, type='l')
-plot(fewp + fewi, type='l')
-
-sum(model.scaffold.crop$TEW < model.scaffold.crop$REW, na.rm = TRUE)
-sum(model.scaffold$TEW < 12, na.rm=TRUE)
-which(model.scaffold.crop$TEW < model.scaffold.crop$REW)
-head(which(model.scaffold.crop$TEW < 12))
-119*15
-test <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:26]
-mean(test$ET.annual, na.rm=TRUE)
-test
-which(model.scaffold.crop$unique_model_code==218045)
-model.scaffold.ofinterest <- model.scaffold[which(model.scaffold$crop_code %in% c(alfalfa_code, almond_code, pistachio_code, grape_code, walnut_code)),]
-nrow(model.scaffold.ofinterest) #304213 unique scenarios of soil major component, climate, and crop for alfalfa, almond, grape, pistachio, and walnut
-304213*12*0.5/(3600*24)
-
-#21.1 days to run
