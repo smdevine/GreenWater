@@ -2,17 +2,17 @@
 SepResultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
 setwd(modelscaffoldDir)
-cell_numbers_of_interest <- read.csv('cellnumbers_to_modelcodes.csv', stringsAsFactors = FALSE)
-raster.model.codes <- raster('model.codes.Aug2017.tif')
+list.files()
+#cell_numbers_of_interest <- read.csv('cellnumbers_to_modelcodes.csv', stringsAsFactors = FALSE)
+#raster.model.codes <- raster('model.codes.Aug2017.tif')
 prism.data <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = FALSE)
 cimis.data <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = FALSE)
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results'
-scenario.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/scenario results/Sep2017' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
 setwd(scenario.resultsDir)
 list.files()
 almond2.0m_AD50 <- read.csv('almond.mature2.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
 almond2.0m_AD50$full_matrix_rownum <- NULL
-dim(almond2.0m_AD50) #1206045 rows
+dim(almond2.0m_AD50) #1,206,045 rows (15 per unique model code x compkey combinations)
 walnut2.0m_AD50 <- read.csv('walnut.mature2.0mAD50_FAO56results.csv', stringsAsFactors = FALSE)
 walnut2.0m_AD50$full_matrix_rownum <- NULL
 dim(walnut2.0m_AD50)
@@ -37,8 +37,6 @@ model_points$model_code <- NULL
 sum(model_points$crop_code==75, na.rm=TRUE) #equal to 547,945.9 ha or 1,353,427 acres, an overestimate for almonds
 sum(model_points$crop_code==76, na.rm=TRUE)
 almond_points <- model_points[which(model_points$crop_code==75),]
-dim(almond_points)
-length(unique(almond_points$unique_model_code))
 
 #summarize P and ETo data by water.year
 #get the mean water year ETo by cell number
@@ -55,7 +53,7 @@ cimis.annual.sums$cell_name <- rownames(cimis.annual.sums)
 cimis.annual.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', cimis.annual.sums$cell_name))
 colnames(cimis.annual.sums)
 cimis.annual.sums$mean.annual.P <- apply(cimis.annual.sums[,1:13], 1, mean)
-
+gc()
 
 #get the Oct 1 P - bloom.date P for relating to GW.ET
 #get the bloom.date P - Sep 30 P
@@ -74,6 +72,7 @@ prism.annual.sums$cell_name <- rownames(prism.annual.sums)
 prism.annual.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', prism.annual.sums$cell_name))
 colnames(prism.annual.sums)
 prism.annual.sums$mean.annual.P <- apply(prism.annual.sums[,1:13], 1, mean)
+gc()
 
 #this is to obtain mean values across years, except for paw, which is static; almond_points_allyrs has the data by year
 almond_gw_et <- AggregateResults(almond2.0m_AD50, 'GW.ET.growing', mean, na.rm=TRUE) #this produces 69,080 rows; concordance with above!
@@ -91,13 +90,56 @@ summary(lm(almond_points$GW.ET.growing ~ almond_points$paw_mm_2.0m))
 
 #plots for chapter
 #get almond data for all years into almond points.  It works for a dataframe of points with or without multiple model years
-almond_GW_ET_allyrs <- do.call(rbind, lapply(split(almond2.0m_AD50, almond2.0m_AD50$Model.Year), MUAggregate, varname='GW.ET.growing'))
-head(almond_GW_ET_allyrs)
-dim(almond_GW_ET_allyrs) #898,040 rows acrss 13 model years; thus there are 69,080 unique model codes with data
-length(unique(almond2.0m_AD50$unique_model_code)) #out of 71,404 total unique model codes for almonds
-almond_Irr_app_allyrs <- do.call(rbind, lapply(split(almond2.0m_AD50, almond2.0m_AD50$Model.Year), MUAggregate, varname='Irr.app.total'))
-tapply(almond_Irr_app_allyrs$Irr.app.total, almond_Irr_app_allyrs$Model.Year, mean, na.rm=TRUE)
-almond_ET_allyrs <- do.call(rbind, lapply(split(almond2.0m_AD50, almond2.0m_AD50$Model.Year), MUAggregate, varname='ET.growing'))
+MUAggregate.AllYrs <- function(df) {
+  Irr.1_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='Irr.1'))
+  Irr.Last_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='Irr.Last'))
+  GW.ET.growing_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='GW.ET.growing'))
+  Irr.app.total_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='Irr.app.total'))
+  ET.growing_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='ET.growing'))
+  E.growing_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='E.growing'))
+  T.growing_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='T.growing'))
+  H2O.stress_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='H2O.stress'))
+  GW.E.to.Irr1_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='GW.E.to.Irr1'))
+  GW.T.to.Irr1_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='GW.T.to.Irr1'))
+  GW.ET.to.Irr1_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='GW.ET.to.Irr1'))
+  ET.annual_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='ET.annual'))
+  E.annual_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='E.annual'))
+  T.annual_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='T.annual'))
+  deep.perc.annual_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='deep.perc.annual'))
+  winter.deep.perc_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='winter.deep.perc'))
+  post.Irr1.deep.perc_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='post.Irr1.deep.perc'))
+  fall.deep.perc_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='fall.deep.perc'))
+  GW.capture.net_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='GW.capture.net'))
+  result <- list(Irr.1_allyrs, Irr.Last_allyrs, GW.ET.growing_allyrs, Irr.app.total_allyrs, ET.growing_allyrs, E.growing_allyrs, T.growing_allyrs, H2O.stress_allyrs, GW.E.to.Irr1_allyrs, GW.T.to.Irr1_allyrs, GW.ET.to.Irr1_allyrs, ET.annual_allyrs, E.annual_allyrs, T.annual_allyrs, deep.perc.annual_allyrs, winter.deep.perc_allyrs, post.Irr1.deep.perc_allyrs, fall.deep.perc_allyrs, GW.capture.net_allyrs) #this excludes the following data collected during model runs: "RAW.end.season" "PAW.end.season" "Dr.end.season" "P.end.season" "Irr.end.storage"
+  names(result) <- c('Irr.1.doy', 'Irr.Last.doy', 'GW.ET.growing', 'Irr.app.total', 'ET.growing', 'E.growing', 'T.growing', 'H2O.stress', 'GW.E.to.Irr1', 'GW.T.to.Irr1', 'GW.ET.to.Irr1', 'ET.annual', 'E.annual', 'T.annual', 'deep.perc.annual', 'winter.deep.perc', 'post.Irr1.deep.perc', 'fall.deep.perc', 'GW.capture.net')
+  result
+}
+results <- MUAggregate.AllYrs(almond2.0m_AD50)
+#now, distribute these results to points across all years
+SetPointValues.AllYrs <- function(var_df, varname, points_df) {
+  if (is.null(points_df$Model.Year)) {
+    model.year <- var_df$Model.Year[1]
+    points_df$Model.Year <- model.year
+    points_df[[varname]] <- var_df[[varname]][match(points_df$unique_model_code, var_df$unique_model_code)]
+    points_df
+  } else {
+    model.year <- var_df$Model.Year[1]
+    subset_points_df <- points_df[which(points_df$Model.Year==model.year), ]
+    subset_points_df[[varname]] <- var_df[[varname]][match(subset_points_df$unique_model_code, var_df$unique_model_code)]
+    subset_points_df
+  }
+}
+SetPointValues.AllYrs.Combined <- function(df, points) {
+  for (i in seq_along(df)) {
+    points_results <- do.call(rbind, lapply(split(df[[i]], df[[i]]$Model.Year), SetPointValues.AllYrs, varname=names(df)[i], points_df= if (i==1) {points} else {points_results}))
+    print(i)
+  }
+  points_results
+}
+
+almond_points_allyrs <- SetPointValues.AllYrs.Combined(results, almond_points)
+
+#distribute results to points
 almond_points_allyrs <- do.call(rbind, lapply(split(almond_GW_ET_allyrs, almond_GW_ET_allyrs$Model.Year), SetPointValues.AllYrs, varname='GW.ET.growing', points_df=almond_points))
 dim(almond_points_allyrs)
 gc()
@@ -209,6 +251,8 @@ dev.off()
 summary(lm(GW.ET.growing ~ annual.P + I(annual.P^2) + paw_mm_2.0m + I(paw_mm_2.0m^2) + paw_mm_2.0m*annual.P + I(paw_mm_2.0m*annual.P^2), data=almond_points_allyrs))
 summary(lm(GW.ET.growing ~ annual.P + I(annual.P^2) + paw_mm_2.0m + I(paw_mm_2.0m^2) + paw_mm_2.0m*annual.P + I(paw_mm_2.0m*annual.P^2) + ET.growing + I(ET.growing^2), data=almond_points_allyrs))
 
+#create results rasters for maps
+RasterBuild(almond2.0m_AD50, "GW.ET.growing", 'almondGW.ET.growing.Sep2017runs.tif', mean, na.rm=TRUE)
 
 #get walnut data into results
 walnut_points <- model_points[which(model_points$crop_code==76),]
