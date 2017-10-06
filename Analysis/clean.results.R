@@ -1,7 +1,7 @@
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
 scenario.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017/results_all' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
-almond_results <- file.path(resultsDir, 'Sep2017/almond.mature_majcomps')
+almondDir <- file.path(resultsDir, 'Sep2017/almond.mature_majcomps')
 walnutDir <- file.path(resultsDir, 'Sep2017/walnut.mature_majcomps')
 
 
@@ -34,25 +34,43 @@ cokeys_uncertain_data <- unique(model_scaffold_uncertain$cokey)
 setwd(modelscaffoldDir)
 write.csv(cokeys_uncertain_data, 'cokeys_uncertain_data.csv', row.names = FALSE) #these can be used to refine each results grid
 
-CleanResults <- function(parentDir, fname, pawvar){
+
+#read in this file before running function
+setwd(modelscaffoldDir)
+cokeys_uncertain_data <- read.csv('cokeys_uncertain_data.csv', stringsAsFactors = FALSE)
+
+CleanResults <- function(cropname) {
+  parentDir <- file.path(resultsDir, paste0(cropname, '_majcomps'))
+  if (!dir.exists(file.path(scenario.resultsDir, cropname))) {
+    dir.create(file.path(scenario.resultsDir, cropname))
+  }
   setwd(parentDir)
   dirnames <- list.files()
   for (i in seq_along(dirnames)) {
     setwd(file.path(parentDir, dirnames[i]))
-    fname <- 
-    df <- read.csv(list.files(pattern = glob2rx('*FAO56results.csv')), stringsAsFactors = FALSE)
+    fname <- list.files(pattern = glob2rx('*FAO56results.csv'))
+    df <- read.csv(fname, stringsAsFactors = FALSE)
+    print(dirnames[i])
+    print(ncol(df))
     print(nrow(df))
+    pawvar <- colnames(df)[14]
+    print(pawvar)
     df <- df[-which(df$cokey %in% cokeys_uncertain_data | is.na(df[[pawvar]]) | is.na(df$TEW) | is.na(df$REW) | df[[pawvar]] == 0 | df$TEW == 0), ] #this gets rid of all results that are "uncertain" or where model was not run as a result of soil variables being NA or equal to 0
     print(nrow(df))
-    setwd(scenario.resultsDir)
-    
+    setwd(file.path(scenario.resultsDir, cropname))
+    fname_modified <- paste0(gsub('.csv', '', fname), '_clean.csv')
+    write.csv(df, fname_modified, row.names = FALSE)
   }
 }
 #run function for walnuts
+CleanResults('walnut.mature')
+CleanResults('almond.mature')
+CleanResults('pistachios')
+CleanResults('grapes.table')#check from here down
+CleanResults('grapes.wine')
+CleanResults('alfalfa.intermountain')
+CleanResults('alfalfa.CV')
+CleanResults('alfalfa.imperial')
+#print-outs showed no concerns 10/5/17
 
-
-
-
-#test function
-almond2.0m_AD50_clean <- CleanResults(almond2.0m_AD50, "z2.0m_cmH2O_modified_comp")
-cokeys_uncertain_data %in% almond2.0m_AD50_clean$cokey
+#copy model run metadata to respective folders
