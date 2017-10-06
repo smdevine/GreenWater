@@ -7,105 +7,17 @@ library(extrafont)
 library(extrafontdb)
 #font_import() #only needs to be done once?
 
-#this aggregates the model results by map unit, so that there are no duplicate unique model codes in the results (i.e. unique model codes with more than one major component have their results averaged as a component weighted average).  For this function, results for all model years are maintained, whereas in AggregateResults() below, multiple years data is compressed into a single statistic.
-MUAggregate <- function(df, varname) {
-  #df <- almond2.0m_AD50[which(almond2.0m_AD50$Model.Year==2004),]
-  year <- df$Model.Year[1]
-  print(year)
-  if (varname=='Irr.1' | varname=='Irr.Last') {
-    df[[varname]][which(df[[varname]]=='1900-01-01')] <- NA
-    df[[varname]] <- as.Date(df[[varname]], format='%Y-%m-%d')
-    varname_doy <- paste0(varname, '.doy')
-    df[[varname_doy]] <- as.integer(format.Date(df[[varname]], '%j'))
-    compsums <- as.data.frame(tapply(df$comppct_r[!is.na(df[[varname]])], df$unique_model_code[!is.na(df[[varname]])], sum)) #this sums up component percentages (that have data) by unique_model_code
-    colnames(compsums) <- 'compsums'
-    compsums$unique_model_code <- as.integer(rownames(compsums))
-    results <- cbind(df[!is.na(df[[varname]]), c(varname_doy, 'comppct_r')], compsums[match(df$unique_model_code[!is.na(df[[varname]])], compsums$unique_model_code), ]) #this eliminates rows with varname as NA and then adds the total component percentage calculated above
-    var.final <- tapply(results[[varname_doy]]*(results$comppct_r/results$compsums), results$unique_model_code, sum)
-    var.final <- as.data.frame(var.final)
-    colnames(var.final) <- 'var.final'
-    var.final$unique_model_code <- rownames(var.final)
-    rownames(var.final) <- NULL
-    var.final$var.final <- as.integer(var.final$var.final)
-    var.final <- var.final[,c(2,1)]
-    colnames(var.final)[2] <- varname_doy
-    #var.final$Model.Year <- year
-    var.final <- cbind(var.final, df[match(var.final$unique_model_code, df$unique_model_code), 'Model.Year'])
-    colnames(var.final)[3] <- 'Model.Year'
-    var.final
-  } else {
-    compsums <- as.data.frame(tapply(df$comppct_r[!is.na(df[[varname]])], df$unique_model_code[!is.na(df[[varname]])], sum))
-    colnames(compsums) <- 'compsums'
-    compsums$unique_model_code <- as.integer(rownames(compsums))
-    results <- cbind(df[!is.na(df[[varname]]), c(varname, 'comppct_r')], compsums[match(df$unique_model_code[!is.na(df[[varname]])], compsums$unique_model_code), ])
-    var.final <- tapply(results[[varname]]*(results$comppct_r/results$compsums), results$unique_model_code, sum)
-    var.final <- as.data.frame(var.final)
-    colnames(var.final) <- 'var.final'
-    var.final$unique_model_code <- rownames(var.final)
-    rownames(var.final) <- NULL
-    var.final$var.final <- as.numeric(var.final$var.final)
-    var.final <- var.final[,c(2,1)]
-    colnames(var.final)[2] <- varname
-    #var.final$Model.Year <- year
-    var.final <- cbind(var.final, df[match(var.final$unique_model_code, df$unique_model_code), 'Model.Year'])
-    colnames(var.final)[3] <- 'Model.Year'
-    var.final
-  }
-}
-GW.ET.growing <- do.call(rbind, lapply(split(almond2.0m_AD50, almond2.0m_AD50$Model.Year), MUAggregate, varname='GW.ET.growing'))
-Irr.1 <- do.call(rbind, lapply(split(almond2.0m_AD50, almond2.0m_AD50$Model.Year), MUAggregate, varname='Irr.1'))
-Irr.Last <- do.call(rbind, lapply(split(almond2.0m_AD50, almond2.0m_AD50$Model.Year), MUAggregate, varname='Irr.Last'))
 
-#this aggregates results across all years by mukey and unique model code according to the 'func', such as taking the mean GW.ET.growing for each unique combination of climate, soil, and crop from 2004-2016, with major component weighted averages
-AggregateResults <- function(df, varname, func, ...) {
-  var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
-  mukeys <- tapply(df$mukey, df$unique_model_code_final, unique)
-  comppct_r <- tapply(df$comppct_r, df$unique_model_code_final, unique)
-  modelcode <- tapply(df$unique_model_code, df$unique_model_code_final, unique)
-  results <- cbind(var.by.year, mukeys, comppct_r, modelcode)
-  results <- as.data.frame(results)
-  compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$var.by.year)], results$modelcode[!is.na(results$var.by.year)], sum))
-  colnames(compsums) <- 'compsums'
-  compsums$modelcode <- rownames(compsums)
-  results <- merge(results, compsums, by='modelcode')
-  var.final <- tapply(results$var.by.year*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
-  var.final <- as.data.frame(var.final)
-  colnames(var.final) <- 'var.final'
-  var.final$unique_model_code <- rownames(var.final)
-  var.final$var.final <- as.numeric(var.final$var.final)
-  var.final <- var.final[,c(2,1)]
-  colnames(var.final)[2] <- varname
-  var.final
-}
+
+
 
 #function to set point values according to the stats produced by 'Aggregate Result
-SetPointValues <- function(points_df, var_df, varname){
-  points_df[[varname]] <- var_df[[varname]][match(points_df$unique_model_code, var_df$unique_model_code)]
-  points_df
-}
+
 SetPointPrecipValues_MeanAnnual <- function(points_df){
   points_df$mean.annual.P <- prism.annual.sums$mean.annual.P[match(points_df$PRISMcellnumber, prism.annual.sums$PRISMcellnumber)]
   points_df
 }
-SetPointValues.AllYrs <- function(var_df, varname, points_df) {
-  if (is.null(points_df$Model.Year)) {
-    model.year <- var_df$Model.Year[1]
-    points_df$Model.Year <- model.year
-    points_df[[varname]] <- var_df[[varname]][match(points_df$unique_model_code, var_df$unique_model_code)]
-    points_df
-  } else {
-    model.year <- var_df$Model.Year[1]
-    subset_points_df <- points_df[which(points_df$Model.Year==model.year),]
-    subset_points_df[[varname]] <- var_df[[varname]][match(subset_points_df$unique_model_code, var_df$unique_model_code)]
-    subset_points_df
-  }
-}
 
-SetPointPrecipValues.AllYrs <- function(df){
-  model.year <- as.character(df$Model.Year[1])
-  df$annual.P <- prism.annual.sums[[model.year]][match(df$PRISMcellnumber, prism.annual.sums$PRISMcellnumber)]
-  df
-}
 
 CustomBP <- function(x){
   stats.x <- summary(x) #in this order: (1)Min. (2)1st Qu.  (3)Median    (4)Mean (5)3rd Qu.   (6) Max.    NA's 
