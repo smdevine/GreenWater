@@ -133,6 +133,8 @@ AggregateSoilPars <- function(df, varname) {
   colnames(var.final)[2] <- varname
   var.final <- cbind(var.final, df[match(var.final$unique_model_code, df$unique_model_code), 'Model.Year'])
   colnames(var.final)[3] <- 'Model.Year'
+  rm(compsums, results)
+  gc()
   var.final
 }
 
@@ -161,6 +163,8 @@ MUAggregate <- function(df, varname) {
     #var.final$Model.Year <- year
     var.final <- cbind(var.final, df[match(var.final$unique_model_code, df$unique_model_code), 'Model.Year'])
     colnames(var.final)[3] <- 'Model.Year'
+    rm(compsums, results)
+    gc()
     var.final
   } else {
     compsums <- as.data.frame(tapply(df$comppct_r[!is.na(df[[varname]])], df$unique_model_code[!is.na(df[[varname]])], sum))
@@ -178,6 +182,8 @@ MUAggregate <- function(df, varname) {
     #var.final$Model.Year <- year
     var.final <- cbind(var.final, df[match(var.final$unique_model_code, df$unique_model_code), 'Model.Year'])
     colnames(var.final)[3] <- 'Model.Year'
+    rm(compsums, results)
+    gc()
     var.final
   }
 }
@@ -210,6 +216,7 @@ MUAggregate.AllYrs <- function(df) {
   Dr.end.season_allyrs <- do.call(rbind, lapply(split(df, df$Model.Year), MUAggregate, varname='Dr.end.season'))
   result <- list(Irr.1_allyrs, Irr.Last_allyrs, GW.ET.growing_allyrs, Irr.app.total_allyrs, ET.growing_allyrs, E.growing_allyrs, T.growing_allyrs, H2O.stress_allyrs, GW.E.to.Irr1_allyrs, GW.T.to.Irr1_allyrs, GW.ET.to.Irr1_allyrs, ET.annual_allyrs, E.annual_allyrs, T.annual_allyrs, deep.perc.annual_allyrs, winter.deep.perc_allyrs, post.Irr1.deep.perc_allyrs, fall.deep.perc_allyrs, GW.capture.net_allyrs, Dr.end.season_allyrs) #this excludes the following data collected during model runs: "RAW.end.season" "PAW.end.season" "P.end.season" "Irr.end.storage"
   names(result) <- c('Irr.1.doy', 'Irr.Last.doy', 'GW.ET.growing', 'Irr.app.total', 'ET.growing', 'E.growing', 'T.growing', 'H2O.stress', 'GW.E.to.Irr1', 'GW.T.to.Irr1', 'GW.ET.to.Irr1', 'ET.annual', 'E.annual', 'T.annual', 'deep.perc.annual', 'winter.deep.perc', 'post.Irr1.deep.perc', 'fall.deep.perc', 'GW.capture.net', 'Dr.end.season')
+  rm(Irr.1_allyrs, Irr.Last_allyrs, GW.ET.growing_allyrs, Irr.app.total_allyrs, ET.growing_allyrs, E.growing_allyrs, T.growing_allyrs, H2O.stress_allyrs, GW.E.to.Irr1_allyrs, GW.T.to.Irr1_allyrs, GW.ET.to.Irr1_allyrs, ET.annual_allyrs, E.annual_allyrs, T.annual_allyrs, deep.perc.annual_allyrs, winter.deep.perc_allyrs, post.Irr1.deep.perc_allyrs, fall.deep.perc_allyrs, GW.capture.net_allyrs, Dr.end.season_allyrs)
   gc()
   result
 }
@@ -239,6 +246,7 @@ SetPointValues.AllYrs.Combined <- function(df, points) { #note that gc() is call
     points_results <- do.call(rbind, lapply(split(df[[i]], df[[i]]$Model.Year), SetPointValues.AllYrs, varname=names(df)[i], points_df= if (i==1) {points} else {points_results}))
     #print(i)
   }
+  gc()
   points_results
 }
 SetPointPrecipValues.AllYrs <- function(df, precip_data, colname) {
@@ -259,7 +267,7 @@ data.to.points <- function(cropname, cropcode) {
   setwd(file.path(clean.resultsDir, cropname))
   fnames <- list.files()
   print(fnames)
-  for (i in 1:seq_along(fnames)) {
+  for (i in seq_along(fnames)) {
     print(i)
     scenario_name <- gsub('_FAO56results_clean.csv', '', fnames[i])
     scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
@@ -292,8 +300,12 @@ data.to.points <- function(cropname, cropcode) {
     REW <- AggregateSoilPars(df, 'REW')
     paw$paw_mm <- paw[[paw.varname]]*10
     results <- MUAggregate.AllYrs(df)
+    rm(df)
+    gc()
     points_of_interest <- model_points[which(model_points$crop_code==cropcode),]
     points_oi_allyrs <- SetPointValues.AllYrs.Combined(results, points_of_interest)
+    rm(results, points_of_interest)
+    gc()
     points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointPrecipValues.AllYrs, precip_data=prism.annual.sums, colname='P.annual'))
     points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointPrecipValues.AllYrs, precip_data=prism.winter.sums, colname='P.winter')) #Jharv to Jdev
     points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='ETo.annual', climate_data=ETo.summary)) #Jharv to Jdev
@@ -302,22 +314,24 @@ data.to.points <- function(cropname, cropcode) {
     points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='U2.mean', climate_data=U2.summary))
     points_oi_allyrs <- SetPointValues(points_oi_allyrs, paw, 'paw_mm')
     points_oi_allyrs <- SetPointValues(points_oi_allyrs, TEW, 'TEW')
-    points_oi_allyrs <- SetPointValues(points_oi_allyrs, TEW, 'REW')
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, REW, 'REW')
+    rm(paw, TEW, REW)
+    gc()
     if (!dir.exists(file.path(points.resultsDir, cropname))) {
       dir.create(file.path(points.resultsDir, cropname))
     }
     setwd(file.path(points.resultsDir, cropname))
     points_oi_allyrs <- cbind(points_oi_allyrs[ ,1:10], round(points_oi_allyrs[ ,11:ncol(points_oi_allyrs)], 3))
-    gc()
     fname <- paste0(gsub('_clean.csv', '', fnames[i]), '_points_rounded.csv')
     write.csv(points_oi_allyrs, fname, row.names = FALSE)
+    rm(points_oi_allyrs)
     gc()
   }
 }
 
 #run the function
-data.to.points('walnut.mature', walnut_code)
 data.to.points('pistachios', pistachio_code)
+data.to.points('walnut.mature', walnut_code)
 data.to.points('grapes.table', grape_code)
 data.to.points('almond.mature', almond_code)
 
