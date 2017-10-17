@@ -32,12 +32,12 @@ model_points$model_code <- NULL
 # alfalfa_points <- model_points[which(model_points$crop_code==alfalfa_code),]
 
 #read in climate summaries produced by script below
-setwd(file.path(original.resultsDir, 'climate_summaries'))
-list.files()
-prism.annual.sums <- read.csv('P.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-ETo.summary <- read.csv('ETo.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-RHmin.summary <- read.csv('RHmin.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-U2.summary <- read.csv('U2.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+# setwd(file.path(original.resultsDir, 'climate_summaries'))
+# list.files()
+# prism.annual.sums <- read.csv('P.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+# ETo.summary <- read.csv('ETo.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+# RHmin.summary <- read.csv('RHmin.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+# U2.summary <- read.csv('U2.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
 
 
 #get the water year P total by cell number, including 2017 for annual average
@@ -333,7 +333,164 @@ data.to.points <- function(cropname, cropcode) {
 data.to.points('pistachios', pistachio_code)
 data.to.points('walnut.mature', walnut_code)
 data.to.points('grapes.table', grape_code)
-data.to.points('almond.mature', almond_code)
+
+#testing an alternative function to reduce RAM requirements
+data.to.points.v2 <- function(cropname, cropname2, allvars) { #attempt to reduce RAM requirements by eliminating model_points from the global environment with almond_points
+  setwd(modelscaffoldDir)
+  cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+  cropcode <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME==cropname2]
+  P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = F)
+  ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = F)
+  setwd(pointsDir)
+  model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
+  model_points$mukey_cropcode <- NULL
+  model_points$model_code <- NULL
+  model_points <- model_points[which(model_points$crop_code==cropcode),]
+  setwd(file.path(original.resultsDir, 'climate_summaries'))
+  prism.annual.sums <- read.csv('P.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  ETo.summary <- read.csv('ETo.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  RHmin.summary <- read.csv('RHmin.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  U2.summary <- read.csv('U2.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  setwd(file.path(clean.resultsDir, cropname))
+  fnames <- list.files()
+  print(fnames)
+  for (i in seq_along(fnames)) {
+    print(i)
+    scenario_name <- gsub('_FAO56results_clean.csv', '', fnames[i])
+    scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
+    setwd(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name))
+    model_metadata <- read.csv(list.files(pattern = glob2rx('*_model_metadata.csv')), stringsAsFactors = FALSE)
+    paw.varname <- model_metadata$paw.varname
+    if (i==1) {
+      Jdev <- model_metadata$Jdev
+      Jharv <- model_metadata$Jharv
+      P.df$water.year <- P.df$year
+      P.df$water.year[which(P.df$month >= 10)] <- P.df$water.year[which(P.df$month >= 10)] + 1
+      prism.by.year <- split(P.df, P.df$water.year)
+      for (j in 1:length(prism.by.year)) { #get the unnecessary rows out now
+        prism.by.year[[j]] <- prism.by.year[[j]][which(prism.by.year[[j]][,5]==Jharv):which(prism.by.year[[j]][,5]==Jdev),] #this trims each data.frame to leaf-drop(Jharv) to bloom date (Jdev)
+      }
+      for (j in 1:length(prism.by.year)) { #get the unnecessary columns out now, including last column which is water.year
+        prism.by.year[[j]] <- prism.by.year[[j]][,6:(ncol(prism.by.year[[j]])-1)]
+      }
+      prism.winter.sums <- do.call(rbind, lapply(prism.by.year, sapply, sum)) #sapply was necessary so that each "cell" of the results matrix was not returned as a list object
+      prism.winter.sums <- t(prism.winter.sums)
+      prism.winter.sums <- as.data.frame(prism.winter.sums)
+      prism.winter.sums$cell_name <- rownames(prism.winter.sums)
+      prism.winter.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', prism.winter.sums$cell_name))
+      ETo.winter.sums <- ClimateAggregate(ETo.df, 'ETo', 'yes', Jdev, Jharv) ##now, do the same for ETo
+    }
+    setwd(file.path(clean.resultsDir, cropname))
+    df <- read.csv(fnames[i], stringsAsFactors = FALSE)
+    paw <- AggregateSoilPars(df, paw.varname)
+    TEW <- AggregateSoilPars(df, 'TEW')
+    REW <- AggregateSoilPars(df, 'REW')
+    paw$paw_mm <- paw[[paw.varname]]*10
+    results <- MUAggregate.AllYrs(df)
+    rm(df)
+    gc()
+    points_oi_allyrs <- SetPointValues.AllYrs.Combined(results, model_points)
+    rm(results)
+    gc()
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointPrecipValues.AllYrs, precip_data=prism.annual.sums, colname='P.annual'))
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointPrecipValues.AllYrs, precip_data=prism.winter.sums, colname='P.winter')) #Jharv to Jdev
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='ETo.annual', climate_data=ETo.summary)) #Jharv to Jdev
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='ETo.winter', climate_data=ETo.winter.sums))
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='RHmin.mean', climate_data=RHmin.summary))
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='U2.mean', climate_data=U2.summary))
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, paw, 'paw_mm')
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, TEW, 'TEW')
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, REW, 'REW')
+    rm(paw, TEW, REW)
+    gc()
+    if (!dir.exists(file.path(points.resultsDir, cropname))) {
+      dir.create(file.path(points.resultsDir, cropname))
+    }
+    setwd(file.path(points.resultsDir, cropname))
+    points_oi_allyrs <- cbind(points_oi_allyrs[ ,1:10], round(points_oi_allyrs[ ,11:ncol(points_oi_allyrs)], 3))
+    fname <- paste0(gsub('_clean.csv', '', fnames[i]), '_points_rounded.csv')
+    write.csv(points_oi_allyrs, fname, row.names = FALSE)
+    rm(points_oi_allyrs)
+    gc()
+  }
+}
+
+#don't write all points to results; only the map-unit aggregated results for all years and unique model_codes, along with cell_counts of those unique model codes 
+data.to.points.v3 <- function(cropname, cropname2) { #attempt to reduce RAM requirements by eliminating model_points from the global environment with almond_points
+  setwd(modelscaffoldDir)
+  cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+  cropcode <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME==cropname2]
+  P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = F)
+  ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = F)
+  
+  setwd(file.path(original.resultsDir, 'climate_summaries'))
+  prism.annual.sums <- read.csv('P.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  ETo.summary <- read.csv('ETo.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  RHmin.summary <- read.csv('RHmin.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  U2.summary <- read.csv('U2.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  setwd(file.path(clean.resultsDir, cropname))
+  fnames <- list.files()
+  print(fnames)
+  for (i in seq_along(fnames)) {
+    print(i)
+    scenario_name <- gsub('_FAO56results_clean.csv', '', fnames[i])
+    scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
+    setwd(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name))
+    model_metadata <- read.csv(list.files(pattern = glob2rx('*_model_metadata.csv')), stringsAsFactors = FALSE)
+    paw.varname <- model_metadata$paw.varname
+    if (i==1) {
+      Jdev <- model_metadata$Jdev
+      Jharv <- model_metadata$Jharv
+      P.df$water.year <- P.df$year
+      P.df$water.year[which(P.df$month >= 10)] <- P.df$water.year[which(P.df$month >= 10)] + 1
+      prism.by.year <- split(P.df, P.df$water.year)
+      for (j in 1:length(prism.by.year)) { #get the unnecessary rows out now
+        prism.by.year[[j]] <- prism.by.year[[j]][which(prism.by.year[[j]][,5]==Jharv):which(prism.by.year[[j]][,5]==Jdev),] #this trims each data.frame to leaf-drop(Jharv) to bloom date (Jdev)
+      }
+      for (j in 1:length(prism.by.year)) { #get the unnecessary columns out now, including last column which is water.year
+        prism.by.year[[j]] <- prism.by.year[[j]][,6:(ncol(prism.by.year[[j]])-1)]
+      }
+      prism.winter.sums <- do.call(rbind, lapply(prism.by.year, sapply, sum)) #sapply was necessary so that each "cell" of the results matrix was not returned as a list object
+      prism.winter.sums <- t(prism.winter.sums)
+      prism.winter.sums <- as.data.frame(prism.winter.sums)
+      prism.winter.sums$cell_name <- rownames(prism.winter.sums)
+      prism.winter.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', prism.winter.sums$cell_name))
+      ETo.winter.sums <- ClimateAggregate(ETo.df, 'ETo', 'yes', Jdev, Jharv) ##now, do the same for ETo
+    }
+    setwd(file.path(clean.resultsDir, cropname))
+    df <- read.csv(fnames[i], stringsAsFactors = FALSE)
+    paw <- AggregateSoilPars(df, paw.varname)
+    TEW <- AggregateSoilPars(df, 'TEW')
+    REW <- AggregateSoilPars(df, 'REW')
+    paw$paw_mm <- paw[[paw.varname]]*10
+    results <- MUAggregate.AllYrs(df)
+    rm(df)
+    gc()
+    points_oi_allyrs <- SetPointValues.AllYrs.Combined(results, model_points)
+    rm(results)
+    gc()
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointPrecipValues.AllYrs, precip_data=prism.annual.sums, colname='P.annual'))
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointPrecipValues.AllYrs, precip_data=prism.winter.sums, colname='P.winter')) #Jharv to Jdev
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='ETo.annual', climate_data=ETo.summary)) #Jharv to Jdev
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='ETo.winter', climate_data=ETo.winter.sums))
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='RHmin.mean', climate_data=RHmin.summary))
+    points_oi_allyrs <- do.call(rbind, lapply(split(points_oi_allyrs, points_oi_allyrs$Model.Year), SetPointClimateValues.AllYrs, varname='U2.mean', climate_data=U2.summary))
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, paw, 'paw_mm')
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, TEW, 'TEW')
+    points_oi_allyrs <- SetPointValues(points_oi_allyrs, REW, 'REW')
+    rm(paw, TEW, REW)
+    gc()
+    if (!dir.exists(file.path(points.resultsDir, cropname))) {
+      dir.create(file.path(points.resultsDir, cropname))
+    }
+    setwd(file.path(points.resultsDir, cropname))
+    points_oi_allyrs <- cbind(points_oi_allyrs[ ,1:10], round(points_oi_allyrs[ ,11:ncol(points_oi_allyrs)], 3))
+    fname <- paste0(gsub('_clean.csv', '', fnames[i]), '_points_rounded.csv')
+    write.csv(points_oi_allyrs, fname, row.names = FALSE)
+    rm(points_oi_allyrs)
+    gc()
+  }
+}
 
 #make a box plot of green water availability by year [not finished]
 gw_bp <- boxplot(GW.ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
