@@ -10,6 +10,7 @@
   #10. Add grape zone to model scaffold [DONE]
 #modified KeiCalc and KepCalc on 9/11/17 to correct for overestimation of evaporation from sandy soils with very low TEW (i.e. <12 mm)
   #11. Simple tests or monte-Carlo simulation of effect of following effects (1) climatic adjustment of Kcb values (2) bloom and leaf-drop assumptions (3) Kcb values themselves
+  #12. Test effect of varying alfalfa height on Kcb calcs
 #changed order of DPei and DPep on 9/11/17  
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
@@ -545,7 +546,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   last.date <- ETo.df$dates[nrow(ETo.df)]
   P.df <- P.df[1:which(P.df$dates==last.date), ]
   cropname.dir <-  paste0(cropname, '_majcomps')
-  scenario.name <- if (cropname == 'grapes.wine') {
+  scenario.name <- if (cropname == 'grapes.wine') { #this was modified after the fact so that AD or RDI.min precedes root depth
     paste0(cropname.dir, '/scenario_', root_depth, as.character(RDI.min), 'RDI.min')} else {
         paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
       } #need to add irr.type here
