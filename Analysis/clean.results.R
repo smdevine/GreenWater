@@ -1,8 +1,8 @@
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
-scenario.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017/results_all' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
-almondDir <- file.path(resultsDir, 'Sep2017/almond.mature_majcomps')
-walnutDir <- file.path(resultsDir, 'Sep2017/walnut.mature_majcomps')
+clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017/clean_results' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
+#almondDir <- file.path(resultsDir, 'Sep2017/almond.mature_majcomps')
+#walnutDir <- file.path(resultsDir, 'Sep2017/walnut.mature_majcomps')
 
 
 setwd(modelscaffoldDir)
@@ -41,8 +41,8 @@ cokeys_uncertain_data <- read.csv('cokeys_uncertain_data.csv', stringsAsFactors 
 
 CleanResults <- function(cropname) {
   parentDir <- file.path(resultsDir, paste0(cropname, '_majcomps'))
-  if (!dir.exists(file.path(scenario.resultsDir, cropname))) {
-    dir.create(file.path(scenario.resultsDir, cropname))
+  if (!dir.exists(file.path(clean.resultsDir, cropname))) {
+    dir.create(file.path(clean.resultsDir, cropname))
   }
   setwd(parentDir)
   dirnames <- list.files()
@@ -55,22 +55,21 @@ CleanResults <- function(cropname) {
     print(nrow(df))
     pawvar <- colnames(df)[14]
     print(pawvar)
-    df <- df[-which(df$cokey %in% cokeys_uncertain_data | is.na(df[[pawvar]]) | is.na(df$TEW) | is.na(df$REW) | df[[pawvar]] == 0 | df$TEW == 0), ] #this gets rid of all results that are "uncertain" or where model was not run as a result of soil variables being NA or equal to 0
+    df <- df[-which(df$cokey %in% cokeys_uncertain_data$x | is.na(df[[pawvar]]) | is.na(df$TEW) | is.na(df$REW) | df[[pawvar]] == 0 | df$TEW == 0), ] #this gets rid of all results that are "uncertain" or where model was not run as a result of soil variables being NA or equal to 0
     print(nrow(df))
-    setwd(file.path(scenario.resultsDir, cropname))
+    setwd(file.path(clean.resultsDir, cropname))
     fname_modified <- paste0(gsub('.csv', '', fname), '_clean.csv')
     write.csv(df, fname_modified, row.names = FALSE)
   }
 }
 #run function for walnuts
+CleanResults('pistachios')
 CleanResults('walnut.mature')
 CleanResults('almond.mature')
-CleanResults('pistachios')
-CleanResults('grapes.table')#check from here down
+CleanResults('grapes.table')
 CleanResults('grapes.wine')
 CleanResults('alfalfa.intermountain')
 CleanResults('alfalfa.CV')
 CleanResults('alfalfa.imperial')
 #print-outs showed no concerns 10/5/17
-
-#copy model run metadata to respective folders
+#error discovered 10/13/17: df$cokey %in% cokeys_uncertain_data was not returning anything because cokeys_uncertain_data is a data.frame; everything re-run with df$cokey %in% cokeys_uncertain_data$x now part of the logical statement to remove specific records
