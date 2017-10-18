@@ -58,12 +58,18 @@ modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffol
 # setwd(file.path(original.resultsDir, 'climate_summaries'))
 # write.csv(prism.annual.sums, 'P.WY.summary.10.6.17.csv', row.names = FALSE) #WY refers to 'water year'
 
-#summarize P and ETo data by water.year
-#get the mean water year ETo, U2, and RHmin by cell number
-ClimateAggregate <- function(climate_df, varname, modify, Jdev, Jharv) {
-  climate_df$water.year <- climate_df$year
-  climate_df$water.year[which(climate_df$month >= 10)] <- climate_df$water.year[which(climate_df$month >= 10)] + 1
-  by.year <- split(climate_df, climate_df$water.year)
+#summarize ETo, RHmin, and U2 data by various time windows
+#if output is water.year summary then modify='no' & WY.basis='yes'
+#if output is calendar year summary then modify='no' & WY.basis='no'
+#if output is dormant period, then modify='no' & WY.basis='no'
+ClimateAggregate <- function(climate_df, varname, modify, Jdev, Jharv, WY.basis) {
+  if (WY.basis=='yes') {
+    climate_df$water.year <- climate_df$year
+    climate_df$water.year[which(climate_df$month >= 10)] <- climate_df$water.year[which(climate_df$month >= 10)] + 1
+    by.year <- split(climate_df, climate_df$water.year)
+  } else {
+      by.year <- split(climate_df, climate_df$year)
+  }
   if (modify=='yes') {
     for (j in 1:length(by.year)) { #get the unnecessary rows out now
       by.year[[j]] <- by.year[[j]][which(by.year[[j]][,5]==Jharv):which(by.year[[j]][,5]==Jdev),] #row 1 in each of these data.frames is Oct. 1st, start of the water.year; Jharv is leaf-drop; Jdev is bloom (not including alfalfa)
@@ -80,6 +86,10 @@ ClimateAggregate <- function(climate_df, varname, modify, Jdev, Jharv) {
   colnames(annual.summary)
   annual.summary[[paste0(varname, '.mean.annual')]] <- apply(annual.summary[,1:14], 1, mean)
   annual.summary
+}
+
+PrecipAggregate <- function(precip_df, modify, Jdev, Jharv, WY.basis) {
+  
 }
 
 # ETo.summary <- ClimateAggregate(ETo.df, 'ETo', 'no') #note that 2017 does not include latter half of September
@@ -296,12 +306,16 @@ data.to.allyrs <- function(cropname, cropname2) {
   cropcode <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME==cropname2]
   P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = FALSE)
   ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = FALSE)
+  U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
+  RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F)
+  ETo.summary <- ClimateAggregate(ETo.df, 'ETo', modify='no', WY.basis = 'no') #note that 2017 does not include latter half of September
+  RHmin.summary <- ClimateAggregate(RHmin.df, 'RHmin', modify = 'no', WY.basis = 'no')
+  U2.summary <- ClimateAggregate(U2.df, 'U2', modify = 'no', WY.basis = 'no')
   cell.counts <- read.csv('cell_counts.csv', stringsAsFactors = FALSE)
   setwd(file.path(original.resultsDir, 'climate_summaries'))
   prism.annual.sums <- read.csv('P.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-  ETo.summary <- read.csv('ETo.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-  RHmin.summary <- read.csv('RHmin.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-  U2.summary <- read.csv('U2.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
+  colnames(prism.annual.sums)
+
   setwd(file.path(clean.resultsDir, cropname))
   fnames <- list.files()
   print(fnames)
@@ -329,8 +343,7 @@ data.to.allyrs <- function(cropname, cropname2) {
       prism.winter.sums <- as.data.frame(prism.winter.sums)
       prism.winter.sums$cell_name <- rownames(prism.winter.sums)
       prism.winter.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', prism.winter.sums$cell_name))
-      ETo.winter.sums <- ClimateAggregate(ETo.df, 'ETo', 'yes', Jdev, Jharv) ##now, do the same for ETo
-    }
+      ETo.winter.sums <- ClimateAggregate(ETo.df, 'ETo', 'yes', Jdev, Jharv)
     setwd(file.path(clean.resultsDir, cropname))
     df <- read.csv(fnames[i], stringsAsFactors = FALSE)
     soil_summary <- AggregateSoilPars(df, paw.varname, cell.counts)
@@ -348,7 +361,7 @@ data.to.allyrs <- function(cropname, cropname2) {
     df_allyrs <- SetValues.AllYrs.Combined(results, soil_summary) #check functions above
     rm(results, df, soil_summary)
     gc()
-    df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=prism.annual.sums, colname='P.annual'))
+    df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=prism.annual.sums, colname='P.WY'))
     if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes') {
       df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=prism.winter.sums, colname='P.winter')) #Jharv to Jdev
     }
@@ -378,98 +391,8 @@ data.to.allyrs('alfalfa.intermountain', 'Alfalfa')
 #this result also does not include the GW.capture.net column
 data.to.allyrs('alfalfa.imperial', 'Alfalfa') #this result does not include the 
 
-#make a box plot of green water availability by year [not finished]
-gw_bp <- boxplot(GW.ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-years <- 2004:2016
-for (i in 1:ncol(gw_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  gw_bp$stats[,i] <- CustomBP(df$GW.ET.growing)
-  
-}
 
-#make a Blue Water boxplot by year
-bw_bp <- boxplot(Irr.app.total ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-for (i in 1:ncol(bw_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  bw_bp$stats[,i] <- CustomBP(df$Irr.app.total)
-}
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50ADbluewaterdemand.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-bxp(bw_bp, outline = FALSE, boxfill='lightblue', las=2, ylab='', xlab='')
-mtext(text='Year', side=1, line=3.5)
-mtext(text='Irrigation applied (mm)', side=2, line=3.5)
-dev.off()
 
-#make an ET.growing boxplot
-et_bp <- boxplot(ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-for (i in 1:ncol(et_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  et_bp$stats[,i] <- CustomBP(df$ET.growing)
-}
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50AD.ET.growing.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-bxp(et_bp, outline = FALSE, boxfill='orange', las=2, ylab='', xlab='')
-mtext(text='Year', side=1, line=3.5)
-mtext(text='Growing season ET (mm)', side=2, line=3.5)
-dev.off()
-
-#make an annual P boxplot
-P_bp <- boxplot(annual.P ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-for (i in 1:ncol(P_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  P_bp$stats[,i] <- CustomBP(df$annual.P)
-}
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond.annual.P.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-bxp(P_bp, outline = FALSE, boxfill='blue', las=2, ylab='', xlab='')
-mtext(text='Year', side=1, line=3.5)
-mtext(text='Annual precipitation (mm)', side=2, line=3.5)
-dev.off()
-
-#single year combined histogram and boxplot of blue water
-nf <- layout(mat = matrix(c(1,2),2,1, byrow=TRUE),  height = c(1,3))
-par(mar=c(3.1, 3.1, 1.1, 2.1))
-boxplot(almond_points_allyrs$Irr.app.total[which(almond_points_allyrs$Model.Year==2016)], horizontal=TRUE,  outline=TRUE, frame=F, col = "lightblue")
-hist(almond_points_allyrs$Irr.app.total[which(almond_points_allyrs$Model.Year==2016)], col='lightblue')
-
-#plot of BW vs. GW
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50AD_BWvsGW.png', sep = ''), family = 'Book Antiqua', width = 5, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-smoothScatter(x=almond_points_allyrs$GW.ET.growing, y=almond_points_allyrs$Irr.app.total, xlab="" , ylab="")
-mtext(text='Growing season green water availability', side=1, line=3.5)
-mtext(text='Blue water demand (mm)', side=2, line=3.5)
-dev.off()
-#stats for BW vs. GW
-lm(GW.ET.growing ~ Irr.app.total, data=almond_points_allyrs)
-
-#plot of paw vs. mean annual GW (not all years)
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50AD_PAWvsmean.GW.png', sep = ''), family = 'Book Antiqua', width = 5, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-smoothScatter(x=almond_points$paw_mm_2.0m, y=almond_points$GW.ET.growing, xlab="" , ylab="", xlim=c(0, 600))
-mtext(text='Soil plant available water storage (mm)', side=1, line=2)
-mtext(text='Mean growing season green water availability (mm)', side=2, line=2)
-dev.off()
-
-#plot of paw vs. mean annual GW (not all years)
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50AD_Precip.vs.mean.GW.png', sep = ''), family = 'Book Antiqua', width = 5, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-smoothScatter(x=almond_points_allyrs$annual.P, y=almond_points_allyrs$GW.ET.growing, xlab="" , ylab="")
-mtext(text='Annual precipitation (mm)', side=1, line=2)
-mtext(text='Growing season green water availability (mm)', side=2, line=2)
-dev.off()
-
-#model GW vs. P + PAW
-summary(lm(GW.ET.growing ~ annual.P + I(annual.P^2) + paw_mm_2.0m + I(paw_mm_2.0m^2) + paw_mm_2.0m*annual.P + I(paw_mm_2.0m*annual.P^2), data=almond_points_allyrs))
-summary(lm(GW.ET.growing ~ annual.P + I(annual.P^2) + paw_mm_2.0m + I(paw_mm_2.0m^2) + paw_mm_2.0m*annual.P + I(paw_mm_2.0m*annual.P^2) + ET.growing + I(ET.growing^2), data=almond_points_allyrs))
-
-#create results rasters for maps
-RasterBuild(almond2.0m_AD50, "GW.ET.growing", 'almondGW.ET.growing.Sep2017runs.tif', mean, na.rm=TRUE)
 
 
 #this is to obtain mean values across years, except for paw, which is static; almond_points_allyrs has the data by year
