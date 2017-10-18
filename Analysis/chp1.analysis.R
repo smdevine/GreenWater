@@ -1,23 +1,11 @@
 #TO-DO
 # (1) add spatial CIMIS ETo data to almond_points_allyrs
 # (2) test green water availability models for almond_points_allyrs
-
+points.resultsDir <- 'D:/Allowable_Depletion/results'
 library(raster)
 library(extrafont)
 library(extrafontdb)
 #font_import() #only needs to be done once?
-
-
-
-
-
-#function to set point values according to the stats produced by 'Aggregate Result
-
-SetPointPrecipValues_MeanAnnual <- function(points_df){
-  points_df$mean.annual.P <- prism.annual.sums$mean.annual.P[match(points_df$PRISMcellnumber, prism.annual.sums$PRISMcellnumber)]
-  points_df
-}
-
 
 CustomBP <- function(x){
   stats.x <- summary(x) #in this order: (1)Min. (2)1st Qu.  (3)Median    (4)Mean (5)3rd Qu.   (6) Max.    NA's 
@@ -73,6 +61,152 @@ RasterBuild <- function(df, varname, rasterfname, func, ...) {
   rasterOptions(progress = 'window')
   writeRaster(raster.result, rasterfname, format='GTiff')
 }
+
+#read in summary data for each scenario to summarize data with the help of cell counts
+collect.stats <- function(cropname) {
+  setwd(file.path(points.resultsDir, cropname))
+  fnames <- list.files(pattern = glob2rx('*.csv'))
+  for (j in seq_along(fnames)) {
+    summary.fname <- gsub('results_points_rounded.csv', '', fnames[j])
+    setwd(file.path(points.resultsDir, cropname))
+    result <- read.csv(fnames[j], stringsAsFactors = FALSE)
+    result <- result[ ,-2] #don't need the PAW data twice in different units
+    result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year'))] #don't need summary stats for these columns
+    varnames <- colnames(result)
+    varnames <- varnames[-which(varnames=='cellcounts30m2')]
+    summary_result <- as.data.frame(matrix(data=NA, nrow=length(varnames), ncol=12))
+    colnames(summary_result) <- c('varname', 'Min', 'Qu0.005', 'Qu0.025', 'Qu0.25', 'Median', 'Mean', 'Qu0.75', 'Qu0.975', 'Qu0.995', 'Max', 'StDev')
+    row.names(summary_result) <- varnames
+    for (i in seq_along(result)) {
+      if (colnames(result)[i]=='cellcounts30m2') {
+        next
+      }
+      varname <- colnames(result)[i]
+      data.expanded <- rep(result[,i], times=result$cellcounts30m2)
+      stats.data <- data.frame(varname=varname, Min=min(data.expanded, na.rm=TRUE), Qu0.005=quantile(data.expanded, 0.005, na.rm = TRUE), Qu0.025=quantile(data.expanded, 0.025, na.rm = TRUE), Qu0.25=quantile(data.expanded, 0.25, na.rm = TRUE), Median=median(data.expanded, na.rm = TRUE), Mean=mean(data.expanded, na.rm = TRUE), Qu0.75=quantile(data.expanded, 0.75, na.rm = TRUE), Qu0.975=quantile(data.expanded, 0.975, na.rm = TRUE), Qu0.995=quantile(data.expanded, 0.995, na.rm = TRUE), Max=max(data.expanded, na.rm = TRUE), StDev=sd(data.expanded, na.rm = TRUE), row.names = NULL)
+      stats.data[,2:ncol(stats.data)] <-round(stats.data[,2:ncol(stats.data)], 1)
+      stats.data$varname <- as.character(stats.data$varname)
+      summary_result[varname,] <- stats.data #indexing by row.name here
+    }
+    if (!dir.exists(file.path(points.resultsDir, cropname, 'allyrs_stats'))) {
+      dir.create(file.path(points.resultsDir, cropname, 'allyrs_stats'))
+    }
+    setwd(file.path(points.resultsDir, cropname, 'allyrs_stats'))
+    write.csv(summary_result, paste0(summary.fname, '_summarystats.csv'), row.names = FALSE)
+  }
+}
+collect.stats('walnut.mature')
+collect.stats('pistachios')
+collect.stats('almond.mature')
+collect.stats('grapes.table')
+collect.stats('grapes.wine')
+#these results don't inlcude the P.winter or ETo.winter columns
+collect.stats('alfalfa.CV')
+collect.stats('alfalfa.intermountain')
+#this result also does not include the GW.capture.net column
+collect.stats('alfalfa.imperial')
+
+
+test <- read.csv()
+
+#make a hist with the expanded data
+hist <- hist(data.expanded, main=NULL, xlab = varname)
+
+#make a box plot of green water availability by year [not finished]
+gw_bp <- boxplot(GW.ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
+years <- 2004:2016
+for (i in 1:ncol(gw_bp$stats)) {
+  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
+  gw_bp$stats[,i] <- CustomBP(df$GW.ET.growing)
+  
+}
+
+#make a Blue Water boxplot by year
+bw_bp <- boxplot(Irr.app.total ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
+for (i in 1:ncol(bw_bp$stats)) {
+  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
+  bw_bp$stats[,i] <- CustomBP(df$Irr.app.total)
+}
+setwd(file.path(SepResultsDir, 'figures'))
+png(paste('almond2.0m50ADbluewaterdemand.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
+par(mai=c(0.9, 0.9, 0.2, 0.2))
+bxp(bw_bp, outline = FALSE, boxfill='lightblue', las=2, ylab='', xlab='')
+mtext(text='Year', side=1, line=3.5)
+mtext(text='Irrigation applied (mm)', side=2, line=3.5)
+dev.off()
+
+#make an ET.growing boxplot
+et_bp <- boxplot(ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
+for (i in 1:ncol(et_bp$stats)) {
+  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
+  et_bp$stats[,i] <- CustomBP(df$ET.growing)
+}
+setwd(file.path(SepResultsDir, 'figures'))
+png(paste('almond2.0m50AD.ET.growing.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
+par(mai=c(0.9, 0.9, 0.2, 0.2))
+bxp(et_bp, outline = FALSE, boxfill='orange', las=2, ylab='', xlab='')
+mtext(text='Year', side=1, line=3.5)
+mtext(text='Growing season ET (mm)', side=2, line=3.5)
+dev.off()
+
+#make an annual P boxplot
+P_bp <- boxplot(annual.P ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
+for (i in 1:ncol(P_bp$stats)) {
+  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
+  P_bp$stats[,i] <- CustomBP(df$annual.P)
+}
+setwd(file.path(SepResultsDir, 'figures'))
+png(paste('almond.annual.P.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
+par(mai=c(0.9, 0.9, 0.2, 0.2))
+bxp(P_bp, outline = FALSE, boxfill='blue', las=2, ylab='', xlab='')
+mtext(text='Year', side=1, line=3.5)
+mtext(text='Annual precipitation (mm)', side=2, line=3.5)
+dev.off()
+
+#single year combined histogram and boxplot of blue water
+nf <- layout(mat = matrix(c(1,2),2,1, byrow=TRUE),  height = c(1,3))
+par(mar=c(3.1, 3.1, 1.1, 2.1))
+boxplot(almond_points_allyrs$Irr.app.total[which(almond_points_allyrs$Model.Year==2016)], horizontal=TRUE,  outline=TRUE, frame=F, col = "lightblue")
+hist(almond_points_allyrs$Irr.app.total[which(almond_points_allyrs$Model.Year==2016)], col='lightblue')
+
+#plot of BW vs. GW
+setwd(file.path(SepResultsDir, 'figures'))
+png(paste('almond2.0m50AD_BWvsGW.png', sep = ''), family = 'Book Antiqua', width = 5, height = 5, units = 'in', res = 600)
+par(mai=c(0.9, 0.9, 0.2, 0.2))
+smoothScatter(x=almond_points_allyrs$GW.ET.growing, y=almond_points_allyrs$Irr.app.total, xlab="" , ylab="")
+mtext(text='Growing season green water availability', side=1, line=3.5)
+mtext(text='Blue water demand (mm)', side=2, line=3.5)
+dev.off()
+#stats for BW vs. GW
+lm(GW.ET.growing ~ Irr.app.total, data=almond_points_allyrs)
+
+#plot of paw vs. mean annual GW (not all years)
+setwd(file.path(SepResultsDir, 'figures'))
+png(paste('almond2.0m50AD_PAWvsmean.GW.png', sep = ''), family = 'Book Antiqua', width = 5, height = 5, units = 'in', res = 600)
+par(mai=c(0.9, 0.9, 0.2, 0.2))
+smoothScatter(x=almond_points$paw_mm_2.0m, y=almond_points$GW.ET.growing, xlab="" , ylab="", xlim=c(0, 600))
+mtext(text='Soil plant available water storage (mm)', side=1, line=2)
+mtext(text='Mean growing season green water availability (mm)', side=2, line=2)
+dev.off()
+
+#plot of paw vs. mean annual GW (not all years)
+setwd(file.path(SepResultsDir, 'figures'))
+png(paste('almond2.0m50AD_Precip.vs.mean.GW.png', sep = ''), family = 'Book Antiqua', width = 5, height = 5, units = 'in', res = 600)
+par(mai=c(0.9, 0.9, 0.2, 0.2))
+smoothScatter(x=almond_points_allyrs$annual.P, y=almond_points_allyrs$GW.ET.growing, xlab="" , ylab="")
+mtext(text='Annual precipitation (mm)', side=1, line=2)
+mtext(text='Growing season green water availability (mm)', side=2, line=2)
+dev.off()
+
+#model GW vs. P + PAW
+summary(lm(GW.ET.growing ~ annual.P + I(annual.P^2) + paw_mm_2.0m + I(paw_mm_2.0m^2) + paw_mm_2.0m*annual.P + I(paw_mm_2.0m*annual.P^2), data=almond_points_allyrs))
+summary(lm(GW.ET.growing ~ annual.P + I(annual.P^2) + paw_mm_2.0m + I(paw_mm_2.0m^2) + paw_mm_2.0m*annual.P + I(paw_mm_2.0m*annual.P^2) + ET.growing + I(ET.growing^2), data=almond_points_allyrs))
+
+#create results rasters for maps
+RasterBuild(almond2.0m_AD50, "GW.ET.growing", 'almondGW.ET.growing.Sep2017runs.tif', mean, na.rm=TRUE)
+
+
+
 
 #playing with Dr trends across rooting assumptions
 setwd(file.path(SepResultsDir, 'almond.mature_majcomps/scenario_2.0m50AD'))
