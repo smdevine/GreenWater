@@ -1,5 +1,5 @@
 #TO-DO:
-  #1.  Re-run all 80% allowable depletion scenarios because of correction of KsCalc function.
+  #1.  Re-run all 30% and 80% allowable depletion scenarios because of correction of KsCalc function.
   #2.  Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer [DONE].  
   #3.  Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix [DONE]
   #5.  Modify winter Kcb calculation for alfalfa: allow for fall growth in intermountain region before frost termination; allow for higher peak values in Fall then decline to 0.8 before rising again in Feb [DONE]
@@ -708,7 +708,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Kc.ns[1] <- KcnsCalc(Kcb.adjusted, Kei, Kep, 1)
     ETc.ns[1] <- ETcnsCalc(Kc.ns, ETo, 1)
     Dr.initial[1] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
-    Ks[1] <- KsCalc(Dr.initial, PAW, AD, 1)
+    Ks[1] <- KsCalc(Dr.initial=Dr.initial, PAW=PAW, i=1)
     Ir[1] <- IrCalc(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, 1)
     DPr[1] <- max(max(P[1] + Ir[1] - TEW.parameter * TEW.fraction - ETc.ns[1], 0)) #initial calc
     Kc.act[1] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, 1)
@@ -731,7 +731,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep, i)
       ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo, i)
       Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir, i)
-      Ks[i] <- KsCalc(Dr.initial, PAW, AD, i)
+      Ks[i] <- KsCalc(Dr.initial=Dr.initial, PAW=PAW, i=i) #corrected on 10/18/17
       Ir[i] <- IrCalc(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i)
       DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end, i)
       Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, i)
