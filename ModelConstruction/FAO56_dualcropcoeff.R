@@ -16,8 +16,8 @@
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017' #location of input data
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017' #location of input data; copied from Sep2017 on 10/18/17
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
@@ -34,7 +34,7 @@ model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Ra
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 sum(model.scaffold$crop_code==grape_code) #80312
 sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
-dim(model.scaffold)
+dim(model.scaffold) #387970 rows
 #now merge SpCIMIS data updates
 # setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
 # U2.update <- read.csv('SpatialCIMIS.U2update.rounded.csv')
