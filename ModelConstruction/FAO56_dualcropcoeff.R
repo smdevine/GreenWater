@@ -32,10 +32,11 @@ model.scaffold$longitude_AEA <- NULL
 model.scaffold$latitude_AEA <- NULL
 model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Range')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, table grape, raisin, or low-quality wine grape
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
-sum(model.scaffold$crop_code==grape_code) #80312
-sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
-dim(model.scaffold) #387970 rows
-#now merge SpCIMIS data updates
+# sum(model.scaffold$crop_code==grape_code) #80312
+# sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
+# dim(model.scaffold) #387970 rows
+
+#now merge SpCIMIS data updates and write to disk when necessary
 # setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
 # U2.update <- read.csv('SpatialCIMIS.U2update.rounded.csv')
 # ETo.update <- read.csv('SpatialCIMIS.EToupdate.rounded.csv')
@@ -62,10 +63,10 @@ dim(model.scaffold) #387970 rows
 # write.csv(U2.df, 'SpatialCIMIS.U2.updated9.13.17.csv', row.names=FALSE)
 # write.csv(ETo.df, 'SpatialCIMIS.ETo.updated9.13.17.csv', row.names=FALSE)
 # write.csv(RHmin.df, 'SpatialCIMIS.RHmin.updated9.13.17.csv', row.names=FALSE)
+
 #define functions implement FA56 dual crop coefficients
 #includes subroutine that separates evaporable water as P vs. Irr sourced
-#all these tasks only done once per run where run is initialzing model and then looping through all rows in model.scaffold and pasting results from all
-#ID crop codes
+#some results abbreviations
 #E=evaporation
 #T=transpiration
 #ET=evapotranspriation
@@ -77,20 +78,22 @@ dim(model.scaffold) #387970 rows
 #deep.perc is annual deep percolation ()
 #GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
-cropname <- 'alfalfa.intermountain'
-cropcode <- alfalfa_code
-AD.percentage <- 30
-root_depth <- '1.0m'
-irr.type <- 'Border'
-results_file <- 'new'
-row_start <- 1
-RDI.min <- NA
-alfalfa.zone <- 'Intermountain'
-alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
-grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
-almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
-walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
-pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
+
+#temporary arguments for working inside the function when necessary
+# cropname <- 'alfalfa.intermountain'
+# cropcode <- alfalfa_code
+# AD.percentage <- 30
+# root_depth <- '1.0m'
+# irr.type <- 'Border'
+# results_file <- 'new'
+# row_start <- 1
+# RDI.min <- NA
+# alfalfa.zone <- 'Intermountain'
+# alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
+# grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+# almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+# walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+# pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
@@ -625,9 +628,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   if (nrow(model.scaffold.crop) > 10000) {
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  } else {save.times <- 5000}
+  } else {save.times <- NA}
   for (n in row_start:nrow(model.scaffold.crop)) {
-    #n <- 3164
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW
@@ -749,7 +751,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       write.csv(model.result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
       }
     }
-    if (n==100 | n %in% save.times) {
+    if (n %in% save.times) { #was (n==100 | n %in% save.times)
       setwd(file.path(resultsDir, scenario.name))
       if (cropname=='grapes.wine') {
         write.csv(model.scaffold.results, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv'), row.names=FALSE)
@@ -773,6 +775,10 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   }
 }
 
+#function call for Matt and Duncan
+FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = NA, grape.zone=NA)
+
+#legend for FAO56 abbreviations
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
 #pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach
 #Ke = Kei + Kep (eqn. 14)
