@@ -19,6 +19,7 @@
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017' #location of input data; copied from Sep2017 on 10/18/17
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
 rounding_digits <- 3
+scenarios.to.run <- 500
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
 crop.parameters.df <- read.csv('crop_parameters.csv', stringsAsFactors = F) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
@@ -27,11 +28,17 @@ U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #t
 RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
 ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
 model.scaffold <- read.csv('model_scaffold_majcomps.v2.csv', stringsAsFactors = F)
+cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+
+#temporary pruning of the model scaffold for Matt and Duncan
+almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+model.scaffold <- model.scaffold[which(model.scaffold$crop_code==almond_code), ]
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
+model.scaffold <- model.scaffold[1:scenarios.to.run, ]
 model.scaffold$longitude_AEA <- NULL
 model.scaffold$latitude_AEA <- NULL
-model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Range')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, table grape, raisin, or low-quality wine grape
-cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Range')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, assumed table grape, raisin, or low-quality wine grape production
+
 # sum(model.scaffold$crop_code==grape_code) #80312
 # sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
 # dim(model.scaffold) #387970 rows
@@ -751,7 +758,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       write.csv(model.result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
       }
     }
-    if (n %in% save.times) { #was (n==100 | n %in% save.times)
+    if (n %in% save.times) { #was (n==100 | n %in% save.times), changed for Matt and Duncan 10/20/17
       setwd(file.path(resultsDir, scenario.name))
       if (cropname=='grapes.wine') {
         write.csv(model.scaffold.results, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv'), row.names=FALSE)
@@ -776,7 +783,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
 }
 
 #function call for Matt and Duncan
-FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = NA, grape.zone=NA)
+system.time(FAO56DualCropCalc('almond.mature', almond_code, 50, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = NA, grape.zone=NA))
 
 #legend for FAO56 abbreviations
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
