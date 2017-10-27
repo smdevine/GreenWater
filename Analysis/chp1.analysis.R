@@ -1,7 +1,7 @@
 #TO-DO
 # (1) add spatial CIMIS ETo data to almond_points_allyrs
 # (2) test green water availability models for almond_points_allyrs
-points.resultsDir <- 'D:/Allowable_Depletion/results'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
 library(raster)
 library(extrafont)
 library(extrafontdb)
@@ -64,11 +64,11 @@ RasterBuild <- function(df, varname, rasterfname, func, ...) {
 
 #read in summary data for each scenario to summarize data with the help of cell counts
 collect.stats <- function(cropname) {
-  setwd(file.path(points.resultsDir, cropname))
+  setwd(file.path(resultsDir, cropname))
   fnames <- list.files(pattern = glob2rx('*.csv'))
   for (j in seq_along(fnames)) {
     summary.fname <- gsub('results_points_rounded.csv', '', fnames[j])
-    setwd(file.path(points.resultsDir, cropname))
+    setwd(file.path(resultsDir, cropname))
     result <- read.csv(fnames[j], stringsAsFactors = FALSE)
     result <- result[ ,-2] #don't need the PAW data twice in different units
     result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year'))] #don't need summary stats for these columns
@@ -88,16 +88,16 @@ collect.stats <- function(cropname) {
       stats.data$varname <- as.character(stats.data$varname)
       summary_result[varname,] <- stats.data #indexing by row.name here
     }
-    if (!dir.exists(file.path(points.resultsDir, cropname, 'allyrs_stats'))) {
-      dir.create(file.path(points.resultsDir, cropname, 'allyrs_stats'))
+    if (!dir.exists(file.path(resultsDir, cropname, 'allyrs_stats'))) {
+      dir.create(file.path(resultsDir, cropname, 'allyrs_stats'))
     }
-    setwd(file.path(points.resultsDir, cropname, 'allyrs_stats'))
+    setwd(file.path(resultsDir, cropname, 'allyrs_stats'))
     write.csv(summary_result, paste0(summary.fname, '_summarystats.csv'), row.names = FALSE)
   }
 }
 collect.stats('walnut.mature')
-collect.stats('pistachios')
 collect.stats('almond.mature')
+collect.stats('pistachios')
 collect.stats('grapes.table')
 collect.stats('grapes.wine')
 #these results don't inlcude the P.winter or ETo.winter columns
