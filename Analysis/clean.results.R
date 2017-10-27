@@ -1,6 +1,6 @@
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017'
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
-clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Sep2017/clean_results' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
+resultsDir <- 'D:/Allowable_Depletion/results/Oct2017' #'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
+clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
 #almondDir <- file.path(resultsDir, 'Sep2017/almond.mature_majcomps')
 #walnutDir <- file.path(resultsDir, 'Sep2017/walnut.mature_majcomps')
 
@@ -63,9 +63,9 @@ CleanResults <- function(cropname) {
   }
 }
 #run function for walnuts
-CleanResults('pistachios')
 CleanResults('walnut.mature')
 CleanResults('almond.mature')
+CleanResults('pistachios')
 CleanResults('grapes.table')
 CleanResults('grapes.wine')
 CleanResults('alfalfa.intermountain')
