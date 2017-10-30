@@ -41,7 +41,7 @@ model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Ra
 
 # sum(model.scaffold$crop_code==grape_code) #80312
 # sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
-# dim(model.scaffold) #387970 rows
+dim(model.scaffold[which(model.scaffold$crop_code %in% c(almond_code, alfalfa_code, pistachio_code, walnut_code, grape_code)), ]) #387970 total rows covering all crops; 304213 covering just almonds, alfalfa, pistachios, grapes, and walnuts
 
 #now merge SpCIMIS data updates and write to disk when necessary
 # setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
@@ -96,11 +96,11 @@ model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Ra
 # row_start <- 1
 # RDI.min <- NA
 # alfalfa.zone <- 'Intermountain'
-# alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
-# grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
-# almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
-# walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
-# pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
+alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
+grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
