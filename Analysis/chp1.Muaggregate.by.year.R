@@ -125,10 +125,10 @@ ClimateAggregate <- function(climate_df, varname, winter, Jdev, Jharv, WY.basis,
   summary
 }
 #test the function
-ETo.winter <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'yes', Jdev=46, Jharv=315, WY.basis = 'yes', growing = 'no')
-ETo.growing <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=46, Jharv=315, WY.basis = 'no', growing = 'yes')
-ETo.annual <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'no', growing = 'no')
-ETo.WY <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'yes', growing='no')
+# ETo.winter <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'yes', Jdev=46, Jharv=315, WY.basis = 'yes', growing = 'no')
+# ETo.growing <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=46, Jharv=315, WY.basis = 'no', growing = 'yes')
+# ETo.annual <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'no', growing = 'no')
+# ETo.WY <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'yes', growing='no')
 
 #same function as climate aggregate with slight changes to naming conventions above
 PrecipAggregate <- function(precip_df, winter, Jdev, Jharv, WY.basis, growing) {
@@ -200,16 +200,16 @@ PrecipAggregate <- function(precip_df, winter, Jdev, Jharv, WY.basis, growing) {
   summary <- t(summary)
   summary <- as.data.frame(summary)
   summary$cell_name <- rownames(summary)
-  summary$CIMIScellnumber <- as.integer(gsub('cell_', '', summary$cell_name))
+  summary$PRISMcellnumber <- as.integer(gsub('cell_', '', summary$cell_name))
   colnames(summary)
   summary[['P.mean.all.yrs']] <- apply(summary[,1:years], 1, mean)
   summary
 }
 #test the function
-P.winter <- PrecipAggregate(precip_df = P.df, winter='yes', Jdev=46, Jharv=315, WY.basis = 'yes', growing='no')
-P.growing <- PrecipAggregate(precip_df = P.df, winter='no', Jdev=46, Jharv=315, WY.basis = 'no', growing='yes')
-P.annual <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=46, Jharv=315, WY.basis='no', growing='no')
-P.WY <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=46, Jharv=315, WY.basis='yes', growing='no')
+# P.winter <- PrecipAggregate(precip_df = P.df, winter='yes', Jdev=46, Jharv=315, WY.basis = 'yes', growing='no')
+# P.growing <- PrecipAggregate(precip_df = P.df, winter='no', Jdev=46, Jharv=315, WY.basis = 'no', growing='yes')
+# P.annual <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=46, Jharv=315, WY.basis='no', growing='no')
+# P.WY <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=46, Jharv=315, WY.basis='yes', growing='no')
 
 # ETo.summary <- ClimateAggregate(ETo.df, 'ETo', 'no') #note that 2017 does not include latter half of September
 # RHmin.summary <- ClimateAggregate(RHmin.df, 'RHmin', 'no')
@@ -410,9 +410,9 @@ SetPrecipValues.AllYrs <- function(df, precip_data, colname) {
   gc()
   df
 }
-SetClimateValues.AllYrs <- function(df, varname, climate_data) {
+SetClimateValues.AllYrs <- function(df, climate_data, colname) {
   model.year <- as.character(df$Model.Year[1])
-  df[[varname]] <- climate_data[[model.year]][match(df$CIMIScellnumber, climate_data$CIMIScellnumber)]
+  df[[colname]] <- climate_data[[model.year]][match(df$CIMIScellnumber, climate_data$CIMIScellnumber)]
   gc()
   df
 }
@@ -424,17 +424,11 @@ data.to.allyrs <- function(cropname, cropname2) {
   setwd(modelscaffoldDir)
   cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
   cropcode <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME==cropname2]
-  #P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = FALSE)
-  #ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = FALSE)
+  P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = FALSE)
+  ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = FALSE)
   #U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
   #RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F)
-  #ETo.summary <- ClimateAggregate(ETo.df, 'ETo', modify='no', WY.basis = 'no') #note that 2017 does not include latter half of September
-  #RHmin.summary <- ClimateAggregate(RHmin.df, 'RHmin', modify = 'no', WY.basis = 'no')
-  #U2.summary <- ClimateAggregate(U2.df, 'U2', modify = 'no', WY.basis = 'no')
   cell.counts <- read.csv('cell_counts.csv', stringsAsFactors = FALSE)
-  #setwd(file.path(original.resultsDir, 'climate_summaries'))
-  #prism.annual.sums <- read.csv('P.WY.summary.10.6.17.csv', stringsAsFactors = FALSE)
-  #colnames(prism.annual.sums)
   setwd(file.path(clean.resultsDir, cropname))
   fnames <- list.files()
   print(fnames)
@@ -447,24 +441,27 @@ data.to.allyrs <- function(cropname, cropname2) {
     setwd(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name))
     model_metadata <- read.csv(list.files(pattern = glob2rx('*_model_metadata.csv')), stringsAsFactors = FALSE)
     paw.varname <- model_metadata$paw.varname
-    if (i==1) { #this block not relevant to alfalfa
+    if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes') {
       Jdev <- model_metadata$Jdev
       Jharv <- model_metadata$Jharv
-      P.df$water.year <- P.df$year
-      P.df$water.year[which(P.df$month >= 10)] <- P.df$water.year[which(P.df$month >= 10)] + 1
-      prism.by.year <- split(P.df, P.df$water.year)
-      for (j in 1:length(prism.by.year)) { #get the unnecessary rows out now
-        prism.by.year[[j]] <- prism.by.year[[j]][which(prism.by.year[[j]][,5]==Jharv):which(prism.by.year[[j]][,5]==Jdev),] #this trims each data.frame to leaf-drop(Jharv) to bloom date (Jdev)
+    } else if (cropname=='alfalfa.intermountain') {
+      Jdev <- model_metadata$Jini
+      Jharv <- model_metadata$Jharv + (model_metadata$cycle.no - 1) * model_metadata$cycle.length + 34 #30 is specified as "buffer.days" in FAO56dualcropcoeff call to IrCalc and days.no.irr, but we need to get this above Oct1st
+    } else {
+        Jdev <- NA
+        Jharv <- NA
+    }
+    if (i==1) {
+      ETo.annual <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'no', growing = 'no')
+      ETo.WY <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'yes', growing='no')
+      P.annual <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=NA, Jharv=NA, WY.basis='no', growing='no')
+      P.WY <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=NA, Jharv=NA, WY.basis='yes', growing='no')
+      if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes' | cropname=='alfalfa.intermountain') {  #this block not relevant to alfalfa.CV or alfalfa.imperial
+        P.winter <- PrecipAggregate(precip_df = P.df, winter='yes', Jdev=Jdev, Jharv=Jharv, WY.basis = 'yes', growing='no')
+        P.growing <- PrecipAggregate(precip_df = P.df, winter='no', Jdev=Jdev, Jharv=Jharv, WY.basis = 'no', growing='yes')
+        ETo.winter <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'yes', Jdev=Jdev, Jharv=Jharv, WY.basis = 'yes', growing = 'no')
+        ETo.growing <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=Jdev, Jharv=Jharv, WY.basis = 'no', growing = 'yes')
       }
-      for (j in 1:length(prism.by.year)) { #get the unnecessary columns out now, including last column which is water.year
-        prism.by.year[[j]] <- prism.by.year[[j]][,6:(ncol(prism.by.year[[j]])-1)]
-      }
-      prism.winter.sums <- do.call(rbind, lapply(prism.by.year, sapply, sum)) #sapply was necessary so that each "cell" of the results matrix was not returned as a list object
-      prism.winter.sums <- t(prism.winter.sums)
-      prism.winter.sums <- as.data.frame(prism.winter.sums)
-      prism.winter.sums$cell_name <- rownames(prism.winter.sums)
-      prism.winter.sums$PRISMcellnumber <- as.integer(gsub('cell_', '', prism.winter.sums$cell_name))
-      ETo.winter.sums <- ClimateAggregate(ETo.df, 'ETo', 'yes', Jdev, Jharv)
     }
     setwd(file.path(clean.resultsDir, cropname))
     df <- read.csv(fnames[i], stringsAsFactors = FALSE)
@@ -483,16 +480,16 @@ data.to.allyrs <- function(cropname, cropname2) {
     df_allyrs <- SetValues.AllYrs.Combined(results, soil_summary) #check functions above
     rm(results, df, soil_summary)
     gc()
-    # df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=prism.annual.sums, colname='P.WY'))
-    # if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes') {
-    #   df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=prism.winter.sums, colname='P.winter')) #Jharv to Jdev
-    # }
-    # df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, varname='ETo.annual', climate_data=ETo.summary)) #Jharv to Jdev
-    # if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes') {
-    # df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, varname='ETo.winter', climate_data=ETo.winter.sums))
-    # }
-    # df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, varname='RHmin.mean', climate_data=RHmin.summary))
-    # df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, varname='U2.mean', climate_data=U2.summary))
+    df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.annual, colname='P.annual'))
+    df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.WY, colname='P.WY'))
+    df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, climate_data=ETo.annual, colname='ETo.annual'))
+    df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, climate_data=ETo.WY, colname='ETo.WY'))
+    if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes' | cropname=='alfalfa.intermountain') {
+      df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.winter, colname='P.winter')) #Jharv to Jdev
+      df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.growing, colname='P.growing')) #Jharv to Jdev
+      df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, climate_data=ETo.winter, colname='ETo.winter'))
+      df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, climate_data=ETo.growing, colname='ETo.growing'))
+    } #in order to add alfalfa.intermountain, need manual Jdev and Jharv
     df_allyrs <- cbind(df_allyrs[ ,1:18], round(df_allyrs[ ,19:ncol(df_allyrs)], 3))
     fname <- paste0(gsub('_clean.csv', '', fnames[i]), '_points_rounded.csv')
     setwd(file.path(final.resultsDir, cropname))
