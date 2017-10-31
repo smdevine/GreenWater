@@ -3,11 +3,11 @@ library(doSNOW)
 # modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017' #location of input data
 # setwd(modelscaffoldDir)
 # cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
-# alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
-# grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
-# almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
-# walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
-# pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
+alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
+grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
 
 #re-run 12 almond scenarios
 #start time 9/1/17 12:34 PM
@@ -134,3 +134,8 @@ registerDoSNOW(cl)
 foreach(i=1:72) %dopar% {
   FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
 }
+
+#test of alfalfa.intermountain re-run with new buffer.days and Jharv defined
+i <- 50
+modelgrid[i,]
+FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
