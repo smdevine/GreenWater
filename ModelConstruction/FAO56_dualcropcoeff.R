@@ -274,7 +274,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
   }
   #need to refine days.no.irr based on ETo data for a given location
-  DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv, buffer.days=30) {
+  DaysNoIrr <- function(P, ETo, Kcb.adjusted, AD, doys.model, years, Jmid, Jharv, buffer.days=if(cropname=='alfalfa.intermountain') {53} else {30}) { #Jharv(cycle 1) + (cycle.no - 1) * cycle.length + Lini + Ldev + Lmid + L.frost.kill * 0.444 = 298, in ref. to alfalfa.intermountain; doy 322 for alfalfa.CV from 292 [last day in harvest.days] + 30 [cycle.length]
     if (cropname=='alfalfa.imperial') {
       return(0)
     }
@@ -350,7 +350,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       harvest.dates.all[order(harvest.dates.all)]
     }
   }
-  IrCalc <- function(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i, buffer.days=30) {
+  IrCalc <- function(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i, buffer.days=if(cropname=='alfalfa.intermountain') {53} else {30}) { #see notes defining these above in days.no.irr calc
     if (cropname == 'alfalfa.imperial') {
       if (Dr.initial[i] > AD & !(doys.model[i] %in% harvest.days)) {
         return(Dr.initial[i])
@@ -401,6 +401,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   
   #results function to summarize each model's results
   #find time to first and last irrigation
+  #Jdev is 1 and Jharv is 365 for alfalfa.CV and alfalfa.imperial; Jdev is Jini for alfalfa.intermountain and Jharv is doy 327 (complete dormancy), even though actual irrigations are shortened to <doy293 for alfalfa.intermountain and <doy322 for alfalfa.CV
   IrDateCalc <- function(df) { #as.Date('1900-01-01) is a proxy for NA
     first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
       head(which(df$Ir > 0), 1)} else {
@@ -605,20 +606,20 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     harvest.days <- HarvestDays(cropname)
   }
   if (cropname=='alfalfa.intermountain') {
-    Jdev <- crop.parameters$Jini[which(crop.parameters$crop==cropname)] #Jdev is intended to represent start of growing season as DOY
+    Jdev <- crop.parameters$Jini[crop.parameters$crop==cropname] #Jdev is intended to represent start of growing season as DOY
   } else if (cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
-    Jdev <- 1
+    Jdev <- 1 #day 1 is start of green alfalfa growth, though supressed by cold
   } else {
-      Jdev <- crop.parameters$Jdev[which(crop.parameters$crop==cropname)]
+      Jdev <- crop.parameters$Jdev[crop.parameters$crop==cropname]
   }
-  Jmid <- crop.parameters$Jmid[which(crop.parameters$crop==cropname)]
-  Jlate <- crop.parameters$Jlate[which(crop.parameters$crop==cropname)]
+  Jmid <- crop.parameters$Jmid[crop.parameters$crop==cropname]
+  Jlate <- crop.parameters$Jlate[crop.parameters$crop==cropname]
   if (cropname=='alfalfa.intermountain') {
-    Jharv <- harvest.days[length(harvest.days)] + crop.parameters$Lfrost.kill[which(crop.parameters$crop==cropname)] #Jharv is intended to represent end of growing season as DOY where irrigation is no longer applicable
+    Jharv <- harvest.days[length(harvest.days)] + crop.parameters$Lini.cycle[crop.parameters$crop==cropname] + crop.parameters$Ldev.cycle[crop.parameters$crop==cropname] + crop.parameters$Lmid.cycle[crop.parameters$crop==cropname] + crop.parameters$Lfrost.kill[crop.parameters$crop==cropname] #Jharv is intended to represent end of growing season where alfalfa is dormant in this region, approx. 11/23 that would be best varied as function of TMIN
   } else if (cropname == 'alfalfa.imperial' | cropname=='alfalfa.CV') {
     Jharv <- 365 #what about leap years?
   } else {
-      Jharv <- crop.parameters$Jharv[which(crop.parameters$crop==cropname)]
+      Jharv <- crop.parameters$Jharv[crop.parameters$crop==cropname]
   }
   fw <- fwSelect(irrigation.parameters, irr.type)
   fewi <- fewiCalc(fc, fw)
@@ -628,7 +629,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.005*nrow(model.scaffold.crop))
   if (nrow(model.scaffold.crop) > 10000) {
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  } else {save.times <- NA}
+  } else {save.times <- 1000}
   for (n in row_start:nrow(model.scaffold.crop)) {
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
@@ -775,8 +776,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   }
 }
 
-#function call for Matt and Duncan
-FAO56DualCropCalc('almond.mature', almond_code, 80, '2.0m', "Microspray, orchards", crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file='new', row_start=1, RDI.min = NA, alfalfa.zone = NA, grape.zone=NA)
 
 #legend for FAO56 abbreviations
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
