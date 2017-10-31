@@ -1,3 +1,5 @@
+#TO-DO
+#(1) Confirm that growing season ET is same as annual ET for alfalfa.CV and alfalfa.imperial
 final.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
 clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #needs to be changed
 original.resultsDir <- 'D:/Allowable_Depletion/results/Oct2017'
