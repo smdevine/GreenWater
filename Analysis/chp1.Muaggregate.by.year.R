@@ -448,11 +448,12 @@ data.to.allyrs <- function(cropname, cropname2) {
       Jharv <- model_metadata$Jharv
     } else if (cropname=='alfalfa.intermountain') {
       Jdev <- model_metadata$Jini
-      Jharv <- model_metadata$Jharv + (model_metadata$cycle.no - 1) * model_metadata$cycle.length + 34 #30 is specified as "buffer.days" in FAO56dualcropcoeff call to IrCalc and days.no.irr, but we need to get this above Oct1st
+      Jharv <- model_metadata$Jharv + (model_metadata$cycle.no - 1) * model_metadata$cycle.length + model_metadata$Lini.cycle + model_metadata$Ldev.cycle + model_metadata$Lmid.cycle + model_metadata$Lfrost.kill #30 is specified as "buffer.days" in FAO56dualcropcoeff call to IrCalc and days.no.irr, but we need to get this above Oct1st Jharv <- harvest.days[length(harvest.days)] + crop.parameters$Lini.cycle[crop.parameters$crop==cropname] + crop.parameters$Ldev.cycle[crop.parameters$crop==cropname] + crop.parameters$Lmid.cycle[crop.parameters$crop==cropname] + crop.parameters$Lfrost.kill[crop.parameters$crop==cropname]
     } else {
         Jdev <- NA
         Jharv <- NA
     }
+    print(Jharv)
     if (i==1) {
       ETo.annual <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'no', growing = 'no')
       ETo.WY <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=NA, Jharv=NA, WY.basis = 'yes', growing='no')
@@ -501,18 +502,19 @@ data.to.allyrs <- function(cropname, cropname2) {
   }
 }
 #run the function
+data.to.allyrs('grapes.table', 'Grapes')
+data.to.allyrs('grapes.wine', 'Grapes')
 data.to.allyrs('pistachios', 'Pistachios')
 data.to.allyrs('almond.mature', 'Almonds')
 data.to.allyrs('walnut.mature', 'Walnuts')
-data.to.allyrs('grapes.table', 'Grapes')
-data.to.allyrs('grapes.wine', 'Grapes')
+data.to.allyrs('alfalfa.intermountain', 'Alfalfa')
 #these results don't inlcude the P.winter or ETo.winter columns
 data.to.allyrs('alfalfa.CV', 'Alfalfa')
-data.to.allyrs('alfalfa.intermountain', 'Alfalfa')
 #this result also does not include the GW.capture.net column
 data.to.allyrs('alfalfa.imperial', 'Alfalfa') #this result does not include the 
 
-
+#run for P and ETo
+#grapes.table
 
 
 
