@@ -1,38 +1,32 @@
-resultsDir <- 'D:/Allowable_Depletion/results/Oct2017' #'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017' #D:/Allowable_Depletion/results/Oct2017' #
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
-clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #this is for most recent runs starting Sept 15 2017; August runs results are in a directory up
-#almondDir <- file.path(resultsDir, 'Sep2017/almond.mature_majcomps')
-#walnutDir <- file.path(resultsDir, 'Sep2017/walnut.mature_majcomps')
+clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #this is for most recent runs starting Oct 17, 2017
+if (!dir.exists(file.path(resultsDir, 'clean_results'))) {
+  dir.create(file.path(resultsDir, 'clean_results'))
+}
 
-
-setwd(modelscaffoldDir)
-list.files()
-model_scaffold <- read.csv("model_scaffold_majcomps.v3.csv", stringsAsFactors = FALSE)
-
-#read-in all points of interest
-setwd(file.path(resultsDir, 'data.frames/Aug2017'))
-model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
-model_points$mukey_cropcode <- NULL
-model_points$model_code <- NULL
-
-#add column that identifies whether or not unique_model_code had original SSURGO data
-sum(model_scaffold$SSURGO_awc_data=='Yes') #367,225
-sum(model_scaffold$SSURGO_awc_data=='No' & !is.na(model_scaffold$z1.5m_cmH2O_modified_comp) & model_scaffold$z1.5m_cmH2O_modified_comp !=0) #11,691
-model_scaffold_uncertain <- model_scaffold[which(model_scaffold$SSURGO_awc_data=='No' & !is.na(model_scaffold$z1.5m_cmH2O_modified_comp) & model_scaffold$z1.5m_cmH2O_modified_comp !=0),]
-model_scaffold_certain <- model_scaffold[-which(model_scaffold$SSURGO_awc_data=='No' & !is.na(model_scaffold$z1.5m_cmH2O_modified_comp) & model_scaffold$z1.5m_cmH2O_modified_comp !=0),]
-tapply(model_scaffold_uncertain$comppct_r, model_scaffold_uncertain$compname, summary)
-tapply(model_scaffold_uncertain$z1.5m_cmH2O_modified_comp, model_scaffold_uncertain$compname, summary)
-length(unique(model_scaffold_uncertain$compname)) #53 components
-compnames_uncertain_data <- unique(model_scaffold_uncertain$compname) #first draft of this
-sum(model_points$unique_model_code %in% model_scaffold_uncertain$unique_model_code) #563,808 cells would be affected by uncertain data; some of these cells would only have uncertain data, and some would have a mixture
-setwd(modelscaffoldDir)
-write.csv(compnames_uncertain_data, 'compnames_uncertain_data.csv', row.names=FALSE) #from here, additonal column was added and 53 compnames were given a yes, if not a real soil series, or a no, if it is a real soil series
-compnames_uncertain_data <- read.csv('compnames_uncertain_data.csv', stringsAsFactors = FALSE)
-compnames_uncertain_data <- compnames_uncertain_data[which(compnames_uncertain_data$remove.results=='yes'),]
-model_scaffold_uncertain <- model_scaffold_uncertain[which(model_scaffold_uncertain$compname %in% compnames_uncertain_data$compname),] #further refinement of this grid, still 10,275 rows
-cokeys_uncertain_data <- unique(model_scaffold_uncertain$cokey)
-setwd(modelscaffoldDir)
-write.csv(cokeys_uncertain_data, 'cokeys_uncertain_data.csv', row.names = FALSE) #these can be used to refine each results grid
+# setwd(modelscaffoldDir)
+# list.files()
+# model_scaffold <- read.csv("model_scaffold_majcomps.v3.csv", stringsAsFactors = FALSE)
+# 
+# #add column that identifies whether or not unique_model_code had original SSURGO data
+# sum(model_scaffold$SSURGO_awc_data=='Yes') #367,225
+# sum(model_scaffold$SSURGO_awc_data=='No' & !is.na(model_scaffold$z1.5m_cmH2O_modified_comp) & model_scaffold$z1.5m_cmH2O_modified_comp !=0) #11,691
+# model_scaffold_uncertain <- model_scaffold[which(model_scaffold$SSURGO_awc_data=='No' & !is.na(model_scaffold$z1.5m_cmH2O_modified_comp) & model_scaffold$z1.5m_cmH2O_modified_comp !=0),]
+# model_scaffold_certain <- model_scaffold[-which(model_scaffold$SSURGO_awc_data=='No' & !is.na(model_scaffold$z1.5m_cmH2O_modified_comp) & model_scaffold$z1.5m_cmH2O_modified_comp !=0),]
+# tapply(model_scaffold_uncertain$comppct_r, model_scaffold_uncertain$compname, summary)
+# tapply(model_scaffold_uncertain$z1.5m_cmH2O_modified_comp, model_scaffold_uncertain$compname, summary)
+# length(unique(model_scaffold_uncertain$compname)) #53 components
+# compnames_uncertain_data <- unique(model_scaffold_uncertain$compname) #first draft of this
+# sum(model_points$unique_model_code %in% model_scaffold_uncertain$unique_model_code) #563,808 cells would be affected by uncertain data; some of these cells would only have uncertain data, and some would have a mixture
+# setwd(modelscaffoldDir)
+# write.csv(compnames_uncertain_data, 'compnames_uncertain_data.csv', row.names=FALSE) #from here, additonal column was added and 53 compnames were given a yes, if not a real soil series, or a no, if it is a real soil series
+# compnames_uncertain_data <- read.csv('compnames_uncertain_data.csv', stringsAsFactors = FALSE)
+# compnames_uncertain_data <- compnames_uncertain_data[which(compnames_uncertain_data$remove.results=='yes'),]
+# model_scaffold_uncertain <- model_scaffold_uncertain[which(model_scaffold_uncertain$compname %in% compnames_uncertain_data$compname),] #further refinement of this grid, still 10,275 rows
+# cokeys_uncertain_data <- unique(model_scaffold_uncertain$cokey)
+# setwd(modelscaffoldDir)
+# write.csv(cokeys_uncertain_data, 'cokeys_uncertain_data.csv', row.names = FALSE) #these can be used to refine each results grid
 
 
 #read in this file before running function
