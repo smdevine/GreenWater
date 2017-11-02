@@ -8,35 +8,65 @@ library(extrafontdb)
 #font_import() #only needs to be done once?
 
 CustomBP <- function(x){
-  stats.x <- summary(x) #in this order: (1)Min. (2)1st Qu.  (3)Median    (4)Mean (5)3rd Qu.   (6) Max.    NA's 
-  min.x <- stats.x[1]
-  q1.x <- stats.x[2]
-  med.x <- stats.x[3]
-  mean.x <- stats.x[4]
-  q3.x <- stats.x[5]
-  max.x <- stats.x[6]
-  sd.x <- sd(x, na.rm = TRUE)
-  c(max(mean.x - 1.96*sd.x, min.x), q1.x, med.x, q3.x, min(mean.x + 1.96*sd.x, max.x))
+  lower.x <- quantile(x, 0.05, na.rm = TRUE)
+  q1.x <- quantile(x, 0.25, na.rm = TRUE)
+  med.x <- median(x, na.rm = TRUE)
+  q3.x <- quantile(x, 0.75, na.rm = TRUE)
+  upper.x <- quantile(x, 0.95, na.rm = TRUE)
+  c(lower.x, q1.x, med.x, q3.x, upper.x)
 }
 
 #plotting function
-MakeBP <- function(varname, var_df, fname_header, bxfill, yaxis_lab, dirname, years=2004:2016) {
-  loadfonts(quiet=TRUE, device='win')
-  bp <- boxplot(varname ~ Model.Year, data=var_df, plot=FALSE)
-  for (i in 1:ncol(bp$stats)) {
-    df <- var_df[which(var_df$Model.Year==years[i]),]
-    bp$stats[,i] <- CustomBP(df[[varname]])
-    
-    setwd(file.path(SepResultsDir, 'figures', dirname))
-    png(paste0(fname_header, '.', varname, '.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
+MakeBPs <- function(cropname, years=2004:2016) {
+  make.bp <- function(bp_name, yaxis_lab, varname, bxfill) {
+    png(file.path(resultsDir, cropname, 'figures', scenario_name, paste0('allyrs.boxplots', varname, '.png', sep = '')), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
     par(mai=c(0.9, 0.9, 0.2, 0.2))
-    bxp(bp, outline = FALSE, boxfill=bxfill, las=2, ylab='', xlab='')
+    bxp(bp_name, outline = FALSE, boxfill=bxfill, las=2, ylab='', xlab='')
     mtext(text='Year', side=1, line=3.5)
     mtext(text=yaxis_lab, side=2, line=3.5)
     dev.off()
   }
+  define.bp.stats <- function(bp_name, varname) { #this is to replace default boxplot stats with custom function
+    for (i in 1:ncol(bp_name$stats)) { 
+      df <- var_df[which(var_df$Model.Year==years[i]),]
+      bp_name$stats[,i] <- CustomBP(rep(df[[varname]], times=df$cellcounts30m2))
+    }
+  }
+  loadfonts(quiet=TRUE, device='win')
+  fnames <- list.files(path=file.path(resultsDir, cropname), pattern = glob2rx('*.csv'))
+  for (j in seq_along(fnames)) {
+    var_df <- read.csv(file.path(resultsDir, cropname, fnames[j]), stringsAsFactors = FALSE)
+    scenario_name <- gsub('_FAO56results_points_rounded.csv', '', fnames[j])
+    scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
+    bp_GW <- boxplot(GW.ET.growing ~ Model.Year, data=var_df, plot=FALSE)
+    bp_BW <- boxplot(Irr.app.total ~ Model.Year, data=var_df, plot=FALSE)
+    bp_P <- boxplot(P.WY ~ Model.Year, data=var_df, plot=FALSE)
+    bp_ETo <- boxplot(ETo.WY ~ Model.Year, data=var_df, plot=FALSE)
+    define.bp.stats(bp_GW, 'GW.ET.growing')
+    define.bp.stats(bp_BW, 'Irr.app.total')
+    define.bp.stats(bp_P, 'P.WY')
+    define.bp.stats(bp_ETo, 'ETo.WY')
+    if (!dir.exists(file.path(resultsDir, cropname, 'figures'))) {
+      dir.create(file.path(resultsDir, cropname, 'figures'))
+    }
+    if (!dir.exists(file.path(resultsDir, cropname, 'figures', scenario_name))) {
+      dir.create(file.path(resultsDir, cropname, 'figures', scenario_name))
+    }
+    make.bp(bp_GW, 'Growing season green water (mm)', 'GW.ET.growing', 'green')
+    make.bp(bp_BW, 'Irrigation [blue water] demand (mm)', 'Irr.app.total', 'lightblue')
+    make.bp(bp_P, 'Water year precipitation (mm)', 'P.WY', 'blue')
+    make.bp(bp_ETo, 'Reference evapotranspiration (mm)', 'ETo.WY', 'orange')
+  }
 }
-
+#run the function to make boxplots of P, ETo, green, and blue water by year for each crop
+MakeBPs('alfalfa.intermountain')
+MakeBPs('walnut.mature')
+MakeBPs('almond.mature')
+MakeBPs('pistachios')
+MakeBPs('grapes.table')
+MakeBPs('grapes.wine')
+MakeBPs('alfalfa.CV')
+MakeBPs('alfalfa.imperial')
 #build a raster based upon data aggregation process above in AggregateResults func.
 RasterBuild <- function(df, varname, rasterfname, func, ...) {
   var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
