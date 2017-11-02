@@ -2,9 +2,12 @@
 #(1) Confirm that growing season ET is same as annual ET for alfalfa.CV and alfalfa.imperial
 final.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
 clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #needs to be changed
-original.resultsDir <- 'D:/Allowable_Depletion/results/Oct2017'
+original.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
 #pointsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/data.frames/Aug2017'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
+if (!dir.exists(file.path(original.resultsDir, 'summaries'))) {
+  dir.create(file.path(original.resultsDir, 'summaries'))
+}
 setwd(modelscaffoldDir)
 # list.files()
 # cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
@@ -439,7 +442,13 @@ data.to.allyrs <- function(cropname, cropname2) {
     scenario_name <- gsub('_FAO56results_clean.csv', '', fnames[i])
     scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
     scenario_name <- gsub('AD', '', scenario_name)
-    scenario_name <- paste0(scenario_name, 'AD')
+    scenario_name <- gsub('RDI.min', '', scenario_name)
+    if (cropname=='grapes.wine') {
+      scenario_name <- paste0(scenario_name, 'RDI.min')
+    } else {
+        scenario_name <- paste0(scenario_name, 'AD')
+      }
+    
     setwd(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name))
     model_metadata <- read.csv(list.files(pattern = glob2rx('*_model_metadata.csv')), stringsAsFactors = FALSE)
     paw.varname <- model_metadata$paw.varname
@@ -502,16 +511,21 @@ data.to.allyrs <- function(cropname, cropname2) {
   }
 }
 #run the function
-data.to.allyrs('grapes.table', 'Grapes')
-data.to.allyrs('grapes.wine', 'Grapes')
 data.to.allyrs('pistachios', 'Pistachios')
-data.to.allyrs('almond.mature', 'Almonds')
 data.to.allyrs('walnut.mature', 'Walnuts')
+data.to.allyrs('grapes.table', 'Grapes')
+data.to.allyrs('almond.mature', 'Almonds')
+data.to.allyrs('alfalfa.imperial', 'Alfalfa')
+data.to.allyrs('grapes.wine', 'Grapes')#redefined function here to handle grapes.wine directory naming convention using RDI.min
+data.to.allyrs('alfalfa.CV', 'Alfalfa')
+
+#need to investigate this further for file/directory naming convention
+
 data.to.allyrs('alfalfa.intermountain', 'Alfalfa')
 #these results don't inlcude the P.winter or ETo.winter columns
-data.to.allyrs('alfalfa.CV', 'Alfalfa')
+
 #this result also does not include the GW.capture.net column
-data.to.allyrs('alfalfa.imperial', 'Alfalfa') #this result does not include the 
+ #this result does not include the 
 
 #run for P and ETo
 #grapes.table
