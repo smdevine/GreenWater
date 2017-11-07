@@ -2,11 +2,12 @@
 # (1) add spatial CIMIS ETo data to almond_points_allyrs
 # (2) test green water availability models for almond_points_allyrs
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
+rasterResultsDir <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
 library(raster)
 library(extrafont)
 library(extrafontdb)
 #font_import() #only needs to be done once?
-
 CustomBP <- function(x){
   lower.x <- quantile(x, 0.05, na.rm = TRUE)
   q1.x <- quantile(x, 0.25, na.rm = TRUE)
@@ -17,6 +18,7 @@ CustomBP <- function(x){
 }
 
 #plotting function
+#to-do take out Irr and ETo boxplot for all scenarios; only needs to be done once for each crop unlike GW and BW
 MakeBPs <- function(cropname, years=2004:2016) {
   make.bp <- function(bp_name, yaxis_lab, varname, bxfill) {
     png(file.path(resultsDir, cropname, 'figures', scenario_name, paste0('allyrs.boxplots', varname, '.png', sep = '')), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
@@ -92,6 +94,86 @@ RasterBuild <- function(df, varname, rasterfname, func, ...) {
   writeRaster(raster.result, rasterfname, format='GTiff')
 }
 
+raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
+cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
+RasterBuild.v2 <- function(readraster=FALSE, readcellnums=FALSE, cropname) {
+  if (!dir.exists(file.path(rasterResultsDir, cropname))) {
+    dir.create(file.path(rasterResultsDir, cropname))
+  }
+  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures'))) {
+    dir.create(file.path(rasterResultsDir, cropname, 'figures'))
+  }
+  rasterize.result.annual <- function(varname, year) {
+    raster.result <- raster.model.codes
+    var_df_annual <- var_df[var_df$Model.Year==year, ]
+    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_annual[[varname]][match(cell_numbers_to_codes$unique_model_codes, var_df_annual$unique_model_code)]
+    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
+      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
+    }
+    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', as.character(unique(var_df$Model.Year)[j]), '.tif')), format='GTiff')
+    removeTmpFiles(h=0.0001)
+  }
+  rasterize.result.statistic <- function(varname, func, funcname) {
+    raster.result <- raster.model.codes
+    var_df_summary <- data.frame(varname = tapply(var_df[[varname]], var_df$unique_model_code, func))
+    colnames(var_df_summary) <- paste0(varname, '.', funcname)
+    var_df_summary$unique_model_code <- row.names(var_df_summary)
+    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_summary[[paste0(varname, '.', funcname)]][match(cell_numbers_to_codes$unique_model_codes, var_df_summary$unique_model_code)]
+    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
+      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
+    }
+    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', funcname, '.tif')), format='GTiff')
+    removeTmpFiles(h=0.0001)
+  }
+  if (readraster) {
+    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
+  }
+  if (readcellnums) {
+    cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
+  }
+  cropfnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'))
+  for (i in 2:length(cropfnames)) { #seq_along(cropfnames)) {
+    var_df <- read.csv(file.path(resultsDir, cropname, cropfnames[i]), stringsAsFactors = FALSE)
+    scenario_name <- gsub('_FAO56results_points_rounded.csv', '', cropfnames[i])
+    scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
+    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name))) {
+      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name))
+    }
+    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))) {
+      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))
+    }
+    for (j in seq_along(unique(var_df$Model.Year))) {
+      rasterize.result.annual(varname = 'GW.ET.growing', year = unique(var_df$Model.Year)[j])
+      rasterize.result.annual(varname = 'Irr.app.total', year = unique(var_df$Model.Year)[j])
+      rasterize.result.annual(varname = 'Irr.1.doy', year = unique(var_df$Model.Year)[j])
+      rasterize.result.annual(varname = 'deep.perc.annual', year = unique(var_df$Model.Year)[j])
+    }
+    rasterize.result.statistic(varname = 'GW.ET.growing', func = median, 'median')
+    rasterize.result.statistic(varname = 'E.growing', func = median, 'median')
+    rasterize.result.statistic(varname = 'Irr.app.total', func = median, 'median')
+    rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
+    rasterize.result.statistic(varname = 'deep.perc.annual', func = median, 'median')
+    rasterize.result.statistic(varname = 'GW.ET.growing', func = min, 'min')
+    rasterize.result.statistic(varname = 'E.growing', func = min, 'min')
+    rasterize.result.statistic(varname = 'Irr.app.total', func = min, 'min')
+    rasterize.result.statistic(varname = 'Irr.1.doy', func = min, 'min')
+    rasterize.result.statistic(varname = 'deep.perc.annual', func = min, 'min')
+    rasterize.result.statistic(varname = 'GW.ET.growing', func = max, 'max')
+    rasterize.result.statistic(varname = 'E.growing', func = max, 'max')
+    rasterize.result.statistic(varname = 'Irr.app.total', func = max, 'max')
+    rasterize.result.statistic(varname = 'Irr.1.doy', func = max, 'max')
+    rasterize.result.statistic(varname = 'deep.perc.annual', func = max, 'max')
+    rasterize.result.statistic(varname = colnames(var_df)[3], func = unique, 'PAW')
+  }
+}
+RasterBuild.v2(cropname = 'alfalfa.intermountain')
+RasterBuild.v2(cropname = 'walnut.mature')
+RasterBuild.v2(cropname = 'pistachios')
+RasterBuild.v2(cropname = 'almond.mature')
+RasterBuild.v2(cropname = 'alfalfa.CV')
+RasterBuild.v2(cropname = 'alfalfa.imperial')
+RasterBuild.v2(cropname = 'grapes.table')
+
 #read in summary data for each scenario to summarize data with the help of cell counts
 collect.stats <- function(cropname) {
   setwd(file.path(resultsDir, cropname))
@@ -135,6 +217,47 @@ collect.stats('alfalfa.CV')
 collect.stats('alfalfa.intermountain')
 #this result also does not include the GW.capture.net column
 collect.stats('alfalfa.imperial')
+
+#function to quantify water volumes for green water, blue water, precip
+volumes.calculate <- function(cropname) {
+  cropfnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*_FAO56results_points_rounded.csv'))
+  if (!dir.exists(file.path(resultsDir, cropname, 'allyrs_stats'))) {
+    dir.create(file.path(resultsDir, cropname, 'allyrs_stats'))
+  }
+  if (!dir.exists(file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'))) {
+    dir.create(file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'))
+  }
+  for (i in seq_along(cropfnames)) {
+    var_df <- read.csv(file.path(resultsDir, cropname, cropfnames[i]), stringsAsFactors = FALSE)
+    scenario_name <- gsub('_FAO56results_points_rounded.csv', '', cropfnames[i])
+    scenario_name <- paste0('scenario.', gsub(cropname, '', scenario_name))
+    volume.stats <- round(data.frame(green.water.AF = tapply(var_df$GW.ET.growing * (9 / 12334.8)*var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE)), 0)
+    volume.stats$blue.water.AF <- round(tapply(var_df$Irr.app.total * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$ET.growing.AF <- round(tapply(var_df$ET.growing * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$acres <- round(sum(var_df$cellcounts30m2[var_df$Model.Year==2004] * 900 / 10000) * 2.47105, 0)
+    volume.stats$GW.growing.inches <- round((volume.stats$green.water.AF / volume.stats$acres) * 12, 1)
+    volume.stats$BW.growing.inches <- round((volume.stats$blue.water.AF / volume.stats$acres) * 12, 1)
+    volume.stats$ET.growing.inches <- round((volume.stats$ET.growing.AF /volume.stats$acres) * 12, 1)
+    volume.stats$GW_to_ET <- round(volume.stats$green.water.AF / volume.stats$ET.growing.AF, 2)
+    volume.stats$precip.WY.AF <- round(tapply(var_df$P.WY * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$GW_to_P <- round(volume.stats$green.water.AF / volume.stats$precip.WY.AF, 2)
+    volume.stats$deep.perc.annual.AF <- round(tapply(var_df$deep.perc.annual * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$ET.winter.AF <- round(tapply((var_df$ET.annual - var_df$ET.growing) * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$E.growing.AF <- round(tapply(var_df$E.growing * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$E.winter.AF <- round(tapply((var_df$E.annual - var_df$E.growing) * (9 / 12334.8) * var_df$cellcounts30m2, var_df$Model.Year, sum, na.rm=TRUE), 0)
+    volume.stats$Model.Year <- as.integer(rownames(volume.stats))
+    write.csv(volume.stats, file.path(resultsDir, cropname, 'allyrs_stats/AF.summaries', paste0(scenario_name, '.AFsummary.by.year.csv')), row.names = FALSE)
+  }
+}
+volumes.calculate('alfalfa.intermountain')
+volumes.calculate('alfalfa.imperial')
+volumes.calculate('alfalfa.CV')
+volumes.calculate('almond.mature')
+volumes.calculate('walnut.mature')
+volumes.calculate('pistachios')
+volumes.calculate('grapes.table')
+volumes.calculate('grapes.wine')
+
 
 
 test <- read.csv()
