@@ -426,16 +426,16 @@ SetClimateValues.AllYrs <- function(df, climate_data, colname) {
 #write only the map-unit aggregated results for years 2004-2016 and unique model_codes, along with cell_counts of those unique model codes 
 #update scenario naming so that wine.grapes can be handled
 data.to.allyrs <- function(cropname, cropname2) {
-  setwd(modelscaffoldDir)
-  cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+  #setwd(modelscaffoldDir)
+  cropscape_legend <- read.csv(file.path(modelscaffoldDir, 'cropscape_legend.txt'), stringsAsFactors = FALSE)
   cropcode <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME==cropname2]
-  P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = FALSE)
-  ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = FALSE)
+  P.df <- read.csv(file.path(modelscaffoldDir, 'PRISM.precip.data.updated9.13.17.csv'), stringsAsFactors = FALSE)
+  ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.updated9.13.17.csv'), stringsAsFactors = FALSE)
   #U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
   #RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F)
-  cell.counts <- read.csv('cell_counts.csv', stringsAsFactors = FALSE)
-  setwd(file.path(clean.resultsDir, cropname))
-  fnames <- list.files()
+  cell.counts <- read.csv(file.path(modelscaffoldDir, 'cell_counts.csv'), stringsAsFactors = FALSE)
+  #setwd(file.path(clean.resultsDir, cropname))
+  fnames <- list.files(file.path(clean.resultsDir, cropname))
   print(fnames)
   for (i in seq_along(fnames)) {
     print(i)
@@ -449,8 +449,8 @@ data.to.allyrs <- function(cropname, cropname2) {
         scenario_name <- paste0(scenario_name, 'AD')
       }
     
-    setwd(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name))
-    model_metadata <- read.csv(list.files(pattern = glob2rx('*_model_metadata.csv')), stringsAsFactors = FALSE)
+    #setwd(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name))
+    model_metadata <- read.csv(file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name, list.files(path = file.path(original.resultsDir, paste0(cropname, '_majcomps'), scenario_name), pattern = glob2rx('*_model_metadata.csv'))), stringsAsFactors = FALSE)
     paw.varname <- model_metadata$paw.varname
     if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes') {
       Jdev <- model_metadata$Jdev
@@ -475,8 +475,8 @@ data.to.allyrs <- function(cropname, cropname2) {
         ETo.growing <- ClimateAggregate(climate_df = ETo.df, varname = 'ETo', winter = 'no', Jdev=Jdev, Jharv=Jharv, WY.basis = 'no', growing = 'yes')
       }
     }
-    setwd(file.path(clean.resultsDir, cropname))
-    df <- read.csv(fnames[i], stringsAsFactors = FALSE)
+    #setwd(file.path(clean.resultsDir, cropname))
+    df <- read.csv(file.path(clean.resultsDir, cropname, fnames[i]), stringsAsFactors = FALSE)
     soil_summary <- AggregateSoilPars(df, paw.varname, cell.counts)
     if (!dir.exists(file.path(final.resultsDir, cropname))) {
       dir.create(file.path(final.resultsDir, cropname))
@@ -484,8 +484,8 @@ data.to.allyrs <- function(cropname, cropname2) {
     if (!dir.exists(file.path(final.resultsDir, cropname, 'MUaggregated_soildata'))) {
       dir.create(file.path(final.resultsDir, cropname, 'MUaggregated_soildata'))
     }
-    setwd(file.path(final.resultsDir, cropname, 'MUaggregated_soildata'))
-    write.csv(soil_summary, paste0(scenario_name, '_soilsdata.csv'), row.names = FALSE)
+    #setwd(file.path(final.resultsDir, cropname, 'MUaggregated_soildata'))
+    write.csv(soil_summary, file.path(final.resultsDir, cropname, 'MUaggregated_soildata', paste0(scenario_name, '_soilsdata.csv')), row.names = FALSE)
     results <- MUAggregate.AllYrs(df, cropname)
     #df_allyrs <- df[rep(seq.int(1, nrow(df)), 15), ] #change hard coding here
     #df_allyrs$years <- rep(2003:2017, nrow(df)) #change hard coding here
@@ -504,8 +504,8 @@ data.to.allyrs <- function(cropname, cropname2) {
     } #in order to add alfalfa.intermountain, need manual Jdev and Jharv
     df_allyrs <- cbind(df_allyrs[ ,1:18], round(df_allyrs[ ,19:ncol(df_allyrs)], 3))
     fname <- paste0(gsub('_clean.csv', '', fnames[i]), '_points_rounded.csv')
-    setwd(file.path(final.resultsDir, cropname))
-    write.csv(df_allyrs, fname, row.names = FALSE)
+    #setwd(file.path(final.resultsDir, cropname))
+    write.csv(df_allyrs, file.path(final.resultsDir, cropname, fname), row.names = FALSE)
     rm(df_allyrs)
     gc()
   }
