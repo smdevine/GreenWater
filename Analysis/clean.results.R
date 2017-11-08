@@ -30,8 +30,7 @@ if (!dir.exists(file.path(resultsDir, 'clean_results'))) {
 
 
 #read in this file before running function
-setwd(modelscaffoldDir)
-cokeys_uncertain_data <- read.csv('cokeys_uncertain_data.csv', stringsAsFactors = FALSE)
+cokeys_uncertain_data <- read.csv(file.path(modelscaffoldDir, 'cokeys_uncertain_data.csv'), stringsAsFactors = FALSE)
 
 CleanResults <- function(cropname) {
   parentDir <- file.path(resultsDir, paste0(cropname, '_majcomps'))
