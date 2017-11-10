@@ -17,7 +17,7 @@
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017' #location of input data; copied from Sep2017 on 10/18/17
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Nov2017'
 rounding_digits <- 3
 setwd(modelscaffoldDir)
 irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
