@@ -3,7 +3,16 @@
 # (2) test green water availability models for almond_points_allyrs
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
+#if so desired
+#model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
 rasterResultsDir <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
+setwd(modelscaffoldDir)
+cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
+alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
+grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
 library(raster)
 library(extrafont)
 library(extrafontdb)
@@ -69,29 +78,36 @@ MakeBPs('grapes.table')
 MakeBPs('grapes.wine')
 MakeBPs('alfalfa.CV')
 MakeBPs('alfalfa.imperial')
-#build a raster based upon data aggregation process above in AggregateResults func.
-RasterBuild <- function(df, varname, rasterfname, func, ...) {
-  var.by.year <- tapply(df[[varname]], df$unique_model_code_final, func, ...)
-  mukeys <- tapply(df$mukey, df$unique_model_code_final, unique)
-  comppct_r <- tapply(df$comppct_r, df$unique_model_code_final, unique)
-  modelcode <- tapply(df$unique_model_code, df$unique_model_code_final, unique)
-  results <- cbind(var.by.year, mukeys, comppct_r, modelcode)
-  results <- as.data.frame(results)
-  compsums <- as.data.frame(tapply(results$comppct_r[!is.na(results$var.by.year)], results$modelcode[!is.na(results$var.by.year)], sum))
-  colnames(compsums) <- 'compsums'
-  compsums$modelcode <- rownames(compsums)
-  results <- merge(results, compsums, by='modelcode')
-  var.final <- tapply(results$var.by.year*(results$comppct_r/results$compsums), results$modelcode, sum, na.rm=TRUE)
-  var.final <- as.data.frame(var.final)
-  colnames(var.final) <- 'var.final'
-  var.final$unique_model_code <- rownames(var.final)
-  var.final$var.final <- as.numeric(var.final$var.final)
-  var.final <- var.final[,c(2,1)]
-  raster.result <- raster.model.codes
-  raster.result[cell_numbers_of_interest$cell_numbers_of_interest] <- var.final$var.final[match(cell_numbers_of_interest$unique_model_codes, var.final$unique_model_code)]
-  setwd(file.path(resultsDir, 'rasters/Sep2017'))
-  rasterOptions(progress = 'window')
-  writeRaster(raster.result, rasterfname, format='GTiff')
+#build a raster based for a single filename and variable
+RasterBuild <- function(cropname, fname, varname, func, funcname) {
+  if (!dir.exists(file.path(rasterResultsDir, cropname))) {
+    dir.create(file.path(rasterResultsDir, cropname))
+  }
+  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures'))) {
+    dir.create(file.path(rasterResultsDir, cropname, 'figures'))
+  }
+  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name))) {
+    dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name))
+  }
+  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))) {
+    dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))
+  }
+  rasterize.result.statistic <- function(varname, func, funcname) {
+    raster.result <- raster.model.codes
+    var_df_summary <- data.frame(varname = tapply(var_df[[varname]], var_df$unique_model_code, func))
+    colnames(var_df_summary) <- paste0(varname, '.', funcname)
+    var_df_summary$unique_model_code <- row.names(var_df_summary)
+    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_summary[[paste0(varname, '.', funcname)]][match(cell_numbers_to_codes$unique_model_codes, var_df_summary$unique_model_code)]
+    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
+      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
+    }
+    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', funcname, '.tif')), format='GTiff')
+    removeTmpFiles(h=0.0001)
+  }
+  var_df <- read.csv(file.path(resultsDir, cropname, fname), stringsAsFactors = FALSE)
+  scenario_name <- gsub('_FAO56results_points_rounded.csv', '', cropfnames[i])
+  scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
+  rasterize.result.statistic(varname = varname, func = func, funcname = funcname)
 }
 
 raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
@@ -132,7 +148,7 @@ RasterBuild.v2 <- function(readraster=FALSE, readcellnums=FALSE, cropname) {
     cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
   }
   cropfnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'))
-  for (i in 2:length(cropfnames)) { #seq_along(cropfnames)) {
+  for (i in seq_along(cropfnames)) { #seq_along(cropfnames)) {
     var_df <- read.csv(file.path(resultsDir, cropname, cropfnames[i]), stringsAsFactors = FALSE)
     scenario_name <- gsub('_FAO56results_points_rounded.csv', '', cropfnames[i])
     scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
@@ -173,6 +189,7 @@ RasterBuild.v2(cropname = 'almond.mature')
 RasterBuild.v2(cropname = 'alfalfa.CV')
 RasterBuild.v2(cropname = 'alfalfa.imperial')
 RasterBuild.v2(cropname = 'grapes.table')
+RasterBuild.v2(cropname = 'grapes.wine')
 
 #read in summary data for each scenario to summarize data with the help of cell counts
 collect.stats <- function(cropname) {
@@ -258,9 +275,142 @@ volumes.calculate('pistachios')
 volumes.calculate('grapes.table')
 volumes.calculate('grapes.wine')
 
+#get each crop's results for a given scenario, rbind together and save as csv in all_crops
+bindallresults <- function(scenario_name, paw_name) {
+  cropdf <- data.frame(cropnames = c('alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine'), cropcode = c(alfalfa_code, alfalfa_code, alfalfa_code, almond_code, walnut_code, pistachio_code, grape_code, grape_code))
+  for (i in seq_along(cropdf$cropnames)) {
+    print(i)
+    cropfnames <- list.files(path = file.path(resultsDir, cropdf$cropnames[i]), pattern = glob2rx(paste0('*_FAO56results_points_rounded.csv')))
+    if (i == 1) { #as long as grapes.wine is not the first cropname
+      scenario_index <- grep(scenario_name, cropfnames)
+    }
+    if(cropdf$cropnames[i]=='grapes.wine') {
+      cropfnames <- cropfnames[c(3, 2, 1, 6, 5, 4, 9, 8, 7)] #because the RDImin0.2 scenario is closest to the 80% AD scenario for the other crops...
+    }
+    if (i == 1) {
+      result <- read.csv(file.path(resultsDir, cropdf$cropnames[i], cropfnames[scenario_index]), stringsAsFactors = FALSE)
+      if (cropdf$cropnames[i]=='alfalfa.imperial') {
+        result$GW.capture.net <- NA
+        result <- result[c(1:34, 40, 35, 36:39)]
+        result$P.winter <- NA
+        result$P.growing <- result$P.annual
+        result$ETo.winter <- NA
+        result$ETo.growing <- result$ETo.annual
+      }
+      if (cropdf$cropnames[i]=='alfalfa.CV') {
+        result$P.winter <- NA
+        result$P.growing <- result$P.annual
+        result$ETo.winter <- NA
+        result$ETo.growing <- result$ETo.annual
+      }
+      colnames(result)[2:3] <- c(paste0(paw_name, '.cmH2O'), paste0(paw_name, '.mmH2O'))
+      result$cropcode <- cropdf$cropcode[i]
+      result$cropname <- cropdf$cropnames[i] 
+    # print(ncol(result))
+      print(colnames(result))
+    } else {
+        nextdf <- read.csv(file.path(resultsDir, cropdf$cropnames[i], cropfnames[scenario_index]), stringsAsFactors = FALSE)
+        if (cropdf$cropnames[i]=='alfalfa.imperial') {
+          nextdf$GW.capture.net <- NA
+          nextdf <- nextdf[c(1:34, 40, 35, 36:39)]
+          nextdf$P.winter <- NA
+          nextdf$P.growing <- nextdf$P.annual
+          nextdf$ETo.winter <- NA
+          nextdf$ETo.growing <- nextdf$ETo.annual
+        }
+        if (cropdf$cropnames[i]=='alfalfa.CV') {
+          nextdf$P.winter <- NA
+          nextdf$P.growing <- nextdf$P.annual
+          nextdf$ETo.winter <- NA
+          nextdf$ETo.growing <- nextdf$ETo.annual
+        }
+      # print(ncol(nextdf))
+        colnames(nextdf)[2:3] <- c(paste0(paw_name, '.cmH2O'), paste0(paw_name, '.mmH2O'))
+        nextdf$cropcode <- cropdf$cropcode[i]
+        nextdf$cropname <- cropdf$cropnames[i]
+        print(colnames(nextdf))
+        result <- rbind(result, nextdf)
+      }
+  }
+  if (!dir.exists(file.path(resultsDir, 'all_crops'))) {
+  dir.create(file.path(resultsDir, 'all_crops'))
+  }
+  write.csv(result, file.path(resultsDir, 'all_crops', paste0('allcrops', scenario_name, '_FAO56results_points_rounded.csv')), row.names = FALSE)
+}
+bindallresults('1.0mAD30', '1.0mPAW')
+bindallresults('1.0mAD50', '1.0mPAW')
+bindallresults('1.0mAD80', '1.0mPAW')
+bindallresults('2.0mAD30', '2.0mPAW')
+bindallresults('2.0mAD50', '2.0mPAW')
+bindallresults('2.0mAD80', '2.0mPAW')
+bindallresults('3.0mAD30', '3.0mPAW')
+bindallresults('3.0mAD50', '3.0mPAW')
+bindallresults('3.0mAD80', '3.0mPAW')
 
+bindallresults('')
+#get total GW for each crop x soil storage scenario
+#this needs to be updated to handle not having grapes.wine in same order [DONE]
+cropnames_list <- c('alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
+final.summary.GW <- data.frame(cropnames=cropnames_list, z1.0m.AD30=rep(NA, 8), z1.0m.AD50=rep(NA, 8), z1.0m.AD80=rep(NA, 8), z2.0m.AD30=rep(NA, 8), z2.0m.AD50=rep(NA, 8), z2.0m.AD80=rep(NA, 8), z3.0m.AD30=rep(NA, 8), z3.0m.AD50=rep(NA, 8), z3.0m.AD80=rep(NA, 8))
+for (i in seq_along(cropnames_list)) {
+  fnames <- list.files(file.path(path = file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries')), pattern = glob2rx('*.AFsummary.by.year.csv'))
+  if(cropnames_list[i]=='grapes.wine'){
+    fnames <- fnames[c(3, 2, 1, 6, 5, 4, 9, 8, 7)] #because the RDImin0.2 scenario is closest to the 80% AD scenario for the other crops...
+  }
+  for (j in seq_along(fnames)) {
+    af.df <- read.csv(file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries', fnames[j]))
+    final.summary.GW[i, j + 1] <- sum(af.df$green.water.AF)
+  }
+}
+final.summary.GW
+lapply(final.summary.GW, class)
+lapply(final.summary.GW[,2:ncol(final.summary.GW)], sum)
 
-test <- read.csv()
+#get GW sums by year for all crops combined for a given soil storage scenario
+#revise to do all scenarios at once
+scenario_name <- '3.0mAD80'
+cropnames_list <- c('alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
+GW.by.year <- data.frame(year=2004:2016, alfalfa.intermountain = rep(NA, 13), alfalfa.imperial = rep(NA, 13), alfalfa.CV = rep(NA, 13), almond.mature = rep(NA, 13), walnut.mature = rep(NA, 13), pistachios = rep(NA, 13), grapes.table = rep(NA, 13), grapes.wine = rep(NA, 13))
+for (i in seq_along(cropnames_list)) {
+  fname <- list.files(path = file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries'), pattern = glob2rx(paste0('*', if (cropnames_list[i]=='grapes.wine') {'2.0mRDI.min0.5'} else{scenario_name}, '.AFsummary.by.year.csv')))
+  af.df <- read.csv(file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries', fname))
+  GW.by.year[,i+1] <- af.df$green.water.AF
+}
+GW.by.year$total.GW.growing <- apply(GW.by.year[,2:ncol(GW.by.year)], 1, sum)
+max(GW.by.year$total.GW.growing)
+min(GW.by.year$total.GW.growing)
+mean(GW.by.year$total.GW.growing)
+sum(GW.by.year$total.GW.growing)
+sum(GW.by.year$total.GW.growing[order(GW.by.year$total.GW.growing, decreasing = TRUE)][1:4])/sum(GW.by.year$total.GW.growing)
+sum(GW.by.year$total.GW.growing[order(GW.by.year$total.GW.growing, decreasing = TRUE)][1:4])
+
+#get E sums by year for all crops combined for a given soil storage scenario
+scenario_name <- '3.0mAD50'
+cropnames_list <- c('alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
+E.by.year <- data.frame(year=2004:2016, alfalfa.intermountain = rep(NA, 13), alfalfa.imperial = rep(NA, 13), alfalfa.CV = rep(NA, 13), almond.mature = rep(NA, 13), walnut.mature = rep(NA, 13), pistachios = rep(NA, 13), grapes.table = rep(NA, 13), grapes.wine = rep(NA, 13))
+for (i in seq_along(cropnames_list)) {
+  fname <- list.files(path = file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries'), pattern = glob2rx(paste0('*', if (cropnames_list[i]=='grapes.wine') {'2.0mRDI.min0.5'} else{scenario_name}, '.AFsummary.by.year.csv')))
+  af.df <- read.csv(file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries', fname))
+  E.by.year[,i+1] <- af.df$E.growing.AF
+}
+E.by.year$E.growing.total <- apply(E.by.year[,2:ncol(E.by.year)], 1, sum)
+mean(E.by.year$E.growing.total)
+
+#get irr sums by year for all crops combined for a given soil storage scenario
+scenario_name <- '3.0mAD80'
+cropnames_list <- c('alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'almond.mature', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
+BW.by.year <- data.frame(year=2004:2016, alfalfa.intermountain = rep(NA, 13), alfalfa.imperial = rep(NA, 13), alfalfa.CV = rep(NA, 13), almond.mature = rep(NA, 13), walnut.mature = rep(NA, 13), pistachios = rep(NA, 13), grapes.table = rep(NA, 13), grapes.wine = rep(NA, 13))
+for (i in seq_along(cropnames_list)) {
+  fname <- list.files(path = file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries'), pattern = glob2rx(paste0('*', if (cropnames_list[i]=='grapes.wine') {'2.0mRDI.min0.5'} else{scenario_name}, '.AFsummary.by.year.csv')))
+  af.df <- read.csv(file.path(resultsDir, cropnames_list[i], 'allyrs_stats/AF.summaries', fname))
+  BW.by.year[,i+1] <- af.df$blue.water.AF
+}
+BW.by.year$BW.growing.total <- apply(BW.by.year[,2:ncol(BW.by.year)], 1, sum)
+min(BW.by.year$BW.growing.total)
+mean(BW.by.year$BW.growing.total)
+max(BW.by.year$BW.growing.total)
+sum(BW.by.year$BW.growing.total)
+
 
 #make a hist with the expanded data
 hist <- hist(data.expanded, main=NULL, xlab = varname)
