@@ -125,7 +125,7 @@ modelgrid$cropcode <- ifelse(modelgrid$cropnames=='almond.mature', almond_code, 
 modelgrid$irrtype <- ifelse(modelgrid$cropnames=='almond.mature', 'Microspray, orchards', ifelse(modelgrid$cropnames=='walnut.mature', 'Microspray, orchards', ifelse(modelgrid$cropnames=='pistachios', 'Microspray, orchards', ifelse(modelgrid$cropnames=='grapes.table', 'Drip', ifelse(modelgrid$cropnames=='grapes.wine', 'Drip', ifelse(modelgrid$cropnames=='alfalfa.intermountain' | modelgrid$cropnames=='alfalfa.CV' | modelgrid$cropnames=='alfalfa.imperial', 'Border', print('Done')))))))
 modelgrid$alfalfa.zone <- ifelse(modelgrid$cropnames=='alfalfa.intermountain', 'Intermountain', ifelse(modelgrid$cropnames=='alfalfa.CV', 'Central Valley', ifelse(modelgrid$cropnames=='alfalfa.imperial', 'Imperial Valley', NA)))
 modelgrid$grape.zone <- ifelse(modelgrid$cropnames=='grapes.wine', 'Central California Foothills and Coastal Mountains', ifelse(modelgrid$cropnames=='grapes.table', 'Central California Valley', NA))
-modelgrid$AD.percentage[modelgrid$cropnames=='grapes.wine'] <- 50
+#modelgrid$AD.percentage[modelgrid$cropnames=='grapes.wine'] <- 50
 
 modelgrid
 cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
@@ -134,8 +134,54 @@ registerDoSNOW(cl)
 foreach(i=1:72) %dopar% {
   FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
 }
+stopCluster(cl)
 
 #test of alfalfa.intermountain re-run with new buffer.days and Jharv defined
 i <- 50
 modelgrid[i,]
 FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
+stopCluster(cl) #finished 11/1 6:53 PM
+
+#re-run for alfalfa.intermountain on 11/1
+cl <- makeCluster(3, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
+registerDoSNOW(cl)
+modelgrid[46:54,]
+foreach(i=46:54) %dopar% {
+  FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
+}
+stopCluster(cl)
+
+#test of wine grape re-run on 11/6
+i <- 38
+modelgrid[i,]
+FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
+
+#re-run of wine.grapes
+cl <- makeCluster(4, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
+registerDoSNOW(cl)
+modelgrid[37:45,]
+foreach(i=39:45) %dopar% { #because 37 and 38 were run individually above first
+  FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
+}
+stopCluster(cl)
+
+#run of 0.5 m root zone with 30% allowable depletion
+modelgrid <- expand.grid(root.depths = '0.5', AD.percentage = 30, cropnames = c('walnut.mature', 'almond.mature', 'pistachios', 'grapes.table', 'grapes.wine', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial'))
+modelgrid$root.depths <- as.character(modelgrid$root.depths)
+modelgrid$cropnames <- as.character(modelgrid$cropnames)
+modelgrid$AD.percentage <- as.integer(modelgrid$AD.percentage)
+modelgrid$RDI.min <- ifelse(modelgrid$cropnames=='grapes.wine' &  modelgrid$AD.percentage==30, 0.8, ifelse(modelgrid$cropnames=='grapes.wine' &  modelgrid$AD.percentage==50, 0.5, ifelse(modelgrid$cropnames=='grapes.wine' &  modelgrid$AD.percentage==80, 0.2, NA)))
+modelgrid$cropcode <- ifelse(modelgrid$cropnames=='almond.mature', almond_code, ifelse(modelgrid$cropnames=='walnut.mature', walnut_code, ifelse(modelgrid$cropnames=='pistachios', pistachio_code, ifelse(modelgrid$cropnames=='grapes.table', grape_code, ifelse(modelgrid$cropnames=='grapes.wine', grape_code, ifelse(modelgrid$cropnames=='alfalfa.intermountain' | modelgrid$cropnames=='alfalfa.CV' | modelgrid$cropnames=='alfalfa.imperial', alfalfa_code, print('Done')))))))
+modelgrid$irrtype <- ifelse(modelgrid$cropnames=='almond.mature', 'Microspray, orchards', ifelse(modelgrid$cropnames=='walnut.mature', 'Microspray, orchards', ifelse(modelgrid$cropnames=='pistachios', 'Microspray, orchards', ifelse(modelgrid$cropnames=='grapes.table', 'Drip', ifelse(modelgrid$cropnames=='grapes.wine', 'Drip', ifelse(modelgrid$cropnames=='alfalfa.intermountain' | modelgrid$cropnames=='alfalfa.CV' | modelgrid$cropnames=='alfalfa.imperial', 'Border', print('Done')))))))
+modelgrid$alfalfa.zone <- ifelse(modelgrid$cropnames=='alfalfa.intermountain', 'Intermountain', ifelse(modelgrid$cropnames=='alfalfa.CV', 'Central Valley', ifelse(modelgrid$cropnames=='alfalfa.imperial', 'Imperial Valley', NA)))
+modelgrid$grape.zone <- ifelse(modelgrid$cropnames=='grapes.wine', 'Central California Foothills and Coastal Mountains', ifelse(modelgrid$cropnames=='grapes.table', 'Central California Valley', NA))
+modelgrid
+cl <- makeCluster(4, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
+registerDoSNOW(cl)
+foreach(i=1:8) %dopar% {
+  FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], modelgrid$irrtype[i], crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = modelgrid$RDI.min[i], alfalfa.zone = modelgrid$alfalfa.zone[i], grape.zone = modelgrid$grape.zone[i])
+}
+stopCluster(cl)
