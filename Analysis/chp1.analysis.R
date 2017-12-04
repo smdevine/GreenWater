@@ -1,11 +1,11 @@
 #TO-DO
 # (1) Make paw rasters for allcrops datasets
 # (2) Make rasters for 0.5 m root depth x 30% AD model run
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Nov2017/summaries'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
 #if so desired
 #model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
-rasterResultsDir <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
+rasterResultsDir <- 'D:/Allowable_Depletion/results/Nov2017/summaries'
 setwd(modelscaffoldDir)
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
@@ -160,7 +160,7 @@ RasterBuild.v2 <- function(readraster=FALSE, readcellnums=FALSE, cropname) {
     cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
   }
   cropfnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'))
-  for (i in 6:length(cropfnames)) { #seq_along(cropfnames)) {
+  for (i in seq_along(cropfnames)) { #seq_along(cropfnames)) {
     var_df <- read.csv(file.path(resultsDir, cropname, cropfnames[i]), stringsAsFactors = FALSE)
     scenario_name <- gsub('_FAO56results_points_rounded.csv', '', cropfnames[i])
     scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
@@ -205,15 +205,18 @@ RasterBuild.v2(cropname = 'grapes.wine')
 RasterBuild.v2(cropname = 'allcrops')
 
 #read in summary data for each scenario to summarize data with the help of cell counts
+#updated 11.29.17 for allcrops directory
 collect.stats <- function(cropname) {
   setwd(file.path(resultsDir, cropname))
   fnames <- list.files(pattern = glob2rx('*.csv'))
-  for (j in seq_along(fnames)) {
+  for (j in seq_along(fnames)) { #2:length(fnames)) { #
     summary.fname <- gsub('results_points_rounded.csv', '', fnames[j])
     setwd(file.path(resultsDir, cropname))
     result <- read.csv(fnames[j], stringsAsFactors = FALSE)
     result <- result[ ,-2] #don't need the PAW data twice in different units
-    result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year'))] #don't need summary stats for these columns
+    if (cropname=='allcrops') {
+      result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year', 'cropcode', 'cropname'))]
+    } else {result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year'))]} #don't need summary stats for these columns
     varnames <- colnames(result)
     varnames <- varnames[-which(varnames=='cellcounts30m2')]
     summary_result <- as.data.frame(matrix(data=NA, nrow=length(varnames), ncol=12))
