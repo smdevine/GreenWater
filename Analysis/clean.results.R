@@ -1,6 +1,7 @@
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017' #D:/Allowable_Depletion/results/Oct2017' #
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.check' #D:/Allowable_Depletion/results/Oct2017' #
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
-clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #this is for most recent runs starting Oct 17, 2017
+clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.check/clean_results' #this is for most recent runs starting Oct 17, 2017
+#made revision on Dec 2017 to re-run results through but re-correcting GW.ET.growing for Irr.end.storage correction
 if (!dir.exists(file.path(resultsDir, 'clean_results'))) {
   dir.create(file.path(resultsDir, 'clean_results'))
 }
@@ -32,7 +33,7 @@ if (!dir.exists(file.path(resultsDir, 'clean_results'))) {
 #read in this file before running function
 cokeys_uncertain_data <- read.csv(file.path(modelscaffoldDir, 'cokeys_uncertain_data.csv'), stringsAsFactors = FALSE)
 
-CleanResults <- function(cropname) {
+CleanResults <- function(cropname, revise.GW) {
   parentDir <- file.path(resultsDir, paste0(cropname, '_majcomps'))
   if (!dir.exists(file.path(clean.resultsDir, cropname))) {
     dir.create(file.path(clean.resultsDir, cropname))
@@ -49,20 +50,24 @@ CleanResults <- function(cropname) {
     pawvar <- colnames(df)[14]
     print(pawvar)
     df <- df[-which(df$cokey %in% cokeys_uncertain_data$x | is.na(df[[pawvar]]) | is.na(df$TEW) | is.na(df$REW) | df[[pawvar]] == 0 | df$TEW == 0), ] #this gets rid of all results that are "uncertain" or where model was not run as a result of soil variables being NA or equal to 0
+    print(summary(df$Irr.end.storage))
+    if(revise.GW) {
+      df$GW.ET.growing <- df$GW.ET.growing - df$Irr.end.storage
+    }
     print(nrow(df))
-    setwd(file.path(clean.resultsDir, cropname))
     fname_modified <- paste0(gsub('.csv', '', fname), '_clean.csv')
-    write.csv(df, fname_modified, row.names = FALSE)
+    write.csv(df, file.path(clean.resultsDir, cropname, fname_modified), row.names = FALSE)
   }
 }
 #run function for walnuts
-CleanResults('walnut.mature')
-CleanResults('almond.mature')
-CleanResults('pistachios')
-CleanResults('grapes.table')
-CleanResults('grapes.wine')
-CleanResults('alfalfa.intermountain')
-CleanResults('alfalfa.CV')
-CleanResults('alfalfa.imperial')
+CleanResults('walnut.mature', TRUE)
+CleanResults('almond.mature', TRUE)
+CleanResults('pistachios', TRUE)
+CleanResults('grapes.table', TRUE)
+CleanResults('grapes.wine', TRUE)
+CleanResults('alfalfa.intermountain', TRUE)
+CleanResults('alfalfa.CV', TRUE)
+CleanResults('alfalfa.imperial', TRUE)
 #print-outs showed no concerns 10/5/17
 #error discovered 10/13/17: df$cokey %in% cokeys_uncertain_data was not returning anything because cokeys_uncertain_data is a data.frame; everything re-run with df$cokey %in% cokeys_uncertain_data$x now part of the logical statement to remove specific records
+#re-run 12/20/17 to check for sensitivity to irr.end.storage correction in GW.ET.growing calc, which was discovered to have produced problems for Alfalfa Imperial calculation
