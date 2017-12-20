@@ -1,11 +1,12 @@
 #TO-DO
 # (1) Make paw rasters for allcrops datasets
 # (2) Make rasters for 0.5 m root depth x 30% AD model run
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Nov2017/summaries'
+resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
+dissertationDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/dissertation'
 #if so desired
 #model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
-rasterResultsDir <- 'D:/Allowable_Depletion/results/Nov2017/summaries'
+rasterResultsDir <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
 setwd(modelscaffoldDir)
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
@@ -16,19 +17,24 @@ pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachio
 library(raster)
 library(extrafont)
 library(extrafontdb)
+
+#look at underlying allcrops data
+df <- read.csv(file.path(resultsDir, 'allcrops','allcrops2.0mAD50_FAO56results_points_rounded.csv'), stringsAsFactors = FALSE)
+
 #font_import() #only needs to be done once?
 CustomBP <- function(x){
-  lower.x <- quantile(x, 0.05, na.rm = TRUE)
+  lower.x <- quantile(x, 0.1, na.rm = TRUE)
   q1.x <- quantile(x, 0.25, na.rm = TRUE)
   med.x <- median(x, na.rm = TRUE)
   q3.x <- quantile(x, 0.75, na.rm = TRUE)
-  upper.x <- quantile(x, 0.95, na.rm = TRUE)
+  upper.x <- quantile(x, 0.9, na.rm = TRUE)
   c(lower.x, q1.x, med.x, q3.x, upper.x)
 }
 
 #plotting function
 #to-do take out Irr and ETo boxplot for all scenarios; only needs to be done once for each crop unlike GW and BW
 #re-ran almond figures 11/15 to get larger font
+#re-ran all figures 12/11 to get years 2005-2016 and 
 MakeBPs <- function(cropname, years=2004:2016) {
   make.bp <- function(bp_name, yaxis_lab, varname, bxfill) {
     png(file.path(resultsDir, cropname, 'figures', scenario_name, paste0('allyrs.boxplots', varname, '.png', sep = '')), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
@@ -64,11 +70,11 @@ MakeBPs <- function(cropname, years=2004:2016) {
     if (!dir.exists(file.path(resultsDir, cropname, 'figures', scenario_name))) {
       dir.create(file.path(resultsDir, cropname, 'figures', scenario_name))
     }
-    make.bp(bp_GW, 'Growing season green water (mm)', 'GW.ET.growing', 'green')
-    make.bp(bp_BW, 'Irrigation [blue water] demand (mm)', 'Irr.app.total', 'lightblue')
-    make.bp(bp_P, 'Water year precipitation (mm)', 'P.WY', 'blue')
-    make.bp(bp_ETo, 'Reference evapotranspiration (mm)', 'ETo.WY', 'orange')
-  }
+    make.bp(bp_name = bp_GW, yaxis_lab = 'Growing season green water (mm)', varname = 'GW.ET.growing', bxfill = 'green')
+    make.bp(bp_name = bp_BW, yaxis_lab = 'Irrigation [blue water] demand (mm)', varname = 'Irr.app.total', bxfill = 'lightblue')
+    make.bp(bp_name = bp_P, yaxis_lab = 'Water year precipitation (mm)', varname = 'P.WY', bxfill = bxfill = 'blue')
+    make.bp(bp_name = bp_ETo, yaxis_lab = 'Reference evapotranspiration (mm)', varname = 'ETo.WY', bxfill = 'orange')
+  } #bp_name, yaxis_lab, varname, bxfill
 }
 #run the function to make boxplots of P, ETo, green, and blue water by year for each crop
 MakeBPs('alfalfa.intermountain')
@@ -80,6 +86,76 @@ MakeBPs('grapes.wine')
 MakeBPs('alfalfa.CV')
 MakeBPs('alfalfa.imperial')
 MakeBPs('allcrops')
+
+#updated boxplot function for green and blue water plots on 12/12 for presentation purposes
+#goal is to get 4 boxplots on a page for each crop x scenario
+#only done for 2.0 m root depth x 50% allowable depletion
+MakeBPs.v2 <- function(cropname, years=2005:2016) {
+  make.bp <- function(bp_name, yaxis_lab, xaxis=FALSE, plotxaxis='n', varname, bxfill, scenario_name) {
+    
+    if (plotxaxis == 'n') {
+      png(file.path(dissertationDir, 'figures', 'boxplots', cropname, scenario_name, paste0(scenario_name, varname, '.png', sep = '')), family = 'Book Antiqua', width = 7.5, height = 2.2, units = 'in', res = 600)
+      par(mai=c(0.1, 0.6, 0.15, 0.1))
+    } else {
+        png(file.path(dissertationDir, 'figures', 'boxplots', cropname, scenario_name, paste0(scenario_name, varname, '.png', sep = '')), family = 'Book Antiqua', width = 7.5, height = 2.7, units = 'in', res = 600)
+        par(mai=c(0.6, 0.6, 0.15, 0.1))
+      }
+    bxp(bp_name, outline = FALSE, boxfill=bxfill, ylab='', cex.axis=1, boxwex=0.6, lwd=0.8, xaxt=plotxaxis) #ylim=c(0,400))
+    if (xaxis) {
+      mtext(text='Year', side=1, line=2, cex = 1, las=0)
+    }
+    mtext(text=yaxis_lab, side=2, line=2, cex = 1, las=0)
+    dev.off()
+  }
+  define.bp.stats <- function(bp_name, varname) { #this is to replace default boxplot stats with custom function
+    for (i in 1:ncol(bp_name$stats)) { 
+      df <- var_df[which(var_df$Model.Year==years[i]),]
+      bp_name$stats[,i] <- CustomBP(rep(df[[varname]], times=df$cellcounts30m2))
+    }
+  }
+  loadfonts(quiet=TRUE, device='win')
+  fnames <- list.files(path=file.path(resultsDir, cropname), pattern = glob2rx('*.csv'))
+  for (j in 5) { #seq_along(fnames)) { note: 5 refers to 2.0 m x 50% AD scenario
+    var_df <- read.csv(file.path(resultsDir, cropname, fnames[j]), stringsAsFactors = FALSE)
+    var_df <- var_df[which(var_df$Model.Year %in% years),]
+    var_df$GW.ET.growing[which(var_df$GW.ET.growing<0)] <- 0 #convert negative values to 0
+    scenario_name <- gsub('_FAO56results_points_rounded.csv', '', fnames[j])
+    scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
+    bp_GW <- boxplot(GW.ET.growing ~ Model.Year, data=var_df, plot=FALSE)
+    bp_BW <- boxplot(Irr.app.total ~ Model.Year, data=var_df, plot=FALSE)
+    bp_P <- boxplot(P.WY ~ Model.Year, data=var_df, plot=FALSE)
+    bp_ETo <- boxplot(ETo.WY ~ Model.Year, data=var_df, plot=FALSE)
+    define.bp.stats(bp_GW, 'GW.ET.growing')
+    define.bp.stats(bp_BW, 'Irr.app.total')
+    define.bp.stats(bp_P, 'P.WY')
+    define.bp.stats(bp_ETo, 'ETo.WY')
+    if (!dir.exists(file.path(dissertationDir, 'figures', 'boxplots', cropname))) {
+      dir.create(file.path(dissertationDir, 'figures', 'boxplots', cropname))
+    }
+    # if (!dir.exists(file.path(dissertationDir, 'figures', 'boxplots', cropname, 'green.water'))) {
+    #   dir.create(file.path(dissertationDir, 'figures', 'boxplots', cropname, 'green.water'))
+    # }
+    # if (!dir.exists(file.path(dissertationDir, 'figures', 'boxplots', cropname, 'blue.water'))) {
+    #   dir.create(file.path(dissertationDir, 'figures', 'boxplots', cropname, 'blue.water'))
+    # }
+    if (!dir.exists(file.path(dissertationDir, 'figures', 'boxplots', cropname, scenario_name))) {
+      dir.create(file.path(dissertationDir, 'figures', 'boxplots', cropname, scenario_name))
+    }
+    make.bp(bp_name = bp_GW, yaxis_lab = 'Green water (mm)', varname = 'GW.ET.growing', bxfill = 'green', scenario_name = scenario_name)
+    make.bp(bp_name = bp_BW, yaxis_lab = 'Blue water (mm)', varname = 'Irr.app.total', bxfill = 'lightblue', scenario_name = scenario_name)
+    make.bp(bp_name = bp_P, yaxis_lab = 'Water year P (mm)', xaxis = TRUE, plotxaxis = 's', varname = 'P.WY', bxfill = 'blue', scenario_name = scenario_name)
+    make.bp(bp_name = bp_ETo, yaxis_lab = 'Reference ET (mm)', varname = 'ETo.WY', bxfill = 'orange', scenario_name = scenario_name)
+  } #bp_name, yaxis_lab, varname, bxfill
+}
+MakeBPs.v2('alfalfa.intermountain')
+MakeBPs.v2('walnut.mature')
+MakeBPs.v2('almond.mature')
+MakeBPs.v2('pistachios')
+MakeBPs.v2('grapes.table')
+MakeBPs.v2('grapes.wine')
+MakeBPs.v2('alfalfa.CV')
+MakeBPs.v2('alfalfa.imperial')
+
 #build a raster based for a single filename and variable
 RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname) {
   if (!dir.exists(file.path(rasterResultsDir, cropname))) {
@@ -100,6 +176,16 @@ RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname) {
     writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', funcname, '.tif')), format='GTiff')
     removeTmpFiles(h=0.0001)
   }
+  rasterize.result.annual <- function(varname, year) {
+    raster.result <- raster.model.codes
+    var_df_annual <- var_df[var_df$Model.Year==year, ]
+    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_annual[[varname]][match(cell_numbers_to_codes$unique_model_codes, var_df_annual$unique_model_code)]
+    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
+      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
+    }
+    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', as.character(year), '.tif')), format='GTiff')
+    removeTmpFiles(h=0.0001)
+  }
   if (readraster) {
     raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
   }
@@ -116,12 +202,22 @@ RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname) {
   if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))) {
     dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))
   }
-  rasterize.result.statistic(varname = 'GW.ET.growing', func = median, 'median')
-  rasterize.result.statistic(varname = 'Irr.app.total', func = median, 'median')
-  rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
+  #rasterize.result.statistic(varname = 'GW.ET.growing', func = median, 'median')
+  #rasterize.result.statistic(varname = 'Irr.app.total', func = median, 'median')
+  #rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
+  #rasterize.result.statistic(varname='cropcode', func = unique, funcname = 'CS') #CS stands for CropScape
+  rasterize.result.statistic(varname='P.annual', func=mean, 'mean')
+  rasterize.result.statistic(varname='ETo.annual', func=mean, 'mean')
+  #rasterize.result.annual(varname = 'X2.0mPAW.mmH2O', year=2005) #could have used rasterize.result.statistic for paw with median; unique was recognizing distinct numeric values where there was no distinct value across years for paw, and so some unique model codes had more than value as such
 }
-RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops2.0mAD50_FAO56results_points_rounded.csv')
+RasterBuild(readraster=TRUE, readcellnums=TRUE, cropname = 'allcrops', fname = 'allcrops2.0mAD50_FAO56results_points_rounded.csv')
+#confirm cell counts with valid crop codes vs. counts of cells with valid GW results
+crop.codes <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters', 'cropcode', 'cropcode.CS.tif'))
+crop.codes[!is.na(crop.codes)] <- 1
+cellStats(crop.codes, stat = 'sum') #18,039,013 have crop codes 
+sum(var_df$cellcounts30m2[var_df$Model.Year==2005 & !is.na(var_df$GW.ET.growing)]) #18,039,219 cells have data
 
+#read-in to global environment as opposed to setting first two arguments in RasterBuild.v2 to TRUE
 raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
 cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
 RasterBuild.v2 <- function(readraster=FALSE, readcellnums=FALSE, cropname) {
@@ -204,6 +300,26 @@ RasterBuild.v2(cropname = 'grapes.table')
 RasterBuild.v2(cropname = 'grapes.wine')
 RasterBuild.v2(cropname = 'allcrops')
 
+#convert negative GW to 0 and save new raster in 'revised.results' directory within the scenario name directory; check print output to make sure filenames match 2005-2016 results because there are more 'tif' files in the scenario directory than need to be corrected
+convert.negative.GW <- function(scenario.name){
+  gw.by.year <- list.files(path=file.path(rasterResultsDir, 'allcrops', 'figures', scenario.name, 'rasters', 'GW.ET.growing'), pattern = glob2rx('*.tif'), full.names = TRUE)[2:13]
+  gw.by.year.fnames <- list.files(path=file.path(rasterResultsDir, 'allcrops', 'figures', scenario.name, 'rasters', 'GW.ET.growing'), pattern = glob2rx('*.tif'), full.names = FALSE)[2:13]
+  print(gw.by.year.fnames)
+  if (!dir.exists(file.path(rasterResultsDir, 'allcrops', 'figures', scenario.name, 'rasters', 'GW.ET.growing', 'revised.results'))) {
+    dir.create(file.path(rasterResultsDir, 'allcrops', 'figures', scenario.name, 'rasters', 'GW.ET.growing', 'revised.results'))
+  }
+  mapply(function(x, y) {
+    gw.raster <- raster(x)
+    gw.raster[gw.raster < 0] <- 0
+    writeRaster(gw.raster, filename = file.path(rasterResultsDir, 'allcrops', 'figures', scenario.name, 'rasters', 'GW.ET.growing', 'revised.results', paste0('revised.', y)), format = 'GTiff')
+  }, x=gw.by.year, y=gw.by.year.fnames, SIMPLIFY = FALSE)
+}
+convert.negative.GW('scenario_2.0mAD50')
+convert.negative.GW('scenario_1.0mAD50')
+convert.negative.GW('scenario_3.0mAD50')
+convert.negative.GW('scenario_0.5mAD30')
+
+
 #read in summary data for each scenario to summarize data with the help of cell counts
 #updated 11.29.17 for allcrops directory
 collect.stats <- function(cropname) {
@@ -252,6 +368,42 @@ collect.stats('alfalfa.intermountain')
 collect.stats('alfalfa.imperial')
 collect.stats('allcrops')
 
+#function to collect stats about 20, 40, 60, and 80th percentiles
+collect.stats.v2 <- function(cropname) {
+  setwd(file.path(resultsDir, cropname))
+  fnames <- list.files(pattern = glob2rx('*.csv'))
+  for (j in seq_along(fnames)) { #2:length(fnames)) { #
+    summary.fname <- gsub('results_points_rounded.csv', '', fnames[j])
+    setwd(file.path(resultsDir, cropname))
+    result <- read.csv(fnames[j], stringsAsFactors = FALSE)
+    result <- result[ ,-2] #don't need the PAW data twice in different units
+    if (cropname=='allcrops') {
+      result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year', 'cropcode', 'cropname'))]
+    } else {result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year'))]} #don't need summary stats for these columns
+    varnames <- colnames(result)
+    varnames <- varnames[-which(varnames=='cellcounts30m2')]
+    summary_result <- as.data.frame(matrix(data=NA, nrow=length(varnames), ncol=5))
+    colnames(summary_result) <- c('varname', 'Qu0.2', 'Qu0.4', 'Qu0.6', 'Qu0.8')
+    row.names(summary_result) <- varnames
+    for (i in seq_along(result)) {
+      if (colnames(result)[i]=='cellcounts30m2') {
+        next
+      }
+      varname <- colnames(result)[i]
+      data.expanded <- rep(result[,i], times=result$cellcounts30m2)
+      stats.data <- data.frame(varname=varname, Qu0.2=quantile(data.expanded, 0.2, na.rm = TRUE), Qu0.4=quantile(data.expanded, 0.4, na.rm = TRUE), Qu0.6=quantile(data.expanded, 0.6, na.rm = TRUE), Qu0.8=quantile(data.expanded, 0.8, na.rm = TRUE), row.names = NULL)
+      stats.data[,2:ncol(stats.data)] <-round(stats.data[,2:ncol(stats.data)], 1)
+      stats.data$varname <- as.character(stats.data$varname)
+      summary_result[varname,] <- stats.data #indexing by row.name here
+    }
+    if (!dir.exists(file.path(resultsDir, cropname, 'allyrs_stats_v2'))) {
+      dir.create(file.path(resultsDir, cropname, 'allyrs_stats_v2'))
+    }
+    setwd(file.path(resultsDir, cropname, 'allyrs_stats_v2'))
+    write.csv(summary_result, paste0(summary.fname, '_summarystats_v2.csv'), row.names = FALSE)
+  }
+}
+collect.stats.v2('allcrops')
 #function to quantify water volumes for green water, blue water, precip
 #converts negative GW depths to depth of 0 for summation purposes
 volumes.calculate <- function(cropname) {
@@ -295,6 +447,70 @@ volumes.calculate('pistachios')
 volumes.calculate('grapes.table')
 volumes.calculate('grapes.wine')
 volumes.calculate('allcrops')
+
+#get 2005-2016 totals for these calculated volumes
+combine.scenarios <- function(cropname){
+  fnames_full <- list.files(path=file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'), pattern=glob2rx(pattern='*.csv'), full.names = TRUE)
+  fnames <- list.files(path=file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'), pattern=glob2rx(pattern='*.csv'))
+  scenario.AF.summary <- as.data.frame(matrix(data=NA, nrow=length(fnames), ncol=7))
+  colnames(scenario.AF.summary) <- c('root.depth', 'allowable.depletion', 'green.water', 'blue.water', 'evaporation', 'deep.percolation', 'water.stress')
+  for (i in seq_along(fnames)) {
+    df <- read.csv(fnames_full[i], stringsAsFactors = FALSE)
+    fname <- fnames[i]
+    scenario.AF.summary$root.depth[i] <- as.numeric(substr(fname, 10, 12))
+    if (cropname=='grapes.wine') {
+      scenario.AF.summary$allowable.depletion[i] <- ifelse(substr(fname, 21, 23)=="0.2", 0.8, ifelse(substr(fname, 21, 23)=="0.5", 0.5, ifelse(substr(fname, 21, 23)=="0.8", 0.3)))
+    } else {
+      scenario.AF.summary$allowable.depletion[i] <- as.numeric(substr(fname, 16, 17))
+    }
+    scenario.AF.summary$green.water[i] <- sum(df$green.water.AF[2:13]) #years 2005-2016
+    scenario.AF.summary$blue.water[i] <- sum(df$blue.water.AF[2:13])
+    scenario.AF.summary$evaporation[i] <- sum(df$E.growing.AF[2:13])
+    scenario.AF.summary$deep.percolation[i] <- sum(df$deep.perc.annual.AF[2:13])
+    scenario.AF.summary$water.stress[i] <- sum(df$water.stress.AF[2:13])
+  }
+  scenario.MAF.summary <- cbind(scenario.AF.summary[,1:2], scenario.AF.summary[3:7]/10^6)
+  scenario.MAF.summary <- scenario.MAF.summary[order(scenario.MAF.summary$root.depth, scenario.MAF.summary$allowable.depletion), ] #because grapes.wine is produced out of order
+  write.csv(scenario.MAF.summary, file=file.path(dissertationDir, 'tables', paste0(cropname, '.scenario.MAF.summary.csv')), row.names=FALSE)
+}
+combine.scenarios('almond.mature')
+combine.scenarios('alfalfa.intermountain')
+combine.scenarios('alfalfa.imperial')
+combine.scenarios('alfalfa.CV')
+combine.scenarios('walnut.mature')
+combine.scenarios('pistachios')
+combine.scenarios('grapes.table')
+combine.scenarios('grapes.wine')
+combine.scenarios('allcrops')
+
+#combine variables across crops and scenarios
+make.crop.water.depth.table <- function(scenario_name, stat) {
+  cropnames <- c('almond.mature', 'alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
+  paw_varname_end <- ifelse(grepl('alfalfa', cropnames), '_mmH2O_unmodified_comp', '_mmH2O_modified_comp')
+  paw_varnames <- paste0('z', substr(scenario_name, 1, 4), paw_varname_end) 
+  varnames <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'H2O.stress', 'P.annual', 'ETo.growing', 'TEW', 'PAW')
+  var.summary <- as.data.frame(matrix(data=NA, nrow=length(cropnames), ncol=length(varnames)))
+  colnames(var.summary) <- varnames
+  var.summary$cropname <- cropnames
+  for (i in seq_along(cropnames)) {
+    paw_varname <- paw_varnames[i]
+    varnames[length(varnames)] <- paw_varname
+    if (cropnames[i]=='grapes.wine') {
+      scenario_name_wine <- paste0(substr(scenario_name, 1, 4), if(substr(scenario_name, 7, 8)=='30') {'RDImin0.8'} else if(substr(scenario_name, 7, 8)=='50') {'RDI.min0.5'} else if(substr(scenario_name, 7, 8)=='80'){'RDImin0.2'})
+      fname <- paste0(cropnames[i], scenario_name_wine, '_FAO56_summarystats.csv')
+    } else {
+        fname <- paste0(cropnames[i], scenario_name, '_FAO56_summarystats.csv')
+    }
+    fname_full <- file.path(resultsDir, cropnames[i], 'allyrs_stats', fname)
+    df <- read.csv(fname_full, stringsAsFactors = FALSE)
+    var.summary[i, 2:length(varnames)] <- df[match(varnames[2:length(varnames)], df$varname), stat]
+  }
+  write.csv(var.summary, file=file.path(dissertationDir, 'tables', paste0(scenario_name, 'crop.water.balance.stats.mm.csv')), row.names=FALSE)
+  var.summary
+}
+make.crop.water.depth.table('2.0mAD50', 'Median')
+
+
 
 #get each crop's results for a given scenario, rbind together and save as csv in all_crops
 bindallresults <- function(scenario_name, paw_name) {
