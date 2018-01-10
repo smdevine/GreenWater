@@ -11,6 +11,10 @@
 #modified KeiCalc and KepCalc on 9/11/17 to correct for overestimation of evaporation from sandy soils with very low TEW (i.e. <12 mm)
   #11. Simple tests or monte-Carlo simulation of effect of following effects (1) climatic adjustment of Kcb values (2) bloom and leaf-drop assumptions (3) Kcb values themselves
   #12. Test effect of varying alfalfa height on Kcb calcs
+  #13. Modify definition of GW.ET.growing so that it no longer includes a correction for irrigation water end storage
+  #14.  Remove one of the deep percolation definitions and do one for the growing season period
+  #15.  Do separate water balance tracking for irrigation and green water to get a more temporally accruate summation of green water utilization
+  
 #changed order of DPei and DPep on 9/11/17  
 # changed order of Ir and Ks calculation on 8/23/17
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
