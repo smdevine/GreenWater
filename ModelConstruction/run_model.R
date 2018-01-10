@@ -168,7 +168,7 @@ foreach(i=39:45) %dopar% { #because 37 and 38 were run individually above first
 stopCluster(cl)
 
 #run of 0.5 m root zone with 30% allowable depletion
-modelgrid <- expand.grid(root.depths = '0.5', AD.percentage = 30, cropnames = c('walnut.mature', 'almond.mature', 'pistachios', 'grapes.table', 'grapes.wine', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial'))
+modelgrid <- expand.grid(root.depths = '0.5m', AD.percentage = 30, cropnames = c('walnut.mature', 'almond.mature', 'pistachios', 'grapes.table', 'grapes.wine', 'alfalfa.intermountain', 'alfalfa.CV', 'alfalfa.imperial'))
 modelgrid$root.depths <- as.character(modelgrid$root.depths)
 modelgrid$cropnames <- as.character(modelgrid$cropnames)
 modelgrid$AD.percentage <- as.integer(modelgrid$AD.percentage)
