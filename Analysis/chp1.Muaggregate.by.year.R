@@ -1,9 +1,8 @@
 #TO-DO
-#(1) Confirm that growing season ET is same as annual ET for alfalfa.CV and alfalfa.imperial
-final.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
-clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/clean_results' #needs to be changed
-original.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017'
-#pointsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/data.frames/Aug2017'
+#(1) Confirm that growing season ET is same as annual ET for alfalfa.CV and alfalfa.imperial [DONE]
+final.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.check/summaries'
+clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.check/clean_results' #needs to be changed
+original.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.check'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
 if (!dir.exists(file.path(original.resultsDir, 'summaries'))) {
   dir.create(file.path(original.resultsDir, 'summaries'))
@@ -516,7 +515,7 @@ data.to.allyrs('walnut.mature', 'Walnuts')
 data.to.allyrs('grapes.table', 'Grapes')
 data.to.allyrs('almond.mature', 'Almonds')
 data.to.allyrs('alfalfa.imperial', 'Alfalfa')
-data.to.allyrs('grapes.wine', 'Grapes')#redefined function here to handle grapes.wine directory naming convention using RDI.min
+data.to.allyrs('grapes.wine', 'Grapes') #redefined function here to handle grapes.wine directory naming convention using RDI.min
 data.to.allyrs('alfalfa.CV', 'Alfalfa')
 
 #need to investigate this further for file/directory naming convention
