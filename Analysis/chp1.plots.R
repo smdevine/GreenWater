@@ -3,7 +3,8 @@ resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/sum
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
 #if so desired
 #model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
-rasterResultsDir <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
+rasterResultsDir <- 'D:/Allowable_Depletion/results/Dec2017.check/summaries'
+rasterResultsDir2 <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
 list.files(path=rasterResultsDir)
 list.files(path=file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50'))
 list.files(path=file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters'))
@@ -77,7 +78,7 @@ system.time(gw.total.2005.2016.revised <- calc(gw.by.year.revised.stack, sum, pr
 cellStats(gw.total.2005.2016.revised * (9 / 12334.8), stat='sum') #26.206252 MAF; this compares to 26.2 MAF when negative annual GW is first converted to 0 before summing
 writeRaster(gw.total.2005.2016.revised, filename = file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing', 'revised.results', 'revised.GW.ET.growing.total.mm.2005.2016.tif'), options='window')
 
-
+#this process changed on 12/22 and altered below this block
 #get the growing season ET and then the green water:growing season ET using the revised GW files where negative annual GW results were converted to 0; growing season ET = blue water + green water, where green water negative values are not converted to 0 to get accurate growing season ET
 gw.total.2005.2016.revised <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing', 'revised.results', 'revised.GW.ET.growing.total.mm.2005.2016.tif'))
 gw.total.2005.2016 <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing','GW.ET.growing.total.mm.2005.2016.tif'))
@@ -88,6 +89,17 @@ gw.to.et.ratio <- calc(total.stack, fun=function(x) {x[1] / (x[2] + x[3]) }, pro
 writeRaster(gw.to.et.ratio, filename=file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing', 'revised.results', 'revised.GW.ET.to.growing.ET.2005.2016.tif'), options='window') #range is ???
 gw.to.et.ratio <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing', 'revised.results', 'revised.GW.ET.to.growing.ET.2005.2016.tif'))
 hist(gw.to.et.ratio)
+
+#12/22/17 revised code
+#get the revised cumulative gw et:growing season et ratio using negative annual GW values in the numerator also when present
+gw.scenario <- 'scenario_0.5mAD30'
+gw.total.2005.2016 <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing', 'GW.ET.growing.sum.tif'))
+bw.total.2005.2016 <- raster(file.path(rasterResultsDir2, 'allcrops', 'figures', gw.scenario, 'rasters', 'Irr.app.total', 'Irr.app.total.mm.2005.2016.tif'))
+total.stack <- stack(gw.total.2005.2016, bw.total.2005.2016)
+#total.stack$growing.et.total.2005.2016 <- calc(total.stack, sum, progress='window')
+gw.to.et.ratio <- calc(total.stack, fun=function(x) {x[1] / (x[1] + x[2]) }, filename=file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.to.growing.ET.2005.2016.tif'), progress='window')
+#writeRaster(gw.to.et.ratio, filename=file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.to.growing.ET.2005.2016.tif'), options='window') #range is ???
+#gw.to.et.ratio <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', gw.scenario, 'rasters', 'GW.ET.growing', 'GW.ET.to.growing.ET.2005.2016.tif'))
 
 #get the standard deviation of annual green water availability for 2 m x 50% AD for rasters with negative values converted to 0 first
 gw.scenario <- 'scenario_2.0mAD50'
@@ -157,3 +169,13 @@ system.time(writeRaster(gw.3.0less2.0_annual, filename=file.path(rasterResultsDi
 endCluster()
 system.time(gw.2.0less0.5_annual <- calc(gw.2.0less0.5, fun = function(x) {x / 12})) #conclucion: cluster call has no effect; calc(x, fun=function(x) {x /12}) is slightly faster than x/12
 writeRaster(gw.2.0less0.5_annual, file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.2.0AD50less0.5AD30.annual.avg.tif'))
+
+#new approach to get annual average effect differences using means
+gw.0.5mAD30.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_0.5mAD30', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
+gw.1.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_1.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
+gw.2.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
+gw.3.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_3.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
+gw.annual.mean.stack <- stack(gw.0.5mAD30.mean, gw.1.0mAD50.mean, gw.2.0mAD50.mean, gw.3.0mAD50.mean)
+gw.1.0less0.5_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[2] - x[1]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.1.0AD50less0.5AD30.tif'), progress='window')
+gw.2.0less1.0_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[3] - x[2]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.2.0AD50less1.0AD50.tif'), progress='window')
+gw.3.0less2.0_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[4] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.3.0AD50less2.0AD50.tif'), progress='window')
