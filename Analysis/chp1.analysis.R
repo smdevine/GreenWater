@@ -432,6 +432,7 @@ collect.stats.v2('alfalfa.intermountain')
 #this result also does not include the GW.capture.net column
 collect.stats.v2('alfalfa.imperial')
 collect.stats.v2('allcrops')
+
 #function to quantify water volumes for green water, blue water, precip
 #can decide whether or not to convert negative GW depths to depth of 0 for summation purposes
 #decided on 12/21 not to do this
