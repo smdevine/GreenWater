@@ -1,5 +1,7 @@
 #on 8/18, merged relevant scrip from 'merge_cropscape_soils_data.R' so model_scaffold
 #can work as a standalone to set up the model parameter matrix
+#on 1/23, projected model.codes.Aug2017.tif to California Teale Albers for plotting purposes
+#CA Teale Albers reference: http://www.spatialreference.org/ref/sr-org/10/
 library(raster)
 library(rgdal)
 options(digits = 22, scipen = 999)
@@ -14,6 +16,7 @@ soil_results <- file.path(results, 'rasters/soils')
 californiaDir <- 'C:/Users/smdevine/Desktop/SpatialData/CA_counties/government_units'
 spatialCIMIS <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/SpatialCIMIS'
 PRISMDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/PRISMdaily'
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017' #latest model scaffold directory
 ###this follows some raster processing in merge_cropscape_soils_data.R
 ###purpose of this script is to determine number of unique soil and crop scenarios and construct a model matrix that will be more memory efficient than a raster based model, since the majority of the cells in the raster are not of interest
 setwd(mu_dir)
@@ -150,7 +153,7 @@ for (i in 1:4) {
   results_df <- rbind(results_df, mukey_crop_df)
 }
 #could possibly just have used as.data.frame(na.rm=TRUE) to simplify much of above
-setwd(file.path(results, 'data.frames'))
+setwd(file.path(results, 'data.frames', 'Aug2017'))
 write.csv(results_df, 'mukeys_cropcodes_AEA.csv', row.names = FALSE)
 #read in this csv file
 results_df <- read.csv('mukeys_cropcodes_AEA.csv')
@@ -185,7 +188,7 @@ setwd(file.path(results, 'data.frames'))
 write.csv(mukeys_cropcodes_longlatNAD83_df, 'mukeys_cropcodes_longlatNAD83.csv')
 
 #read in CA_TA projection now and get cell numbers from
-setwd(file.path(results, 'data.frames'))
+setwd(file.path(results, 'data.frames', 'Aug2017'))
 mukeys_cropcodes_CA_TA <- read.csv('mukeys_cropcodes_CA_TA.csv')
 coordinates(mukeys_cropcodes_CA_TA) <- c('longitude_CA_TA', 'latitude_CA_TA')
 crs(mukeys_cropcodes_CA_TA) <- '+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0' #this is California Teale Albers, as defined by California state boundary shapefile
@@ -246,4 +249,67 @@ lonmin <- xmin(model_points_sp)
 raster_mukeys <- raster(xmn=(lonmin-15), xmx=(lonmax+15), ymn=(latmin-15), ymx=(latmax+15), resolution=30, crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs') #add or subtract 15 because coordinates are centers of the raster cells from which these were derived
 raster_mukeys <- rasterize(x=model_points_sp, y=raster_mukeys, field='mukey') #appears to be working but will take 2-3 hours
 
-#raster construction test
+#lines 252-278 was originally in "summer2017analysis.R" but makes more sense to be here
+#rasterize model_points_sp, setting values to 'unique_model_code'
+setwd(file.path(resultsDir, 'data.frames/Aug2017'))
+model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
+model_points_sp <- model_points
+coordinates(model_points_sp) <- c("longitude_AEA", "latitude_AEA")
+proj4string(model_points_sp) <- '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs' #this is Albers Equal Area coordinates)
+latmax <- ymax(model_points_sp)
+latmin <- ymin(model_points_sp)
+lonmax <- xmax(model_points_sp)
+lonmin <- xmin(model_points_sp)
+model_points_sp <- merge(model_points_sp, allcrops_GW_ET, by='unique_model_code')
+#test$meanGW.mm.year <- as.numeric(test$meanGW.mm.year)
+raster.model.codes <- raster(xmn=(lonmin-15), xmx=(lonmax+15), ymn=(latmin-15), ymx=(latmax+15), resolution=30, crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs') #add or subtract 15 because coordinates are centers of the raster cells from which these were derived
+rasterOptions(progress = 'window')
+raster.model.codes <- rasterize(x=model_points_sp, y=raster.model.codes, field='unique_model_code', fun=function(x,...) {min(x)})
+setwd(file.path(resultsDir, 'rasters/Aug2017'))
+writeRaster(raster.model.codes, 'model.codes.Aug2017.tif', format='GTiff')
+
+#create matrix of cell numbers of interest and model codes
+cell_numbers_of_interest <- Which(!is.na(raster.model.codes), cells = TRUE)
+unique_model_codes <- raster.model.codes[cell_numbers_of_interest]
+cellnums_to_modelcode <- cbind(cell_numbers_of_interest, unique_model_codes)
+length(cellnums_to_modelcode)
+write.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), 'cellnumbers_to_modelcodes.csv', row.names = FALSE)
+cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
+lapply(cell_numbers_to_codes, class)
+length(unique(cell_numbers_to_codes$unique_model_codes)) #341,207 unique codes
+
+#project model.codes.Aug2017.tif to California Teale Albers for plotting purposes
+model.codes.AEA <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
+model.codes.CA.TA <- projectRaster(from=model.codes.AEA, res = 30, crs = crs('+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'), method = 'ngb', filename = file.path(modelscaffoldDir, 'model.codes.Aug2017.CA.TA.v2.tif'), progress='window') #ngb stands for nearest neighbor; appropriate for this categorical data
+plot(model.codes.CA.TA)
+writeRaster(model.codes.CA.TA, filename = file.path(modelscaffoldDir, 'model.codes.Aug2017.CA.TA.tif'))
+
+#test that we still have the same number of cell numbers of interest after projection
+#get matrix of cell numbers of interest
+cell_numbers_of_interest.CA.TA <- Which(!is.na(model.codes.CA.TA), cells = TRUE)
+unique_model_codes <- model.codes.CA.TA[cell_numbers_of_interest.CA.TA]
+cellnums_to_modelcode.CA.TA <- cbind(cell_numbers_of_interest.CA.TA, unique_model_codes)
+#setwd('C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017')
+write.csv(cellnums_to_modelcode.CA.TA, file.path(modelscaffoldDir,'test.v2_cellnumbers_to_modelcodes.CA.TA.csv'), row.names = FALSE)
+cellnums_modelcode_CA.TA <- read.csv(file.path(modelscaffoldDir,'test_cellnumbers_to_modelcodes.CA.TA.csv'))
+length(unique(cellnums_modelcode_CA.TA$unique_model_codes)) #339,303 unique codes, loss of 1,904 due to projection
+
+#alternative approach to to building raster for California Teale Albers (in-progress 1/30/18)
+#follows lines approx. 252-278 above
+#rasterize model_points_sp, setting values to 'unique_model_code'
+setwd(file.path(resultsDir, 'data.frames/Aug2017'))
+model_points <- read.csv('mukeys_cropcodes_climatecodes_AEA.csv')
+model_points_sp <- model_points
+coordinates(model_points_sp) <- c("longitude_AEA", "latitude_AEA")
+proj4string(model_points_sp) <- '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs' #this is Albers Equal Area coordinates)
+latmax <- ymax(model_points_sp)
+latmin <- ymin(model_points_sp)
+lonmax <- xmax(model_points_sp)
+lonmin <- xmin(model_points_sp)
+model_points_sp <- merge(model_points_sp, allcrops_GW_ET, by='unique_model_code')
+#test$meanGW.mm.year <- as.numeric(test$meanGW.mm.year)
+raster.model.codes <- raster(xmn=(lonmin-15), xmx=(lonmax+15), ymn=(latmin-15), ymx=(latmax+15), resolution=30, crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs') #add or subtract 15 because coordinates are centers of the raster cells from which these were derived
+rasterOptions(progress = 'window')
+raster.model.codes <- rasterize(x=model_points_sp, y=raster.model.codes, field='unique_model_code', fun=function(x,...) {min(x)})
+setwd(file.path(resultsDir, 'rasters/Aug2017'))
+writeRaster(raster.model.codes, 'model.codes.Aug2017.tif', format='GTiff')
