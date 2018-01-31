@@ -1,6 +1,7 @@
 library(raster)
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Oct2017/summaries'
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
+spatialDir <- 'C:/Users/smdevine/Desktop/SpatialData'
 #if so desired
 #model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
 rasterResultsDir <- 'D:/Allowable_Depletion/results/Dec2017.check/summaries'
@@ -179,3 +180,27 @@ gw.annual.mean.stack <- stack(gw.0.5mAD30.mean, gw.1.0mAD50.mean, gw.2.0mAD50.me
 gw.1.0less0.5_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[2] - x[1]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.1.0AD50less0.5AD30.tif'), progress='window')
 gw.2.0less1.0_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[3] - x[2]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.2.0AD50less1.0AD50.tif'), progress='window')
 gw.3.0less2.0_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[4] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.3.0AD50less2.0AD50.tif'), progress='window')
+
+#project CA counties to California Teale Albers for plotting purposes
+CA.counties <- shapefile(file.path(spatialDir, 'government_units', 'county_nrcs_a_ca.shp'))
+CA.counties.CA.TA <- spTransform(CA.counties, crs('+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'))
+plot(CA.counties.CA.TA)
+shapefile(x=CA.counties.CA.TA, filename=file.path(spatialDir, 'government_units', 'CA_TA_projection', 'counties.CA.TA.shp'))
+CA.counties.AEA <- shapefile(file.path(spatialDir, 'government_units', 'AEA_projection', 'CA_counties_AEA.shp'))
+plot(CA.counties.AEA)
+CV_box <- spPolygons(rbind(c(-2313800, 2221300), c(-2020150, 2221300), c(-2020150, 1564000), c(-2313800, 1564000)), crs='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')
+plot(CV_box, add=T)
+
+#project CA counties to AEA
+#definition from http://spatialreference.org/ref/esri/usa-contiguous-albers-equal-area-conic/proj4/: +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs
+#definition from reading in CA 2015 Cropscape raster: +proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs
+CA.counties <- shapefile(file.path(spatialDir, 'government_units', 'county_nrcs_a_ca.shp'))
+#CA.counties.AEA <- spTransform(CA.counties, crs('+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'))
+CA.counties.AEA <- spTransform(CA.counties, crs('+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'))
+shapefile(x=CA.counties.AEA, filename=file.path(spatialDir, 'government_units', 'AEA_projection', 'CA.counties.AEA.shp'), overwrite=TRUE)
+
+#project AEA extent frames to CA_TA
+CA.counties.CA.TA <- shapefile(file.path(spatialDir, 'government_units', 'CA_TA_projection', 'counties.CA.TA.shp'))
+plot(CA.counties.CA.TA)
+CV_box_CA.TA <- spTransform(CV_box, crs('+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'))
+plot(CV_box_CA.TA, add=TRUE)
