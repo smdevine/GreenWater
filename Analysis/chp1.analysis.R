@@ -6,7 +6,7 @@ modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffol
 dissertationDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/dissertation'
 #if so desired
 #model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
-rasterResultsDir <- 'D:/Allowable_Depletion/results/Dec2017.check/summaries'
+rasterResultsDir <- 'D:/Allowable_Depletion/results/Jan2018.AEA/summaries'
 setwd(modelscaffoldDir)
 cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
@@ -160,7 +160,7 @@ MakeBPs.v2('alfalfa.imperial')
 #build a raster based on a single results filename and variable of interest
 raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif')) #'model.codes.Aug2017.CA.TA.tif'))
 cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
-RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname) {
+RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname, years) {
   if (!dir.exists(file.path(rasterResultsDir, cropname))) {
     dir.create(file.path(rasterResultsDir, cropname))
   }
@@ -191,7 +191,7 @@ RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname) {
     removeTmpFiles(h=0.0001)
   }
   if (readraster) {
-    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.CA.TA.tif'))
+    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
   }
   if (readcellnums) {
     cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
@@ -206,16 +206,23 @@ RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname) {
   if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))) {
     dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))
   }
-  #rasterize.result.statistic(varname = 'GW.ET.growing', func = median, 'median')
-  #rasterize.result.statistic(varname = 'Irr.app.total', func = median, 'median')
-  #rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
-  #rasterize.result.statistic(varname='cropcode', func = unique, funcname = 'CS', years = 2005:2016) #CS stands for CropScape
-  #rasterize.result.statistic(varname='P.annual', func=mean, 'mean', years = 2005:2016)
-  #rasterize.result.statistic(varname='ETo.annual', func=mean, 'mean', years = 2005:2016)
-  rasterize.result.statistic(varname = 'X1.0mPAW.mmH2O', func=median, 'SSURGO', years=2005:2016) #could have used rasterize.result.statistic for paw with median; unique was recognizing distinct numeric values where there was no distinct value across years for paw, and so some unique model codes had more than value as such
+  # rasterize.result.statistic(varname = 'GW.ET.growing', func = mean, 'mean', years = years)
+  # rasterize.result.statistic(varname = 'Irr.app.total', func = mean, 'mean', years = years)
+  # rasterize.result.statistic(varname = 'E.growing', func = mean, 'mean', years = years)
+  # rasterize.result.statistic(varname = 'deep.perc.annual', func = max, 'max', years = years)
+  # rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
+  rasterize.result.statistic(varname='cropcode', func = unique, funcname = 'CS', years = years) #CS stands for CropScape
+  # rasterize.result.statistic(varname='P.annual', func=mean, 'mean', years = years)
+  # rasterize.result.statistic(varname='ETo.annual', func=mean, 'mean', years = years)
+  # rasterize.result.statistic(varname = 'X1.0mPAW.mmH2O', func=median, 'SSURGO', years = years)
+  # rasterize.result.statistic(varname='ETo.annual', func=mean, 'mean', years = years)
+  # rasterize.result.statistic(varname = 'TEW', func=median, 'SSURGO', years = years)
+  # rasterize.result.statistic(varname='ETo.growing', func=mean, 'mean', years = years)
 }
-RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops1.0mAD50_FAO56results_points_rounded.csv')
-
+#last run on 1.31.18 to export to Jan2018.AEA
+RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops0.5mAD30_FAO56results_points_rounded.csv', years=2005:2016)
+RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops1.0mAD50_FAO56results_points_rounded.csv', years=2005:2016)
+RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops2.0mAD50_FAO56results_points_rounded.csv', years=2005:2016)
 #confirm cell counts with valid crop codes vs. counts of cells with valid GW results
 crop.codes <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters', 'cropcode', 'cropcode.CS.tif'))
 sum(!is.na(crop.codes))
@@ -258,7 +265,7 @@ RasterBuild.v2 <- function(readraster=FALSE, readcellnums=FALSE, cropname, conve
     removeTmpFiles(h=0.0001)
   }
   if (readraster) {
-    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.CA.TA.tif'))
+    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
   }
   if (readcellnums) {
     cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
