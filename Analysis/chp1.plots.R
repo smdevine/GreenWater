@@ -4,7 +4,7 @@ modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffol
 spatialDir <- 'C:/Users/smdevine/Desktop/SpatialData'
 #if so desired
 #model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v2.csv'), stringsAsFactors = F)
-rasterResultsDir <- 'D:/Allowable_Depletion/results/Dec2017.check/summaries'
+rasterResultsDir <- 'D:/Allowable_Depletion/results/Jan2018.AEA/summaries'
 rasterResultsDir2 <- 'D:/Allowable_Depletion/results/Oct2017/summaries'
 list.files(path=rasterResultsDir)
 list.files(path=file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50'))
@@ -172,14 +172,27 @@ system.time(gw.2.0less0.5_annual <- calc(gw.2.0less0.5, fun = function(x) {x / 1
 writeRaster(gw.2.0less0.5_annual, file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.2.0AD50less0.5AD30.annual.avg.tif'))
 
 #new approach to get annual average effect differences using means
+#TO-DO: write this as a function in chp1.analysis.R
 gw.0.5mAD30.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_0.5mAD30', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
 gw.1.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_1.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
 gw.2.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
-gw.3.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_3.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
-gw.annual.mean.stack <- stack(gw.0.5mAD30.mean, gw.1.0mAD50.mean, gw.2.0mAD50.mean, gw.3.0mAD50.mean)
+#gw.3.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_3.0mAD50', 'rasters', 'GW.ET.growing', 'GW.ET.growing.mean.tif'))
+gw.annual.mean.stack <- stack(gw.0.5mAD30.mean, gw.1.0mAD50.mean, gw.2.0mAD50.mean) #, gw.3.0mAD50.mean)
 gw.1.0less0.5_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[2] - x[1]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.1.0AD50less0.5AD30.tif'), progress='window')
 gw.2.0less1.0_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[3] - x[2]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.2.0AD50less1.0AD50.tif'), progress='window')
 gw.3.0less2.0_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[4] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.3.0AD50less2.0AD50.tif'), progress='window')
+gw.2.0less0.5_annual <- calc(gw.annual.mean.stack, fun = function(x) {x[3] - x[1]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'gw.2.0AD50less0.5AD30.tif'), progress='window')
+
+#annual average effect differences using means for blue water
+bw.0.5mAD30.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_0.5mAD30', 'rasters', 'Irr.app.total', 'Irr.app.total.mean.tif'))
+bw.1.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_1.0mAD50', 'rasters', 'Irr.app.total', 'Irr.app.total.mean.tif'))
+bw.2.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters', 'Irr.app.total', 'Irr.app.total.mean.tif'))
+#bw.3.0mAD50.mean <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_3.0mAD50', 'rasters', 'Irr.app.total', 'Irr.app.total.mean.tif'))
+bw.annual.mean.stack <- stack(bw.0.5mAD30.mean, bw.1.0mAD50.mean, bw.2.0mAD50.mean) #, gw.3.0mAD50.mean)
+bw.1.0less0.5_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[2] - x[1]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.1.0AD50less0.5AD30.tif'), progress='window')
+bw.2.0less1.0_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[3] - x[2]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.2.0AD50less1.0AD50.tif'), progress='window')
+bw.3.0less2.0_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[4] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.3.0AD50less2.0AD50.tif'), progress='window')
+bw.0.5less2.0_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[1] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.0.5AD30less2.0AD50.tif'), progress='window')
 
 #project CA counties to California Teale Albers for plotting purposes
 CA.counties <- shapefile(file.path(spatialDir, 'government_units', 'county_nrcs_a_ca.shp'))
