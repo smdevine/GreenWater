@@ -275,6 +275,7 @@ cellnums_to_modelcode <- cbind(cell_numbers_of_interest, unique_model_codes)
 length(cellnums_to_modelcode)
 write.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), 'cellnumbers_to_modelcodes.csv', row.names = FALSE)
 cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
+dim(cell_numbers_to_codes)
 lapply(cell_numbers_to_codes, class)
 length(unique(cell_numbers_to_codes$unique_model_codes)) #341,207 unique codes
 
@@ -291,8 +292,10 @@ unique_model_codes <- model.codes.CA.TA[cell_numbers_of_interest.CA.TA]
 cellnums_to_modelcode.CA.TA <- cbind(cell_numbers_of_interest.CA.TA, unique_model_codes)
 #setwd('C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017')
 write.csv(cellnums_to_modelcode.CA.TA, file.path(modelscaffoldDir,'test.v2_cellnumbers_to_modelcodes.CA.TA.csv'), row.names = FALSE)
-cellnums_modelcode_CA.TA <- read.csv(file.path(modelscaffoldDir,'test_cellnumbers_to_modelcodes.CA.TA.csv'))
-length(unique(cellnums_modelcode_CA.TA$unique_model_codes)) #339,303 unique codes, loss of 1,904 due to projection
+cellnums_to_modelcode.CA.TA <- read.csv(file.path(modelscaffoldDir, 'test.v2_cellnumbers_to_modelcodes.CA.TA.csv'))
+dim(cellnums_to_modelcode.CA.TA)
+length(unique(cellnums_to_modelcode.CA.TA$unique_model_codes)) #339,303 unique codes, loss of 1,904 due to projection in v1 of CA TA
+#338,486 unique code in v2 of CA TA due to 
 
 #alternative approach to to building raster for California Teale Albers (in-progress 1/30/18)
 #follows lines approx. 252-278 above
