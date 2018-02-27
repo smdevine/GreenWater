@@ -193,6 +193,7 @@ bw.1.0less0.5_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[2] - x[1
 bw.2.0less1.0_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[3] - x[2]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.2.0AD50less1.0AD50.tif'), progress='window')
 bw.3.0less2.0_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[4] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.3.0AD50less2.0AD50.tif'), progress='window')
 bw.0.5less2.0_annual <- calc(bw.annual.mean.stack, fun = function(x) {x[1] - x[3]}, filename=file.path(rasterResultsDir, 'allcrops', 'figures', 'comparisons', 'bw.0.5AD30less2.0AD50.tif'), progress='window')
+quantile(bw.0.5less2.0_annual, probs=c(0.01, 0.05, 0.2, 0.4, 0.6, 0.8, 0.95, 0.99), na.rm=TRUE, type=7)
 
 #project CA counties to California Teale Albers for plotting purposes
 CA.counties <- shapefile(file.path(spatialDir, 'government_units', 'county_nrcs_a_ca.shp'))
