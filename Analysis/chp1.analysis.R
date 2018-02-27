@@ -403,7 +403,7 @@ collect.stats('alfalfa.imperial')
 collect.stats('allcrops')
 
 #function to collect stats about 20, 40, 60, and 80th percentiles
-#do only for years 2005-2016
+#do only for years 2005-2016, see version below that expands stats collection
 collect.stats.v2 <- function(cropname) {
   setwd(file.path(resultsDir, cropname))
   fnames <- list.files(pattern = glob2rx('*.csv'))
@@ -453,7 +453,7 @@ collect.stats.v2('allcrops')
 collect.stats.v3 <- function(cropname, years) {
   fnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'), full.names = FALSE)
   fnames_full <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'), full.names = TRUE)
-  for (j in c(3)) { #seq_along(fnames))
+  for (j in seq_along(fnames)) { #seq_along(fnames))
     summary.fname <- gsub('results_points_rounded.csv', '', fnames[j])
     result <- read.csv(fnames_full[j], stringsAsFactors = FALSE)
     result <- result[ ,-2] #don't need the PAW data twice in different units
@@ -486,6 +486,52 @@ collect.stats.v3 <- function(cropname, years) {
 }
 collect.stats.v3('allcrops', 2005) #run on 1/30/18 to get quantile breaks for maps
 collect.stats.v3('allcrops', 2014)
+
+#do only for years 2005-2016 for more complete set of stats
+collect.stats.v4 <- function(cropname, years, fname_yrs) {
+  fnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'), full.names = FALSE)
+  fnames_full <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'), full.names = TRUE)
+  for (j in seq_along(fnames)) { #seq_along(fnames))
+    summary.fname <- gsub('results_points_rounded.csv', '', fnames[j])
+    result <- read.csv(fnames_full[j], stringsAsFactors = FALSE)
+    result <- result[ ,-2] #don't need the PAW data twice in different units
+    result <- result[which(result$Model.Year %in% years), ]
+    print(nrow(result))
+    if (cropname=='allcrops') {
+      result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year', 'cropcode', 'cropname'))]
+    } else {result <- result[ ,!(names(result) %in% c('unique_model_code', 'mukey', 'compnames', 'cokeys', 'PRISMcellnumber', 'CIMIScellnumber', 'Model.Year'))]} #don't need summary stats for these columns
+    varnames <- colnames(result)
+    varnames <- varnames[-which(varnames=='cellcounts30m2')]
+    summary_result <- as.data.frame(matrix(data=NA, nrow=length(varnames), ncol=16))
+    colnames(summary_result) <- c('varname', 'Min', 'Qu0.005', 'Qu0.025', 'Qu0.2', 'Qu0.25', 'Qu0.4', 'Median', 'Mean', 'Qu0.6', 'Qu0.75', 'Qu0.8', 'Qu0.975', 'Qu0.995', 'Max', 'StDev')
+    row.names(summary_result) <- varnames
+    for (i in seq_along(result)) {
+      if (colnames(result)[i]=='cellcounts30m2') {
+        next
+      }
+      varname <- colnames(result)[i]
+      data.expanded <- rep(result[,i], times=result$cellcounts30m2)
+      stats.data <- data.frame(varname=varname, Min=min(data.expanded, na.rm=TRUE), Qu0.005=quantile(data.expanded, 0.005, na.rm = TRUE), Qu0.025=quantile(data.expanded, 0.025, na.rm = TRUE), Qu0.2=quantile(data.expanded, 0.2, na.rm = TRUE), Qu0.25=quantile(data.expanded, 0.25, na.rm = TRUE), Qu0.4=quantile(data.expanded, 0.4, na.rm = TRUE), Median=median(data.expanded, na.rm = TRUE), Mean=mean(data.expanded, na.rm = TRUE), Qu0.6=quantile(data.expanded, 0.6, na.rm = TRUE), Qu0.75=quantile(data.expanded, 0.75, na.rm = TRUE), Qu0.8=quantile(data.expanded, 0.8, na.rm = TRUE), Qu0.975=quantile(data.expanded, 0.975, na.rm = TRUE), Qu0.995=quantile(data.expanded, 0.995, na.rm = TRUE), Max=max(data.expanded, na.rm = TRUE), StDev=sd(data.expanded, na.rm = TRUE), row.names = NULL)
+      stats.data[,2:ncol(stats.data)] <- round(stats.data[,2:ncol(stats.data)], 1)
+      stats.data$varname <- as.character(stats.data$varname)
+      summary_result[varname,] <- stats.data #indexing by row.name here
+    }
+    if (!dir.exists(file.path(resultsDir, cropname, 'allyrs_stats_v4'))) {
+      dir.create(file.path(resultsDir, cropname, 'allyrs_stats_v4'))
+    }
+    write.csv(summary_result, file.path(resultsDir, cropname, 'allyrs_stats_v4', paste0(summary.fname, '_summarystats_', fname_yrs, '.csv')), row.names = FALSE)
+  }
+}
+collect.stats.v4('alfalfa.intermountain', 2005:2016, '2005_2016')
+collect.stats.v4('walnut.mature', 2005:2016, '2005_2016')
+collect.stats.v4('almond.mature', 2005:2016, '2005_2016')
+collect.stats.v4('pistachios', 2005:2016, '2005_2016')
+collect.stats.v4('grapes.table', 2005:2016, '2005_2016')
+collect.stats.v4('grapes.wine', 2005:2016, '2005_2016')
+collect.stats.v4('alfalfa.CV', 2005:2016, '2005_2016')
+collect.stats.v4('alfalfa.imperial', 2005:2016, '2005_2016')
+collect.stats.v4('allcrops', 2005:2016, '2005_2016')
+
 #function to quantify water volumes for green water, blue water, precip
 #can decide whether or not to convert negative GW depths to depth of 0 for summation purposes
 #decided on 12/21 not to do this
@@ -576,13 +622,13 @@ combine.scenarios('grapes.wine', use.negative.GW = TRUE)
 combine.scenarios('allcrops', use.negative.GW = TRUE)
 
 #combine variables across crops and scenarios from stats summaries in mm
-#better solution could be transforming MAF summaries above by crop acreage to eliminate interannual delta S effects on GW results
+#connected summaries with allyrs_stats_v4, which is only 2005-2016 results
 make.crop.water.depth.table <- function(scenario_name, stat) {
   cropnames <- c('almond.mature', 'alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
   paw_varname_end <- ifelse(grepl('alfalfa', cropnames), '_mmH2O_unmodified_comp', '_mmH2O_modified_comp')
   paw_varnames <- paste0('z', substr(scenario_name, 1, 4), paw_varname_end) 
-  varnames <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'H2O.stress', 'P.annual', 'ETo.growing', 'TEW', 'PAW')
-  varnames.v2 <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'H2O.stress', 'P.annual', 'ETo.annual', 'TEW', 'PAW')
+  varnames <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'post.Irr1.deep.perc', 'H2O.stress', 'P.annual', 'ETo.growing', 'TEW', 'PAW')
+  varnames.v2 <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'post.Irr1.deep.perc', 'H2O.stress', 'P.annual', 'ETo.annual', 'TEW', 'PAW')
   var.summary <- as.data.frame(matrix(data=NA, nrow=length(cropnames), ncol=length(varnames)))
   colnames(var.summary) <- varnames
   var.summary$cropname <- cropnames
@@ -595,25 +641,24 @@ make.crop.water.depth.table <- function(scenario_name, stat) {
     } else {varnames.temp <- varnames}
     if (cropnames[i]=='grapes.wine') {
       scenario_name_wine <- paste0(substr(scenario_name, 1, 4), if(substr(scenario_name, 7, 8)=='30') {'RDI.min0.8'} else if(substr(scenario_name, 7, 8)=='50') {'RDI.min0.5'} else if(substr(scenario_name, 7, 8)=='80'){'RDI.min0.2'})
-      fname <- paste0(cropnames[i], scenario_name_wine, '_FAO56_summarystats.csv')
+      fname <- paste0(cropnames[i], scenario_name_wine, '_FAO56_summarystats_', '2005_2016', '.csv')
     } else {
-        fname <- paste0(cropnames[i], scenario_name, '_FAO56_summarystats.csv')
+        fname <- paste0(cropnames[i], scenario_name, '_FAO56_summarystats_', '2005_2016', '.csv') #example fname almond.mature0.5mAD30_FAO56_summarystats_2005_2016.csv
     }
-    fname_full <- file.path(resultsDir, cropnames[i], 'allyrs_stats', fname)
+    fname_full <- file.path(resultsDir, cropnames[i], 'allyrs_stats_v4', fname)
     df <- read.csv(fname_full, stringsAsFactors = FALSE)
     var.summary[i, 2:length(varnames.temp)] <- df[match(varnames.temp[2:length(varnames.temp)], df$varname), stat]
   }
   write.csv(var.summary, file=file.path(dissertationDir, 'tables', paste0(scenario_name, '.', stat, '.crop.water.balance.mm.csv')), row.names=FALSE)
   var.summary
 }
-make.crop.water.depth.table('2.0mAD50', 'Median')
-make.crop.water.depth.table('1.0mAD50', 'Median')
-make.crop.water.depth.table('0.5mAD30', 'Median')
+#make.crop.water.depth.table('2.0mAD50', 'Median')
+#make.crop.water.depth.table('1.0mAD50', 'Median')
+#make.crop.water.depth.table('0.5mAD30', 'Median')
+#re-run 2/27/18 for NRCS Chico presentation
 make.crop.water.depth.table('2.0mAD50', 'Mean')
 make.crop.water.depth.table('1.0mAD50', 'Mean')
 make.crop.water.depth.table('0.5mAD30', 'Mean')
-
-#convert 1.0 m root depth x 50% allowable depletion water balance summaries by crop to an overall mm depth table
 
 
 #get each crop's results for a given scenario, rbind together and save as csv in all_crops
