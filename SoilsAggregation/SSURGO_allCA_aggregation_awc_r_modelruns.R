@@ -1,7 +1,7 @@
 #script modified and simplified from SSURGO_processing_awc_r.R to obtain 
   # required model paramters
-#for summer 2017 model effort
-#7/27/17 added function to calculate extended profile awc storage to 4 m for major component soils with no restrictive layers in database; this will be used for exploration of of P vs. soil water storage
+#for summer 2017 model effort & March 2018 model re-run using latest SSURGO & LandIQ crops data
+#7/27/17 added function to calculate extended profile awc storage to 4 m for major component soils with no restrictive layers in database; this will be used for exploration of P vs. soil water storage
 #library(plyr)
 #library(dplyr)
 #library(nnet)
@@ -10,8 +10,7 @@
 #loadfonts()
 options(stringsAsFactors = FALSE)
 mainDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion'
-
-SoilsDataDir <- file.path(mainDir, 'soils_data/soilDB_query/CA_all')
+SoilsDataDir <- file.path(mainDir, 'soils_data/soilDB_query/Mar2018')
 sum_modified <- function(x) {
   if(all(is.na(x))) {
     return(NA)
@@ -36,39 +35,40 @@ max_modified <- function(x) {
   }
   else {max(x, na.rm = TRUE)}
 }
-results <- file.path(mainDir, 'soils_data/results/summer2017model/CA_all')
+resultsDir <- file.path(mainDir, 'soils_data/results/spring2018model')
 
 #fc_def <- 'awc_r'
 #figure_label <- 'SSURGO defined FC'
 
 #one-time operation to clean SSURGO horizon data which had duplicate chkeys 
-setwd(SoilsDataDir)
-list.files()
-ssurgo_horizon <- read.csv('CA_all_horizon_data_2017-07-24.csv')
+list.files(SoilsDataDir)
+ssurgo_horizon <- read.csv(file.path(SoilsDataDir, 'CA_all_horizon_data_2018-03-06.csv'))
 ssurgo_horizon <- ssurgo_horizon[!is.na(ssurgo_horizon$chkey), ] #get rid of 
-  # chkeys that have no data first
+  # chkeys that are guaranteed to have no data first, defined as a NA chkey
 sum(is.na(ssurgo_horizon$cokey))
-fragvol_tot <- as.data.frame(tapply(ssurgo_horizon$fragvol_r, ssurgo_horizon$chkey, sum, na.rm=TRUE))
-colnames(fragvol_tot) <- 'fragvol_r_sum'
+fragvol_tot <- data.frame(fragvol_r_sum=tapply(ssurgo_horizon$fragvol_r, ssurgo_horizon$chkey, sum, na.rm=TRUE)) #this is being returned as array
 fragvol_tot$chkey <- rownames(fragvol_tot)
 rownames(fragvol_tot) <- NULL
+fragvol_tot$fragvol_r_sum <- as.numeric(fragvol_tot$fragvol_r_sum)
 ssurgo_horizon <- ssurgo_horizon[!duplicated(ssurgo_horizon$chkey), ] #get rid of duplicate chkeys, which only have unique fragvol_r and fragsize_r values
 ssurgo_horizon <- ssurgo_horizon[ ,-which(colnames(ssurgo_horizon) == "fragvol_r" | colnames(ssurgo_horizon)=="fragsize_r")]
 ssurgo_horizon <- merge(ssurgo_horizon, fragvol_tot, by='chkey')
-write.csv(ssurgo_horizon, paste0('CA_all_horizon_data_', Sys.Date(), '_clean.csv'), row.names = FALSE)
-setwd(SoilsDataDir)
-ssurgo_horizon <- read.csv('CA_all_horizon_data_2017-07-24_clean.csv')
+write.csv(ssurgo_horizon, file.path(resultsDir, paste0('CA_all_horizon_data_', Sys.Date(), '_clean.csv')), row.names = FALSE)
+
+#read-in new ssurgo_horizon table that has now been reduced to one row per horizon
+ssurgo_horizon <- read.csv(file.path(resultsDir, 'CA_all_horizon_data_2018-03-07_clean.csv'))
 #see rules for soil textural classes.pdf in 'Allowable Depletion' folder
-length(unique(ssurgo_horizon$cokey)) #37,642 cokeys; from comp table, 30k are majcomps
+length(unique(ssurgo_horizon$cokey)) #31,096 cokeys; from comp table
+
 #stats before modification
-sum(is.na(ssurgo_horizon$awc_r)) #19816
-sum(is.na(ssurgo_horizon$wfifteenbar_r)) #24656
-sum(is.na(ssurgo_horizon$claytotal_r)) #23859
-sum(is.na(ssurgo_horizon$silttotal_r)) #25203
-sum(is.na(ssurgo_horizon$sandtotal_r)) #25181
-sum(is.na(ssurgo_horizon$textural.class)) #25237
-sum(ssurgo_horizon$textural.class=='proportions do not sum to 100+-1', na.rm = TRUE) #543
-sum(is.na(ssurgo_horizon$wpmd)) #25780 (relies on sand fraction data also)
+sum(is.na(ssurgo_horizon$awc_r)) #16156
+sum(is.na(ssurgo_horizon$wfifteenbar_r)) #20079
+sum(is.na(ssurgo_horizon$claytotal_r)) #19042
+sum(is.na(ssurgo_horizon$silttotal_r)) #20105
+sum(is.na(ssurgo_horizon$sandtotal_r)) #20096
+sum(is.na(ssurgo_horizon$textural.class)) 
+sum(ssurgo_horizon$textural.class=='proportions do not sum to 100+-1', na.rm = TRUE) 
+sum(is.na(ssurgo_horizon$wpmd)) # (relies on sand fraction data also)
 
 textural.class.calc <- function(sand, silt, clay) {
   ifelse(is.na(sand) | is.na(silt) | is.na(clay), NA,
@@ -92,7 +92,7 @@ textural.class.calc <- function(sand, silt, clay) {
 }
 ssurgo_horizon$texture.sums <- ssurgo_horizon$sandtotal_r + ssurgo_horizon$silttotal_r + ssurgo_horizon$claytotal_r
 table(ssurgo_horizon$texture.sums)
-sum(ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums)) #801 don't add up to 100; 1749 statewide
+sum(ssurgo_horizon$texture.sums != 100 & !is.na(ssurgo_horizon$texture.sums)) #801 don't add up to 100
 FixTexture <- function(df, varname) {
   ifelse(is.na(df$texture.sums), df[[varname]] <- df[[varname]],
   ifelse(df$texture.sums > 99 & df$texture.sums < 101, df[[varname]] <- df[[varname]],
@@ -132,8 +132,8 @@ ssurgo_horizon$wpmd <- ifelse(is.na(ssurgo_horizon$wpmd) & ssurgo_horizon$wpmd.c
 #look at new variable wpmd (weighted particle mean diameter) by textural class
 tapply(ssurgo_horizon$wpmd, ssurgo_horizon$textural.class, mean, na.rm=TRUE)
 summary(as.factor(ssurgo_horizon$textural.class))
-setwd(results)
-write.csv(table(as.factor(ssurgo_horizon$textural.class)), paste0('CA_all_horizon_textural_class', Sys.Date(), '.csv'), row.names = FALSE)
+
+write.csv(table(as.factor(ssurgo_horizon$textural.class)), file.path(resultsDir, paste0('CA_all_horizon_textural_class', Sys.Date(), '.csv')), row.names = FALSE)
 
 #here on 7/24/2017; need to revise function to handle depth flexibly
 unique(ssurgo_horizon$textural.class[ssurgo_horizon$wpmd > 0.15])
@@ -147,10 +147,9 @@ summary(ssurgo_horizon$surface.depth)
 hist(ssurgo_horizon$surface.depth)
 unique(ssurgo_horizon$textural.class[ssurgo_horizon$surface.depth==15])
 ssurgo_horizon[which(ssurgo_horizon$textural.class == 'loamy sand' & ssurgo_horizon$surface.depth==15), ]
-setwd(results)
-write.csv(ssurgo_horizon, paste0('CA_all_horizon_data_', Sys.Date(), '_cleantexture.csv'), row.names = FALSE)
+write.csv(ssurgo_horizon, file.path(resultsDir, paste0('CA_all_horizon_data_', Sys.Date(), '_cleantexture.csv')), row.names = FALSE)
+
 #now, determine surface characteristics for a flexible depth (Ze), determined from surface wpmd
-df <- test
 surface_weighting <- function(df) {
   df <- df[,c('cokey', 'hzdept_r', 'hzdepb_r', 'surface.depth', 'awc_r', 'wfifteenbar_r', 'fragvol_r_sum', 'claytotal_r', 'silttotal_r', 'sandtotal_r')]
   df <- df[order(df$hzdept_r, decreasing = FALSE), ]
@@ -231,26 +230,24 @@ surface_weighting <- function(df) {
     }
 surface.horizons <- ssurgo_horizon[ssurgo_horizon$hzdept_r < 15, ]
 surface.horizons <- surface.horizons[order(surface.horizons$cokey), ]
-surface.horizons$fragvol_r_sum[surface.horizons$fragvol_r_sum > 100] <- 100
-sum(is.na(surface.horizons$awc_r)) #3033
-sum(is.na(surface.horizons$claytotal_r)) #4590
-sum(is.na(surface.horizons$surface.depth)) #5128
-sum(is.na(surface.horizons$wfifteenbar_r)) #4091
-sum(is.na(surface.horizons$textural.class)) #5011
-sum(surface.horizons$textural.class=='proportions do not sum to 100+-1', na.rm = TRUE) #117
+surface.horizons$fragvol_r_sum[surface.horizons$fragvol_r_sum > 100] <- 100 #correct fragvol_r_sum
+sum(is.na(surface.horizons$awc_r)) #2062
+sum(is.na(surface.horizons$claytotal_r)) #2771
+sum(is.na(surface.horizons$surface.depth)) #3041
+sum(is.na(surface.horizons$wfifteenbar_r)) #2835
+sum(is.na(surface.horizons$textural.class)) #3016
+sum(surface.horizons$textural.class=='proportions do not sum to 100+-1', na.rm = TRUE) #25
 sum(is.na(surface.horizons$awc_r) & !is.na(surface.horizons$surface.depth))
-#61 have surface.depth data but no awc data; these will be ignored
-sum(!is.na(surface.horizons$awc_r) & !is.na(surface.horizons$surface.depth)) #51769
-sum(!is.na(surface.horizons$awc_r)) #53925
-sum(!is.na(surface.horizons$surface.depth)) #51830
+#12 have surface.depth data but no awc data; these will be ignored
+sum(!is.na(surface.horizons$awc_r) & !is.na(surface.horizons$surface.depth)) #41579
+sum(!is.na(surface.horizons$awc_r)) #42570
+sum(!is.na(surface.horizons$surface.depth)) #41591
 summary(as.factor(surface.horizons$textural.class))
 sum(surface.horizons$surface.depth < 10, na.rm = TRUE)
 
-test <- surface.horizons[which(surface.horizons$cokey==13063747), ] #need to get rid of NA cokeys
-df <- test #then manually step into surface_weighting function from here
 #run function to produce new dataset about surface horizons
 surface.data <- do.call(rbind, lapply(split(surface.horizons, surface.horizons$cokey), surface_weighting))
-surface.data$TEW <- (surface.data$awc_r + 0.5*surface.data$wfifteenbar_r/100)*surface.data$surface.depth*10 #this converts it to mm H2O per X cm soil; typically 10-15 cm soi
+surface.data$TEW <- (surface.data$awc_r + 0.5*surface.data$wfifteenbar_r/100)*surface.data$surface.depth*10 #this converts it to mm H2O per X cm soil; typically 10-15 cm soil depth
 
 REWcalc <- function(sand, clay, fragvol, Ze) { #assumed equations were published for 10 cm soil slice
   ifelse(sand >= 80, (Ze / 10) * (20 - sand * 0.15) * (100 - fragvol) / 100, 
@@ -261,7 +258,8 @@ surface.data$REW <- REWcalc(surface.data$sandtotal_r, surface.data$claytotal_r, 
 surface.data$textural.class <- textural.class.calc(surface.data$sandtotal_r, surface.data$silttotal_r, surface.data$claytotal_r)
 dim(surface.data)
 head(surface.data)
-sum(surface.data$surface.depth < 10, na.rm=TRUE) #72 surface depths are now > 15 & 730 are < 10
+sum(surface.data$surface.depth < 10, na.rm=TRUE) #0 surface depths are now > 15 & 3 are < 10
+sum(surface.data$surface.depth > 15, na.rm=TRUE)
 summary(surface.data$awc_r)
 summary(surface.data$wfifteenbar_r)
 summary(surface.data$sandtotal_r)
@@ -272,17 +270,16 @@ summary(surface.data$TEW)
 hist(surface.data$TEW)
 summary(surface.data$REW)
 summary(surface.data$REW/surface.data$TEW)
-sum(surface.data$REW/surface.data$TEW > 0.6 & surface.data$REW/surface.data$TEW < 0.8, na.rm = TRUE) #2842 > 0.7; 1454 > 0.8; 301 > 1
+sum(surface.data$REW/surface.data$TEW > 0.6 & surface.data$REW/surface.data$TEW < 0.8, na.rm = TRUE)
 hist(surface.data$REW/surface.data$TEW)
 sum(!is.na(surface.data$TEW) & is.na(surface.data$REW))
 sum(is.na(surface.data$TEW) & !is.na(surface.data$REW)) #68 of these
 summary(as.factor(surface.data$textural.class)[surface.data$REW/surface.data$TEW > 1])
-length(which(surface.data$REW/surface.data$TEW > 0.9))#678 of these #as opposed to sum(surface.data$REW/surface.data$TEW > 0.9, na.rm = TRUE)
+length(which(surface.data$REW/surface.data$TEW > 0.9))#678 of these equivalent to sum(surface.data$REW/surface.data$TEW > 0.9, na.rm = TRUE)
 #fix TEW where REW/TEW > 0.9
-surface.data$TEW[which(surface.data$REW/surface.data$TEW >= 0.9)] <- surface.data$TEW[which(surface.data$REW/surface.data$TEW >= 0.9)] * (surface.data$REW[which(surface.data$REW/surface.data$TEW >= 0.9)] / (0.9 * surface.data$TEW[which(surface.data$REW/surface.data$TEW >= 0.9)]))
-sum(surface.data$TEW < 2, na.rm = TRUE) #no zeroes present, only 8 < 1; 55 < 22
-setwd(results)
-write.csv(surface.data, paste0('CA_all_surface_data_synthesis_', Sys.Date(), '_.csv'), row.names=FALSE)
+surface.data$TEW[which(surface.data$REW/surface.data$TEW >= 0.9)] <- surface.data$TEW[which(surface.data$REW/surface.data$TEW >= 0.9)] * (surface.data$REW[which(surface.data$REW/surface.data$TEW >= 0.9)] / (0.9 * surface.data$TEW[which(surface.data$REW/surface.data$TEW >= 0.9)])) #this corrects siutations where REW was calculated as > TEW
+sum(surface.data$TEW < 1, na.rm = TRUE) #no zeroes present, only 1 < 1; 32 < 2
+write.csv(surface.data, file.path(resultsDir, paste0('CA_all_surface_data_synthesis_', Sys.Date(), '_.csv')), row.names=FALSE)
 
 
 # a real hack job developed Oct 2017 to deal with duplicate cokeys as a result 
@@ -292,8 +289,8 @@ write.csv(surface.data, paste0('CA_all_surface_data_synthesis_', Sys.Date(), '_.
   # these horizons are not given plant available water values. purpose is to get 
   # the soil comp data into 1 row per cokey and to distinguish between 
   # modifiable and unmodifiable soil profiles.
-setwd(SoilsDataDir)
-ssurgo_comp <- read.csv("CA_all_comp_data_2017-07-19.csv")
+list.files(SoilsDataDir)
+ssurgo_comp <- read.csv(file.path(SoilsDataDir, "CA_all_comp_data_2018-03-06.csv"))
 ssurgo_comp$majcompflag[ssurgo_comp$majcompflag=='No '] <- 'No' #strip out the space after 'No '
 ssurgo_comp <- ssurgo_comp[!is.na(ssurgo_comp$cokey), ] #there were 6 mukeys with no identified cokeys
 ssurgo_comp$reskind[is.na(ssurgo_comp$reskind) & ssurgo_comp$majcompflag=='Yes'] <- 'None'
@@ -377,44 +374,39 @@ ssurgo_comp_no_rock_reskind_one$reskind3 <- 'None'
 ssurgo_comp_no_rock_reskind_one$res3dept_r <- NA
 ssurgo_comp_no_rock_reskind_one$res3depb_r <- NA
 ssurgo_comp_no_rock <- rbind(ssurgo_comp_no_rock_reskind_one, ssurgo_comp_no_rock_reskind_mult) #now merge the cokeys back to together so that each row represents a unique cokey with data for up to two reskinds per cokey, if necessary
-setwd(results)
-write.csv(ssurgo_comp_no_rock, paste0('CA_all_comp_data_no_rock', Sys.Date(), '.csv'), row.names = FALSE)
-write.csv(ssurgo_comp_rock, paste0('CA_all_comp_data_rock', Sys.Date(), '.csv'), row.names = FALSE)
+write.csv(ssurgo_comp_no_rock, file.path(resultsDir, paste0('CA_all_comp_data_no_rock', Sys.Date(), '.csv')), row.names = FALSE)
+write.csv(ssurgo_comp_rock, file.path(resultsDir, paste0('CA_all_comp_data_rock', Sys.Date(), '.csv')), row.names = FALSE)
 #finished here 7/20/17
 
 #one-time operation to split soil horizon data into a set with a rock contact and those with no rock contact
 #split ssurgo_horizons into two data.frames
-#ssurgo_horizon <- read.csv('CA_all_horizon_data_2017-07-19_clean.csv')
+#ssurgo_horizon <- read.csv('CA_all_horizon_data_2018-03-07_cleantexture.csv')
 ssurgo_horizon$hzthickness <- ssurgo_horizon$hzdepb_r - ssurgo_horizon$hzdept_r
 i <- ssurgo_horizon$cokey %in% cokeys_rock_unique
 ssurgo_horizon_Cr_R <- ssurgo_horizon[i, ]
 ssurgo_horizon_no_Cr_R <- ssurgo_horizon[!i, ]
 if (sum(ssurgo_horizon_no_Cr_R$cokey %in% cokeys_rock_unique) > 0) {'Hay problemas aqui'}
-setwd(results)
-write.csv(ssurgo_horizon_Cr_R, paste0('ssurgo_horizon_Cr_R', Sys.Date(), '.csv'), row.names = FALSE)
-write.csv(ssurgo_horizon_no_Cr_R, paste0('ssurgo_horizon_no_Cr_R', Sys.Date(), '.csv'), row.names = FALSE)
+write.csv(ssurgo_horizon_Cr_R, file.path(resultsDir, paste0('ssurgo_horizon_Cr_R', Sys.Date(), '.csv')), row.names = FALSE)
+write.csv(ssurgo_horizon_no_Cr_R, file.path(resultsDir, paste0('ssurgo_horizon_no_Cr_R', Sys.Date(), '.csv')), row.names = FALSE)
 
 #split surface data into a set with a rock contact and those with no rock contact
 i <- surface.data$cokey %in% cokeys_rock_unique
 surface.data_Cr_R <- surface.data[i, ]
 surface.data_no_Cr_R <- surface.data[!i, ]
 if (sum(surface.data_no_Cr_R$cokey %in% cokeys_rock_unique) > 0) {'Hay problemas aqui'}
-setwd(results)
-write.csv(surface.data_Cr_R, paste0('CA.all.surface.data_Cr_R', Sys.Date(), '.csv'), row.names = FALSE)
-write.csv(surface.data_no_Cr_R, paste0('CA.all.surface.data_no_Cr_R', Sys.Date(), '.csv'), row.names = FALSE)
+write.csv(surface.data_Cr_R, file.path(resultsDir, paste0('CA.all.surface.data_Cr_R', Sys.Date(), '.csv')), row.names = FALSE)
+write.csv(surface.data_no_Cr_R, file.path(resultsDir, paste0('CA.all.surface.data_no_Cr_R', Sys.Date(), '.csv')), row.names = FALSE)
 
-aggregate_SSURGO <- function(results, fc_def, figure_label) {
+#aggregate_SSURGO <- function(results, fc_def, figure_label) { #no longer used as an overall function to produce figures; legacy of 2016 SSSA conference
   list.files(SoilsDataDir, pattern = glob2rx('*.csv'))
-  list.files(results, pattern = glob2rx('*.csv'))
-  setwd(results)
-  ssurgo_horizon_no_Cr_R <- read.csv('ssurgo_horizon_no_Cr_R2017-07-27.csv')
-  ssurgo_horizon_Cr_R <- read.csv('ssurgo_horizon_Cr_R2017-07-27.csv')
-  ssurgo_comp_no_rock <- read.csv('CA_all_comp_data_no_rock2017-07-27.csv')
-  ssurgo_comp_rock <- read.csv('CA_all_comp_data_rock2017-07-27.csv')
-  surface.data_Cr_R <- read.csv('CA.all.surface.data_Cr_R2017-07-27.csv')
-  surface.data_no_Cr_R <- read.csv('CA.all.surface.data_no_Cr_R2017-07-27.csv')
-  setwd(SoilsDataDir)
-  ssurgo_mu <- read.csv("CA_all_mu_data_2017-07-19.csv")
+  list.files(resultsDir, pattern = glob2rx('*.csv'))
+  ssurgo_horizon_no_Cr_R <- read.csv(file.path(resultsDir, 'ssurgo_horizon_no_Cr_R2018-03-07.csv'))
+  ssurgo_horizon_Cr_R <- read.csv(file.path(resultsDir, 'ssurgo_horizon_Cr_R2018-03-07.csv'))
+  ssurgo_comp_no_rock <- read.csv(file.path(resultsDir, 'CA_all_comp_data_no_rock2018-03-07.csv'))
+  ssurgo_comp_rock <- read.csv(file.path(resultsDir, 'CA_all_comp_data_rock2018-03-07.csv'))
+  surface.data_Cr_R <- read.csv(file.path(resultsDir,'CA.all.surface.data_Cr_R2018-03-07.csv'))
+  surface.data_no_Cr_R <- read.csv(file.path(resultsDir,'CA.all.surface.data_no_Cr_R2018-03-07.csv'))
+  ssurgo_mu <- read.csv(file.path(SoilsDataDir, "CA_all_mu_data_2018-03-06.csv"))
   
 #add area info to component table
   ssurgo_comp_no_rock <- merge(ssurgo_comp_no_rock, ssurgo_mu, by='mukey')
@@ -615,12 +607,11 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   #temp fix for rock outcrop (could be fixed earlier in script).
   summary(ssurgo_comp_all$z0.5m_cmH2O_modified_comp[ssurgo_comp_all$compname=='Rock outcrop'])
   summary(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp[ssurgo_comp_all$compname=='Rock outcrop'])
-  #CHECK COLUMN REFERENCES HERE
+  #CHECK COLUMN INDICES HERE!!!
   colnames(ssurgo_comp_all)
-  ssurgo_comp_all[ssurgo_comp_all$compname=='Rock outcrop', 22:42] <- 0 #change all paw related variables to 0 where component name is Rock Outcrop
+  ssurgo_comp_all[ssurgo_comp_all$compname=='Rock outcrop', 27:47] <- 0 #change all paw related variables to 0 where component name is Rock Outcrop
   ssurgo_comp_all <- ssurgo_comp_all[order(ssurgo_comp_all$mukey, ssurgo_comp_all$comppct_r, decreasing = c(FALSE, TRUE)), ]
-  setwd(results)
-  write.csv(ssurgo_comp_all, paste0('CA_all_comps_summary_dbmodified', Sys.Date(), '.csv'), row.names = FALSE) # can read this in to shorten script
+  write.csv(ssurgo_comp_all, file.path(resultsDir, paste0('CA_all_comps_summary_dbmodified', Sys.Date(), '.csv')), row.names = FALSE) # can read this in to shorten script
   #ssurgo_comp_all <- read.csv('CA_all_comps_summary_7.19.17')
   #then apply area_weighted_average again, so that minor components that did not have an identified Cr or R are fixed; this could be fixed above in the reskind synthesis work but is more of a challenge because of multiple reskinds.  See SSURGO_analysis_v2.R for an example of how to do it.
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "z0.5m_cmH2O_unmodified_comp")
@@ -639,9 +630,67 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "REW")
   ssurgo_comp_all <- area_weighted_average(ssurgo_comp_all, "surface.depth")
   
-  setwd(results)
-  write.csv(ssurgo_comp_all, paste0('CA_all_comps_summary_dbmodified_FINAL', Sys.Date(), '.csv'), row.names = FALSE)
+  #simplify reskind info for crop acreage reporting later
+  summary(as.factor(ssurgo_comp_all$reskind1))
+  summary(as.factor(ssurgo_comp_all$reskind2))
+  summary(as.factor(ssurgo_comp_all$reskind3))
+  ssurgo_comp_all$abrupt.texture.change <- ifelse(ssurgo_comp_all$reskind1=='Abrupt textural change' | ssurgo_comp_all$reskind1=='Strongly contrasting textural stratification' | ssurgo_comp_all$reskind1=='Natric', 'Yes', ifelse(ssurgo_comp_all$reskind2=='Abrupt textural change' | ssurgo_comp_all$reskind2=='Strongly contrasting textural stratification' | ssurgo_comp_all$reskind2=='Natric', 'Yes', 'No'))
+  ssurgo_comp_all$lithic.contact <- ifelse(ssurgo_comp_all$reskind1=='Lithic bedrock' | ssurgo_comp_all$reskind1=='Densic bedrock', 'Yes', ifelse(ssurgo_comp_all$reskind2=='Lithic bedrock' | ssurgo_comp_all$reskind2=='Densic bedrock', 'Yes', ifelse(ssurgo_comp_all$reskind3=='Lithic bedrock'| ssurgo_comp_all$reskind3=='Densic bedrock', 'Yes', 'No')))
+  ssurgo_comp_all$paralithic.contact <- ifelse(ssurgo_comp_all$reskind1=='Paralithic bedrock', 'Yes', ifelse(ssurgo_comp_all$reskind2=='Paralithic bedrock', 'Yes', ifelse(ssurgo_comp_all$reskind3=='Paralithic bedrock', 'Yes', 'No')))
+  ssurgo_comp_all$hardpans <- ifelse(ssurgo_comp_all$reskind1=='Ortstein' | ssurgo_comp_all$reskind1=='Duripan' | ssurgo_comp_all$reskind1=='Cemented horizon' | ssurgo_comp_all$reskind1=='Densic material' | ssurgo_comp_all$reskind1=='Petrocalcic', 'Yes', ifelse(ssurgo_comp_all$reskind2=='Ortstein' | ssurgo_comp_all$reskind2=='Duripan' | ssurgo_comp_all$reskind2=='Cemented horizon' | ssurgo_comp_all$reskind2=='Densic material' | ssurgo_comp_all$reskind2=='Petrocalcic', 'Yes', ifelse(ssurgo_comp_all$reskind3=='Ortstein' | ssurgo_comp_all$reskind3=='Duripan' | ssurgo_comp_all$reskind3=='Cemented horizon' | ssurgo_comp_all$reskind3=='Densic material' | ssurgo_comp_all$reskind3=='Petrocalcic', 'Yes', 'No')))
+  ssurgo_comp_all$other.reskinds <- ifelse(ssurgo_comp_all$reskind1=='Manufactured layer' | ssurgo_comp_all$reskind1=='Salic' | ssurgo_comp_all$reskind1=='Sulfuric', 'Yes', ifelse(ssurgo_comp_all$reskind2=='Manufactured layer' | ssurgo_comp_all$reskind2=='Salic' | ssurgo_comp_all$reskind2=='Sulfuric', 'Yes', ifelse(ssurgo_comp_all$reskind3=='Manufactured layer' | ssurgo_comp_all$reskind3=='Salic' | ssurgo_comp_all$reskind3=='Sulfuric', 'Yes', 'No')))
   
+  write.csv(ssurgo_comp_all, file.path(resultsDir, paste0('CA_all_comps_summary_dbmodified_FINAL', Sys.Date(), '.csv')), row.names = FALSE)
+  #note that minor compnents are not run in FAO56 dual Kc model regardless of these "fixes"
+  
+#explore soils with pedognic restrictive layers.  export them (major components only), with only one component 
+  unique(ssurgo_comp_no_rock$reskind1[ssurgo_comp_no_rock$majcompflag=='Yes' & ssurgo_comp_no_rock$reskind1 != 'None'])
+  pedogenic.restrictive <- ssurgo_comp_no_rock[which(ssurgo_comp_no_rock$majcompflag=='Yes' & ssurgo_comp_no_rock$reskind1 != 'None'),]
+  sum(pedogenic.restrictive$comppct_r/100*pedogenic.restrictive$muacres, na.rm = TRUE) #4,756,425 total mapunit acres
+  dim(pedogenic.restrictive)
+  length(unique(pedogenic.restrictive$mukey))
+  pedogenic.restrictive <-  pedogenic.restrictive[order(pedogenic.restrictive$mukey, pedogenic.restrictive$comppct_r, pedogenic.restrictive$cokey, decreasing = c(F, T, F)),]
+  summary(as.factor(pedogenic.restrictive$reskind1))
+  summary(as.factor(pedogenic.restrictive$reskind2))
+  summary(as.factor(pedogenic.restrictive$reskind3))
+  #merge with crops model scaffold to investigate affected acreage
+  match_horizons_to_comps <- function(comps, horizons, resnumber) {
+    horizons <- horizons[,1:which(colnames(horizons)=='hzthickness')] #get rid of irrelevant data
+    indice_list <- lapply(comps$cokey, function(x) which(x == horizons$cokey))
+    horizon_data <- data.frame(matrix(data=NA, nrow=nrow(comps), ncol=ncol(horizons)))
+    colnames(horizon_data) <- colnames(horizons)
+    for (i in seq_along(indice_list)) {
+      index <- match(comps[[resnumber]][i], horizons$hzdept_r[indice_list[[i]]])
+      horizon_data[i,] <- horizons[indice_list[[i]][index],]
+    }
+    cbind(comps, horizon_data)
+  }
+  pedogenic.restrictive.kind1 <- match_horizons_to_comps(pedogenic.restrictive, ssurgo_horizon_no_Cr_R, 'res1dept_r')
+  write.csv(pedogenic.restrictive.kind1, file.path(resultsDir, paste0('pedogenic.restrictive.kind1.', Sys.Date(), '.csv')), row.names = FALSE)
+  pedogenic.restrictive.kind2 <- match_horizons_to_comps(pedogenic.restrictive, ssurgo_horizon_no_Cr_R, 'res2dept_r')
+  write.csv(pedogenic.restrictive.kind2, file.path(resultsDir, paste0('pedogenic.restrictive.kind2.', Sys.Date(), '.csv')), row.names = FALSE)
+  dim(pedogenic.restrictive)
+  tapply(pedogenic.restrictive$awc_r, pedogenic.restrictive$reskind1, summary)
+  
+  tapply(pedogenic.restrictive.kind1$awc_r, pedogenic.restrictive.kind1$reskind1, function(x) round(100*sum(is.na(x))/length(x), digits=2)) #percent NA by reskind
+  tapply(pedogenic.restrictive.kind1$awc_r, pedogenic.restrictive.kind1$reskind1, function(x) round(100*sum(x==0, na.rm = TRUE)/length(x), digits=2)) #percent is 0 by reskind
+  tapply(pedogenic.restrictive.kind1$awc_r, pedogenic.restrictive.kind1$reskind1, function(x) round(100*sum(x>0, na.rm = TRUE)/length(x), digits=2))
+  tapply(pedogenic.restrictive.kind2$awc_r, pedogenic.restrictive.kind2$reskind2, function(x) round(100*sum(is.na(x))/length(x), digits=2)) #percent NA by reskind
+  tapply(pedogenic.restrictive.kind2$awc_r, pedogenic.restrictive.kind2$reskind2, function(x) round(100*sum(x==0, na.rm = TRUE)/length(x), digits=2)) #percent is 0 by reskind
+  tapply(pedogenic.restrictive.kind2$awc_r, pedogenic.restrictive.kind2$reskind2, function(x) round(100*sum(x>0, na.rm = TRUE)/length(x), digits=2))
+  
+  #investigate textural class of textural contrasts restrictive horizons
+  summary(as.factor(pedogenic.restrictive.kind1$textural.class[pedogenic.restrictive.kind1$reskind1=='Abrupt textural change']))
+  summary(as.factor(pedogenic.restrictive.kind1$textural.class[pedogenic.restrictive.kind1$reskind1=='Strongly contrasting textural stratification']))
+  #split up the comp table by mukey, so that each table only has one major component per mukey
+  pedogenic.restrictive.comp1 <- pedogenic.restrictive[!duplicated(pedogenic.restrictive$mukey),]
+  pedogenic.restrictive.comp2 <- pedogenic.restrictive[duplicated(pedogenic.restrictive$mukey),]
+  temp <- pedogenic.restrictive.comp2
+  pedogenic.restrictive.comp2 <- pedogenic.restrictive.comp2[!duplicated(pedogenic.restrictive.comp2$mukey),]
+  pedogenic.restrictive.comp3 <- temp[duplicated(temp$mukey),]
+  write.csv(pedogenic.restrictive, file.path(resultsDir, paste0('pedogenic.restrictive', Sys.Date(), '.csv')), row.names = FALSE) 
+#check that ssurgo_comp_all matches ssurgo provided mapunit aggregated awc values
+  ssurgo_comp_all
   
   #get some metadata
   unique(ssurgo_comp_all$compname[ssurgo_comp_all$majcompflag=='Yes' & is.na(ssurgo_comp_all$z0.5m_cmH2O_unmodified_comp)])
@@ -659,7 +708,7 @@ aggregate_SSURGO <- function(results, fc_def, figure_label) {
   sum(is.na(ssurgo_horizon_Cr_R$awc_r)) #13,680 are NA
   sum(is.na(ssurgo_horizon_no_Cr_R$awc_r)) #1,464 are NA
   i <- aggregate(ssurgo_horizon_Cr_R$hzdepb_r, list(ssurgo_horizon_Cr_R$cokey), which.min)
-  #extra functions
+  #previous version of textural class calculation
   textural.class.calc <- function(sand, silt, clay) {
     #if (is.na(sand) | is.na(silt) | is.na(clay)) {
     #print('Texture data is missing')
