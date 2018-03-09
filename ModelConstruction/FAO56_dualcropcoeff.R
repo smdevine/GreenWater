@@ -14,6 +14,7 @@
   #13. Modify definition of GW.ET.growing so that it no longer includes a correction for irrigation water end storage
   #14.  Remove one of the deep percolation definitions and do one for the growing season period
   #15.  Do separate water balance tracking for irrigation and green water to get a more temporally accruate summation of green water utilization
+  #16. Revise grape zone terminology
   
 #changed order of DPei and DPep on 9/11/17  
 # changed order of Ir and Ks calculation on 8/23/17
