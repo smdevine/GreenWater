@@ -253,7 +253,7 @@ for (i in seq_len(maxcomps)) {
 }
 
 fnames <- list.files(path=soilcomptempDir, pattern = glob2rx('*csv'), full.names = TRUE)
-master.file <- do.call(rbind, lapply(fnames, read.csv))
+master.file <- do.call(rbind, lapply(fnames, read.csv, stringsAsFactors = FALSE))
 dim(master.file)
 #1,177,027 unique soil components, climate, and crop for original raster based approach; 1,681,860 with additional crops added 9/12/18); now with vector based LandIQ 5 perennial crops layer: 476,007 unique combinations (this total includes minor components)
 sum(master.file$majcompflag=='Yes') #112,136 major component only
@@ -264,21 +264,20 @@ summary(master.file$comppct_r[master.file$majcompflag=='Yes'])
 hist(master.file$comppct_r[master.file$majcompflag=='Yes'])
 model_scaffold_majcomps <- master.file[master.file$majcompflag=='Yes', ]
 dim(model_scaffold_majcomps)
-#left off here 3/8/18 5:07 pm
+colnames(model_scaffold_majcomps)
+length(unique(model_scaffold_majcomps$unique_model_code)) #98,892 unique map unit x climate x crop combinations
+model_scaffold_majcomps$test_code <- paste0(model_scaffold_majcomps$cokey, model_scaffold_majcomps$cropcode, model_scaffold_majcomps$PRISMcellnumber, model_scaffold_majcomps$CIMIScellnumber)
+length(unique(model_scaffold_majcomps$test_code)) #confirmed 112,136 unique major soil component x climate x crop combinations
+model_scaffold_majcomps$test_code <- NULL
+lapply(model_scaffold_majcomps, class)
 
-#add alfalfa zones to model scaffold
+#write unique model code scaffold to disk for running FAO56_dualcropcoeff.R
 write.csv(model_scaffold_majcomps, file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), row.names = F) #v1 included alfalfa.zone column; v2 includes both alfalfa and grape zone column; v3 also includes column identifying whether or not column originally had data
 
 #investigate NAs and 0's
-mukey_AD_isNA <- unique(model_scaffold2$mukey[which(is.na(model_scaffold2$allowable_depletion))])
-cokey_AD_isNA <- unique(model_scaffold2$cokey[which(is.na(model_scaffold2$allowable_depletion))])
-compnames_NA <- soil_comp_data$compname[match(cokey_AD_isNA, soil_comp_data$cokey)] #confirmed that these are all components for which we shouldn't expect any data
-setwd(soildataDir)
-list.files()
-mu_area <- read.csv('farmland_mu_area.csv')
-mu_area_rows <- match(mukey_AD_isNA, mu_area$mukey)
-mu_area <- mu_area[mu_area_rows,]
-sum(mu_area$hectares)
-#the total ag area of these mukeys are 70,641 hectares; however the raster cells with these should be less, because CropScape really shouldn't be identifying crops in these areas
-tapply(model_scaffold2$allowable_depletion, model_scaffold2$crop_code, mean, na.rm=TRUE)
-model_scaffold2$n_compkeys[which(model_scaffold2$mukey=='455489')]
+mukey_AD_isNA <- unique(model_scaffold_majcomps$mukey[which(is.na(model_scaffold_majcomps$z1.5m_cmH2O_unmodified_comp))]) #119 mukeys are NA for awc
+cokey_AD_isNA <- unique(model_scaffold_majcomps$cokey[which(is.na(model_scaffold_majcomps$z1.5m_cmH2O_unmodified_comp))]) #120 cokeys
+compnames_NA <- soil_comp_data$compname[match(cokey_AD_isNA, soil_comp_data$cokey)] #confirmed that these 22 component names are all components for which we shouldn't expect any data
+(unique(compnames_NA))
+
+#investigate problems with alfalfa and grape zones
