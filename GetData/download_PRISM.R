@@ -3,24 +3,22 @@
 library(prism)
 library(raster)
 PRISMdir <- "C:/Users/smdevine/Desktop/Allowable_Depletion/PRISMdaily"
-cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
-for (i in 2016:2016) {
+cellsofinterestDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018'
+for (i in 2018:2018) {
   if (file.exists(file.path(PRISMdir, as.character(i))) == FALSE) {
     dir.create(file.path(PRISMdir, as.character(i)))
   }
   options(prism.path = paste0(PRISMdir, '/', as.character(i)))
-  get_prism_dailys(type='ppt', minDate = paste0(as.character(i),'-12-01'), maxDate = paste0(as.character(i), '-12-31'), keepZip = FALSE)
+  get_prism_dailys(type='ppt', minDate = paste0(as.character(i),'-01-01'), maxDate = paste0(as.character(i), '-03-08'), keepZip = FALSE) #control annual data window here with minDate and maxDate arguments
 }
-setwd(file.path(PRISMdir, '2003'))
 
-setwd(cellsofinterestDir)
-cellsofinterest <- read.csv("PRISM_cells_unique.csv")
+cellsofinterest <- read.csv(file.path(cellsofinterestDir, "PRISM_cells_unique.csv"), stringsAsFactors = FALSE)
 cellsofinterest <- cellsofinterest[order(cellsofinterest$PRISM_cells), ]
 cellsofinterest_names <- paste0('cell_', as.character(cellsofinterest))
-startyear <- '2016'
-endyear <- '2017' #only available through 11/30/2016 on 6/9/17 download date
-startdate <- strptime(paste0("12/1/", startyear), '%m/%d/%Y')
-enddate <- strptime(paste0("09/12/", endyear), '%m/%d/%Y')
+startyear <- '2003'
+endyear <- '2018'
+startdate <- strptime(paste0("10/01/", startyear), '%m/%d/%Y')
+enddate <- strptime(paste0("03/09/", endyear), '%m/%d/%Y')
 datesequence <- seq.Date(from=as.Date(startdate), to=as.Date(enddate), by='day')
 prism_data <- as.data.frame(matrix(nrow=length(datesequence), ncol=(length(cellsofinterest)+5)))
 colnames(prism_data) <- c('dates', 'month', 'day', 'year', 'DOY', cellsofinterest_names)
