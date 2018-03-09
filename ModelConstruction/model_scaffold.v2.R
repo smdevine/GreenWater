@@ -235,7 +235,7 @@ maxcomps <- max(model_scaffold2$n_compkeys)
 #head(model_scaffold2)
 soil_comp_data <- soil_comp_data[order(soil_comp_data$mukey, soil_comp_data$comppct_r, soil_comp_data$cokey, decreasing=c(F, T, F)), ] #this works as confirmed by writing to csv below
 colnames(soil_comp_data)
-soil_comp_data <- soil_comp_data[ ,c(1:5, 27:32, 39:ncol(soil_comp_data))]
+soil_comp_data <- soil_comp_data[ ,c(1:5,17,27:32,39:ncol(soil_comp_data))]
 
 # missing_mukeys <- model_scaffold2$mukey[!(model_scaffold2$mukey %in% soil_comp_data$mukey)]
 # mukeys <- model_scaffold2$mukey[model_scaffold2$mukey %in% soil_comp_data$mukey]
@@ -256,23 +256,32 @@ fnames <- list.files(path=soilcomptempDir, pattern = glob2rx('*csv'), full.names
 master.file <- do.call(rbind, lapply(fnames, read.csv, stringsAsFactors = FALSE))
 dim(master.file)
 #1,177,027 unique soil components, climate, and crop for original raster based approach; 1,681,860 with additional crops added 9/12/18); now with vector based LandIQ 5 perennial crops layer: 476,007 unique combinations (this total includes minor components)
-sum(master.file$majcompflag=='Yes') #112,136 major component only
+sum(master.file$mukey=='462096' & master.file$compname=='Peltier' & master.file$comppct_r==85) #74 instances need to be fixed
+master.file$majcompflag[which(master.file$mukey=='462096' & master.file$compname=='Peltier' & master.file$comppct_r==85)] <- 'Yes'
+sum(master.file$majcompflag=='Yes') #112,136 major component only; 112,210 after fixing
 sum(master.file$comppct_r>=15, na.rm = TRUE) #116,251 >15% component only
-sum(master.file$majcompflag=='Yes' & master.file$SSURGO_awc_data=='Yes') #112,136 are major components though 116,251 are >= 15% of mapunits (verified 3/7/18); of these, 109,298 originally had data
+sum(master.file$majcompflag=='Yes' & master.file$SSURGO_awc_data=='Yes') #112,210 are major components though 116,251 are >= 15% of mapunits (verified 3/9/18); of these, 109372 originally had data
 summary(as.factor(master.file$majcompflag)) #confirmed no NAs
 summary(master.file$comppct_r[master.file$majcompflag=='Yes'])
 hist(master.file$comppct_r[master.file$majcompflag=='Yes'])
 model_scaffold_majcomps <- master.file[master.file$majcompflag=='Yes', ]
 dim(model_scaffold_majcomps)
 colnames(model_scaffold_majcomps)
-length(unique(model_scaffold_majcomps$unique_model_code)) #98,892 unique map unit x climate x crop combinations
+length(unique(model_scaffold_majcomps$unique_model_code)) #98,966 unique map unit x climate x crop combinations
+length(unique(model_scaffold_final$unique_model_code)) #98,980 unique map unit x climate x crop combinations, lost 
 model_scaffold_majcomps$test_code <- paste0(model_scaffold_majcomps$cokey, model_scaffold_majcomps$cropcode, model_scaffold_majcomps$PRISMcellnumber, model_scaffold_majcomps$CIMIScellnumber)
-length(unique(model_scaffold_majcomps$test_code)) #confirmed 112,136 unique major soil component x climate x crop combinations
+length(unique(model_scaffold_majcomps$test_code)) #confirmed 112,210 unique major soil component x climate x crop combinations
 model_scaffold_majcomps$test_code <- NULL
 lapply(model_scaffold_majcomps, class)
+length(unique(model_scaffold_final$mukey)) #5301
+length(unique(model_scaffold_majcomps$mukey)) #5299, missing 1 now after fix
+unique(model_scaffold_final$mukey)[!(unique(model_scaffold_final$mukey) %in% unique(model_scaffold_majcomps$mukey))] #these are the missing ones: "784250" "462096"
+sum(crops.soils$Acres[crops.soils$mukey=='784250']) #6.2 acres this is water in SSURGO
+sum(crops.soils$Acres[crops.soils$mukey=='462096']) #6000 acres: this is 
+data.frame(crops.soils)[crops.soils$mukey=='462096',] #mistake is that Peltier (85% of mapunit) is not flagged as a major component; fixed above
 
 #write unique model code scaffold to disk for running FAO56_dualcropcoeff.R
-write.csv(model_scaffold_majcomps, file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), row.names = F) #v1 included alfalfa.zone column; v2 includes both alfalfa and grape zone column; v3 also includes column identifying whether or not column originally had data
+write.csv(model_scaffold_majcomps, file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), row.names = FALSE) #v1 included alfalfa.zone column; v2 includes both alfalfa and grape zone column; v3 also includes column identifying whether or not column originally had data
 
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold_majcomps$mukey[which(is.na(model_scaffold_majcomps$z1.5m_cmH2O_unmodified_comp))]) #119 mukeys are NA for awc
