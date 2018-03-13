@@ -60,4 +60,5 @@ summary(prism_data$cell_267008)
 which(is.na(prism_data$cell_267008))
 #write results to file
 setwd(cellsofinterestDir)
-write.csv(prism_data, 'PRISM_precip_data_update.csv', row.names = F)
+prism_data <- prism_data[-nrow(prism_data),]
+write.csv(prism_data, file.path(cellsofinterestDir, 'PRISM_precip_data.csv'), row.names = FALSE)
