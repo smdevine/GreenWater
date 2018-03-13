@@ -1,9 +1,16 @@
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Sep2017'
-setwd(modelscaffoldDir)
-precip <- read.csv('PRISM_precip_data.csv') #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
-which(is.na(precip)) #no NAs in PRISM as of 6/26/17
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018'
+list.files(modelscaffoldDir)
+precip <- read.csv(file.path(modelscaffoldDir, 'PRISM_precip_data.csv'), stringsAsFactors=FALSE) #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
+sum(is.na(precip[,6:ncol(precip)])) #no NAs in PRISM as of 3/12/18
+sum(precip[,6:ncol(precip)] < 0) #no negative numbers
+sum(precip[,6:ncol(precip)] == 0) #19,769,868 no precip observations
+sum(precip[,6:ncol(precip)] > 0) #4,201,190 precip observations
+hist(as.numeric(lapply(precip[,6:ncol(precip)], sum))/25.4) #in inches
+max(precip[,6:ncol(precip)]) #max precip was 10.2" in one day
+lapply(precip[,6:ncol(precip)], summary)
+#no changes made; use existing precip file created in 'download_PRISM.R'
 
-RHmin <- read.csv('SpatialCIMIS_minRH_rounded.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
+RHmin <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.minRHupdate.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
 na_indices_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {which(is.na(x))})
 which(names(RHmin)=='cell_148533')
 head(RHmin$cell_148533)
@@ -26,55 +33,168 @@ doy342_means <- apply(RHmin[doy_indices, 6:ncol(RHmin)], 2, mean)
 RHmin[2991,6:ncol(RHmin)] <- doy342_means
 write.csv(RHmin, 'SpatialCIMIS_minRH_rounded_QCpass.csv', row.names = F)
 
-U2 <- read.csv('SpatialCIMIS_U2_rounded.csv') #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script
-na_indices_U2 <- lapply(U2[,6:ncol(U2)], function(x) {which(is.na(x))})
-for (i in 1:length(na_indices_U2)) {
-  if (length(na_indices_U2[[i]]) == 0) { #could set to 1 also as above
-    next
-  }
-  else(print(i))
-} #i=9524 is all NA; no other NAs present
-names(na_indices_U2)[10013] #"cell_148533" is NA; same for RHmin
-#no changes made to 'SpatialCIMIS_U2_rounded.csv'
+#check wind data
+U2 <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.U2update.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script
+dim(U2)
+sum(is.na(U2[,6:ncol(U2)])) #13,060 NAs as of 3/12/18; cell_148533 no longer a cell of interest, so these are all from 2/23/18 missing data
+sum(U2[,6:ncol(U2)] < 0, na.rm = TRUE) #167 negative numbers
+sum(U2[,6:ncol(U2)] == 0, na.rm = TRUE) #1 U2 observation equal to 0
+#two different approaches to look at negative numbers
+summary(unlist(U2[,6:ncol(U2)])[which(U2[,6:ncol(U2)] < 0)])
+summary(U2[,6:ncol(U2)][U2[,6:ncol(U2)] < 0]) #this kind of indexing returns all the NAs also
+U2[,6:ncol(U2)][U2[,6:ncol(U2)] < 0] <- 0 #change negatives to 0
+#check for effect on NAs
+sum(is.na(U2[,6:ncol(U2)])) #13,060 NAs as of 3/12/18
+sum(U2[,6:ncol(U2)] == 0, na.rm = TRUE) #now 168 equal to 0 as a result of QC change
+sum(U2[,6:ncol(U2)] > 0, na.rm = TRUE) #68,852,152
+nrow(U2)*ncol(U2[,6:ncol(U2)]) #68,865,380
+68852152+168+13060 #gives total above, positives + 0s + NAs
+#gap fill NAs by making 2/23/18 average of all other Feb 23 in dataset by cell
+test <- apply(U2[which(U2$month==2 & U2$day==23 & U2$year!=2018),6:ncol(U2)], 2, mean)
+head(test)
+length(test)
+rm(test)
+U2[U2$dates=='02_23_2018', 6:ncol(U2)] <- apply(U2[which(U2$month==2 & U2$day==23 & U2$year!=2018),6:ncol(U2)], 2, mean)
+sum(is.na(U2[,6:ncol(U2)])) #0 NAs as of 3/12/18 after gap-filling
+sum(U2[,6:ncol(U2)] == 0, na.rm = TRUE) #still 168 equal to 0 as a result of QC change
+sum(U2[,6:ncol(U2)] > 0, na.rm = TRUE) #68,865,212
+max(U2[,6:ncol(U2)]) #8.924 max m/s daily wind speed; this is 19.9 mph
+hist(as.numeric(lapply(U2[,6:ncol(U2)], mean))) #centered over 2.0 m/s as expected
+max(as.numeric(lapply(U2[,6:ncol(U2)], mean))) #windiest cell is 3.0 m/s across all days
+min(as.numeric(lapply(U2[,6:ncol(U2)], mean))) #least windy cell is 1.3 m/as across all days
+write.csv(U2, file.path(modelscaffoldDir, 'SpatialCIMIS.U2.QCpass.csv'), row.names = FALSE)
 
-ETo <- read.csv('SpatialCIMIS_ETo_rounded.csv') #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script
-na_indices_ETo <- lapply(ETo, function(x) {which(is.na(x))})
-j <- c()
-for (i in 1:length(na_indices_ETo)) {
-  if (length(na_indices_ETo[[i]]) == 0) { #could set to 1 also as above
-    next
+#old function to check for NAs in U2; not used March 2018
+# na_indices_U2 <- lapply(U2[,6:ncol(U2)], function(x) {which(is.na(x))})
+# for (i in 1:length(na_indices_U2)) {
+#   if (length(na_indices_U2[[i]]) == 0) { #could set to 1 also as above
+#     next
+#   }
+#   else(print(i))
+# } #i=9524 is all NA; no other NAs present
+# names(na_indices_U2)[10013] #"cell_148533" is NA; same for RHmin
+
+#check the ETo data for missing, negative, and zero values, correcting along the way
+ETo <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.EToupdate.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script
+dim(ETo)
+sum(is.na(ETo[,6:ncol(ETo)])) #13,136 NAs as of 3/12/18; cell_148533 no longer a cell of interest, so all but 76 are from 2/23/18 missing data; this is 0.02% missing
+sum(ETo[,6:ncol(ETo)] < 0, na.rm = TRUE) #1,633 negative numbers; this is 0.002% negative
+sum(ETo[,6:ncol(ETo)] == 0, na.rm = TRUE) #11 observations equal to 0
+max(ETo[,6:ncol(ETo)], na.rm = TRUE) #16.8 mm/day max
+#strategy is to fill in 2/23/18 first; use mean of all previous days, excluding negative numbers
+check2.23.data <- unlist(ETo[which(ETo$month==2 & ETo$day==23 & ETo$year!=2018),6:ncol(ETo)])
+sum(check2.23.data < 0) #4 are negative, remove these below
+sum(is.na(check2.23.data)) #0 are NA, so don't have to worry about that for 2/23/18 correction
+rm(check2.23.data)
+test <- apply(ETo[which(ETo$month==2 & ETo$day==23 & ETo$year!=2018),6:ncol(ETo)], 2, function(x) {mean(x[x>0])})
+summary(test)
+head(test)
+length(test)
+rm(test)
+ETo[ETo$dates=='02_23_2018', 6:ncol(ETo)] <- apply(ETo[which(ETo$month==2 & ETo$day==23 & ETo$year!=2018),6:ncol(ETo)], 2, function(x) {mean(x[x>0])}) #reduces NA total to 76
+na_presence_ETo <- lapply(ETo[,6:ncol(ETo)], function(x) {sum(is.na(x))})
+na_presence_ETo <- na_presence_ETo[na_presence_ETo > 0]
+na_presence_ETo #7 cells have NAs
+for (i in seq_along(na_presence_ETo)) {
+  print(na_presence_ETo[i])
+  print(ETo$dates[is.na(ETo[names(na_presence_ETo)[i]])])
+} #they are all different dates
+for (i in seq_along(na_presence_ETo)) {
+  dates <- ETo$dates[is.na(ETo[names(na_presence_ETo)[i]])]
+  for (j in seq_along(dates)) {
+    day <- ETo$day[ETo$dates==dates[j]]
+    month <- ETo$month[ETo$dates==dates[j]]
+    gap.fill.data <- ETo[which(ETo$month==month & ETo$day==day & ETo$dates != '02_23_2018'), names(na_presence_ETo)[i]]
+    ETo[ETo$dates==dates[j], names(na_presence_ETo)[i]] <- mean(gap.fill.data[gap.fill.data > 0], na.rm = TRUE) #remove any negative values from averages
   }
-  else if (length(j) == 0) {
-    j <- i
-    next
-  }
-  else{j <- c(j,i)}
 }
-for (i in 1:length(j)) {
-  print(na_indices_ETo[j][i])
-} #10 cells have NA values, one of which is cell_148533
-#for example,
-ETo[2600:2620, j[1]]
-#run loop to replace NAs
-j <- j[-5] #get rid of index referring to column 10018; it's all NA
-#in a loop, j[i] returns the column index
-column_indices <- j
-i <- 1
-k <- 1
-for (i in 1:length(column_indices)) {
-  row_indices <- unlist(na_indices_ETo[column_indices[i]], use.names = F)
-  for (k in 1:length(row_indices)){
-     doy <- ETo$DOY[row_indices[k]]
-     doy_indices <- which(ETo$DOY==doy)
-     gap_fill <- mean(ETo[doy_indices, column_indices[i]], na.rm = TRUE)
-     ETo[row_indices[k], column_indices[i]] <- gap_fill
+
+#now apply a negative value correction procedure
+neg_presence_ETo <- lapply(ETo[,6:ncol(ETo)], function(x) {sum(x < 0)})
+neg_presence_ETo <- neg_presence_ETo[neg_presence_ETo > 0]
+neg_presence_ETo
+length(neg_presence_ETo) #504 cells with negative ETo values
+for (i in seq_along(neg_presence_ETo)) {
+  print(neg_presence_ETo[i])
+  print(ETo$dates[is.na(ETo[names(neg_presence_ETo)[i]])])
+} #they are all different dates
+for (i in seq_along(neg_presence_ETo)) {
+  dates <- ETo$dates[ETo[names(neg_presence_ETo)[i]] < 0]
+  for (j in seq_along(dates)) {
+    day <- ETo$day[ETo$dates==dates[j]]
+    month <- ETo$month[ETo$dates==dates[j]]
+    gap.fill.data <- ETo[which(ETo$month==month & ETo$day==day & ETo$dates != '02_23_2018'), names(neg_presence_ETo)[i]]
+    ETo[ETo$dates==dates[j], names(neg_presence_ETo)[i]] <- mean(gap.fill.data[gap.fill.data > 0], na.rm = TRUE) #remove any negative values or zeroes before calculating averages to gap fill
   }
 }
-setwd(modelscaffoldDir)
-write.csv(ETo, 'SpatialCIMIS_ETo_rounded_QCpass.csv', row.names = F)
+sum(is.na(ETo[,6:ncol(ETo)])) #good
+sum(ETo[,6:ncol(ETo)] < 0, na.rm = TRUE) #good
+sum(ETo[,6:ncol(ETo)] == 0, na.rm = TRUE) #still have 11
+
+#now, correct the zeroes
+zero_presence_ETo <- lapply(ETo[,6:ncol(ETo)], function(x) {sum(x == 0)})
+zero_presence_ETo <- zero_presence_ETo[zero_presence_ETo > 0] #identify cells that have at least 1 count of a zero value for ETo across all days
+zero_presence_ETo
+length(zero_presence_ETo) #11 cells with ETo values of zero 1 day
+for (i in seq_along(zero_presence_ETo)) {
+  print(zero_presence_ETo[i])
+  print(ETo$dates[ETo[names(zero_presence_ETo)[i]]==0])
+} #they are all different dates
+for (i in seq_along(zero_presence_ETo)) {
+  dates <- ETo$dates[ETo[names(zero_presence_ETo)[i]] == 0]
+  for (j in seq_along(dates)) {
+    day <- ETo$day[ETo$dates==dates[j]]
+    month <- ETo$month[ETo$dates==dates[j]]
+    gap.fill.data <- ETo[which(ETo$month==month & ETo$day==day & ETo$dates != '02_23_2018'), names(zero_presence_ETo)[i]]
+    ETo[ETo$dates==dates[j], names(zero_presence_ETo)[i]] <- mean(gap.fill.data[gap.fill.data > 0], na.rm = TRUE) #remove any negative values or zeroes before calculating averages to gap fill
+  }
+}
+sum(is.na(ETo[,6:ncol(ETo)])) #still good
+sum(ETo[,6:ncol(ETo)] < 0, na.rm = TRUE) #still good
+sum(ETo[,6:ncol(ETo)] == 0, na.rm = TRUE) #good now
+max(ETo[,6:ncol(ETo)]) #max 16.759 mm/day;
+hist(as.numeric(lapply(ETo[,6:ncol(ETo)], mean))) #centered over 3.8-4.0 mm/day
+max(as.numeric(lapply(ETo[,6:ncol(ETo)], mean))) #max 6.3 mm/day across all days for one cell
+min(as.numeric(lapply(ETo[,6:ncol(ETo)], mean))) #min 2.3 mm/day across all days for one cell
+write.csv(ETo, file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.QCpass.csv'), row.names = FALSE)
+#match this fname SpatialCIMIS.U2.QCpass.csv
+
+#old NA correction work from 2017
+# na_indices_ETo <- lapply(ETo, function(x) {which(is.na(x))})
+# j <- c()
+# for (i in 1:length(na_indices_ETo)) {
+#   if (length(na_indices_ETo[[i]]) == 0) { #could set to 1 also as above
+#     next
+#   }
+#   else if (length(j) == 0) {
+#     j <- i
+#     next
+#   }
+#   else{j <- c(j,i)}
+# }
+# for (i in 1:length(j)) {
+#   print(na_indices_ETo[j][i])
+# } #10 cells have NA values, one of which is cell_148533
+# #for example,
+# ETo[2600:2620, j[1]]
+# #run loop to replace NAs
+# j <- j[-5] #get rid of index referring to column 10018; it's all NA
+# #in a loop, j[i] returns the column index
+# column_indices <- j
+# i <- 1
+# k <- 1
+# for (i in 1:length(column_indices)) {
+#   row_indices <- unlist(na_indices_ETo[column_indices[i]], use.names = F)
+#   for (k in 1:length(row_indices)){
+#      doy <- ETo$DOY[row_indices[k]]
+#      doy_indices <- which(ETo$DOY==doy)
+#      gap_fill <- mean(ETo[doy_indices, column_indices[i]], na.rm = TRUE)
+#      ETo[row_indices[k], column_indices[i]] <- gap_fill
+#   }
+# }
+
 
 #code to check data updates for problems
-
 #precip <- read.csv('PRISM_precip_data.csv') #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
 which(is.na(precip)) #no NAs in PRISM as of 6/26/17
 
