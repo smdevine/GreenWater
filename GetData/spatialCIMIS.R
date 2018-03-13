@@ -90,7 +90,7 @@ for (i in 1:length(datesequence)) {
     if (file.exists(file.path(spatialCIMISdir, 'minRH', yr)) == FALSE) {
       dir.create(file.path(spatialCIMISdir, 'minRH', yr))
     }
-    writeRaster(minRH, filename = file.path(spatialCIMISdir, 'minRH', yr, paste0('minRH_', yr, mnth, day, '.tif')), format='GTiff', overwrite=TRUE)
+    writeRaster(minRH, filename = file.path(spatialCIMISdir, 'minRH', yr, paste0('minRH', yr, mnth, day, '.tif')), format='GTiff', overwrite=TRUE)
     print(i)
   }
 }
@@ -115,19 +115,11 @@ SpCIMISExtract <- function(varname, startyear, endyear, startdate, enddate) {
     day <- format.Date(datesequence[i], '%d')
     mnth <- format.Date(datesequence[i], '%m')
     yr <- format.Date(datesequence[i], '%Y')
-    if (varname == 'U2' | varname == 'ETo') {
-      if (file.exists(file.path(spatialCIMISdir, varname, yr, paste0(varname, yr, mnth, day, '.tif')))==FALSE) {
-        print(paste0('No file for ', datesequence[i], '.'))
-        next
-      } else {
-          spCIMIS <- raster(file.path(spatialCIMISdir, varname, yr, paste0(varname, yr, mnth, day, '.tif')))
-        }
+    if (file.exists(file.path(spatialCIMISdir, varname, yr, paste0(varname, yr, mnth, day, '.tif')))==FALSE) {
+      print(paste0('No file for ', datesequence[i], '.'))
+      next
     } else {
-        if (file.exists(file.path(spatialCIMISdir, varname, yr, paste0(varname, '_', yr, mnth, day, '.tif')))==FALSE) {
-          print(paste0('No file for ', datesequence[i], '.'))
-          next
-        }
-        spCIMIS <- raster(file.path(spatialCIMISdir, varname, yr,paste0(varname, '_', yr, mnth, day, '.tif')))
+        spCIMIS <- raster(file.path(spatialCIMISdir, varname, yr, paste0(varname, yr, mnth, day, '.tif')))
       }
     cimis_data[i, 6:ncol(cimis_data)] <- extract(spCIMIS, cellsofinterest)
     print(i)
@@ -135,24 +127,23 @@ SpCIMISExtract <- function(varname, startyear, endyear, startdate, enddate) {
 #write.csv(cimis_data, paste0('SpatialCIMIS_', varname, '_data.csv'), row.names = F)
 #cimis_data <- read.csv('SpatialCIMIS_data.csv') #this has 86,600,954 cells
   cimis_data2 <- cbind(cimis_data[ ,1:5], round(cimis_data[ ,6:ncol(cimis_data)], 3)) #cimis_data['cell_number'] preserves data.frame class
-  write.csv(cimis_data2, file.path(cellsofinterestDir, 'SpCIMIS', paste0('SpatialCIMIS.', varname, 'update.rounded.csv')), row.names=FALSE)
+  write.csv(cimis_data2, file.path(cellsofinterestDir, paste0('SpatialCIMIS.', varname, 'update.rounded.csv')), row.names=FALSE)
 }
 SpCIMISExtract('U2', '2003', '2018', '10/01/', '03/08/')
 SpCIMISExtract('minRH', '2003', '2018', '10/01/', '03/08/')
 SpCIMISExtract('ETo', '2003', '2018', '10/01/', '03/08/')
 
-#parallel execution with foreach
-library(foreach)
-library(doSNOW)
-cl<-makeCluster(2, type = 'SOCK') #change the number to your desired number of CPU cores  
-clusterExport(cl, list=c("cellsofinterestDir", 'spatialCIMISdir', 'SpCIMISExtract'))
-clusterCall(cl, function() library(raster))
-registerDoSNOW(cl)
-foreach(i=1:2) %dopar% {  
-  varname <- c('U2', 'minRH')
-  SpCIMISExtract(varname = varname[i])
+#get rid of underscores from varnames
+varname <- 'minRH'
+for (i in 2003:2018) {
+  fnames_full <- list.files(file.path(spatialCIMISdir, varname, i), full.names = TRUE)
+  fnames <- list.files(file.path(spatialCIMISdir, varname, i))
+  for (j in seq_along(fnames)) {
+    file.rename(from=fnames_full[j], to=file.path(spatialCIMISdir, varname, i, gsub('_', '', fnames[j])))
+  }
 }
-stopCluster(cl)
+
+
 #explore other datasets in the Spatial CIMIS database
 setwd(californiaDir)
 california <- shapefile("california_CA_TA.shp")
