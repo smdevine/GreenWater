@@ -10,28 +10,72 @@ max(precip[,6:ncol(precip)]) #max precip was 10.2" in one day
 lapply(precip[,6:ncol(precip)], summary)
 #no changes made; use existing precip file created in 'download_PRISM.R'
 
-RHmin <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.minRHupdate.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
-na_indices_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {which(is.na(x))})
-which(names(RHmin)=='cell_148533')
-head(RHmin$cell_148533)
-head(RHmin[,10018])
-head(RHmin[,10019])
-for (i in 1:length(na_indices_RHmin)) {
-  if (length(na_indices_RHmin[[i]]) == 1) {
-    next
-  }
-  else(print(i))
-}
-names(na_indices_RHmin)[10013] #"cell_148533" there is no data for this cell.  It's located east of Watsonville right on the beach at this lat, long: 36.90404, -121.844
-na_indices_RHmin <- na_indices_RHmin[-10013]
-na_indices_RHmin <- unlist(na_indices_RHmin)
-unique(na_indices_RHmin) #row 2991 is only NA for all other cells
-#change row 2991 to average of all those same DOYs for a given cell
-doy_indices <- which(RHmin$DOY==RHmin$DOY[2991])
-doy_indices <- doy_indices[-9] #get rid of 2991
-doy342_means <- apply(RHmin[doy_indices, 6:ncol(RHmin)], 2, mean)
-RHmin[2991,6:ncol(RHmin)] <- doy342_means
+RHmin <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.minRHupdate.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity by 2 km raster cell, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
+dim(RHmin)
+sum(is.na(RHmin[,6:ncol(RHmin)])) #26,120 NAs as of 3/12/18; cell_148533 no longer a cell of interest, so all but 76 are from 2/23/18 missing data; this is 0.04% missing
+sum(RHmin[,6:ncol(RHmin)] < 0, na.rm = TRUE) #0 negative numbers
+sum(RHmin[,6:ncol(RHmin)] == 0, na.rm = TRUE) #0 observations equal to 0
+max(RHmin[,6:ncol(RHmin)], na.rm = TRUE) #180.175 max rel humidity; that's a problem
+sum(RHmin[,6:ncol(RHmin)] > 100, na.rm = TRUE) #2690 observations greater than 100%
+sum(RHmin[,6:ncol(RHmin)] > 95, na.rm = TRUE) #8658 observations greater than 95%
+sum(RHmin[,6:ncol(RHmin)] > 90, na.rm = TRUE) #45737 observations greater than 90%
+sum(RHmin[,6:ncol(RHmin)] > 60, na.rm = TRUE) #7,083,837 greater than 60%, about 10% of dataset
+hist(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #centered over 35-40% rel. humidity
+max(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #max 58.9% across all days for one cell
+min(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #min 15.0% across all days for one cell
+mean(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #mean 37.6% across all days for one cell
+#conclusion is to gap-fill 2/23/18 first, then rest of NAs, then numbers greater than 100%
+check2.23.data <- unlist(RHmin[which(RHmin$month==2 & RHmin$day==23 & RHmin$year!=2018),6:ncol(RHmin)])
+class(check2.23.data)
+length(check2.23.data)
+sum(check2.23.data < 0) #0 are negative, confirming above, so don't worry about
+sum(is.na(check2.23.data)) #0 are NA, so don't have to worry about that for 2/23/18 correction
+sum(check2.23.data > 100) #5 are greater than 100; these removed before calculating daily averages below
+rm(check2.23.data)
+test <- apply(RHmin[which(RHmin$month==2 & RHmin$day==23 & RHmin$year!=2018),6:ncol(RHmin)], 2, function(x) {mean(x[x<100])})
+summary(test)
+head(test)
+length(test)
+rm(test)
+RHmin[RHmin$dates=='02_23_2018', 6:ncol(RHmin)] <- apply(RHmin[which(RHmin$month==2 & RHmin$day==23 & RHmin$year!=2018),6:ncol(RHmin)], 2, function(x) {mean(x[x<100])}) #reduces NA total to 76
+sum(is.na(RHmin[,6:ncol(RHmin)])) #now 13,060 which is exactly one other day
+RHmin$dates[is.na(RHmin$cell_3091)] #"12_08_2011"
+sum(is.na(RHmin[RHmin$dates=="12_08_2011",6:ncol(RHmin)])) #yup all NA on 12/8/2011
+#fix these using same approach as above
+test <- apply(RHmin[which(RHmin$month==12 & RHmin$day==8 & RHmin$year!=2011),6:ncol(RHmin)], 2, function(x) {mean(x[x<100])})
+summary(test)
+head(test)
+length(test)
+rm(test)
+RHmin[RHmin$dates=='12_08_2011', 6:ncol(RHmin)] <- apply(RHmin[which(RHmin$month==12 & RHmin$day==8 & RHmin$year!=2011),6:ncol(RHmin)], 2, function(x) {mean(x[x<100])})
+sum(is.na(RHmin[,6:ncol(RHmin)])) #all NAs now gap-filled
+#fix >100 values
+
+
 write.csv(RHmin, 'SpatialCIMIS_minRH_rounded_QCpass.csv', row.names = F)
+
+#old code for RHmin data checking
+# na_indices_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {which(is.na(x))})
+# which(names(RHmin)=='cell_148533')
+# head(RHmin$cell_148533)
+# head(RHmin[,10018])
+# head(RHmin[,10019])
+# for (i in 1:length(na_indices_RHmin)) {
+#   if (length(na_indices_RHmin[[i]]) == 1) {
+#     next
+#   }
+#   else(print(i))
+# }
+# names(na_indices_RHmin)[10013] #"cell_148533" there is no data for this cell.  It's located east of Watsonville right on the beach at this lat, long: 36.90404, -121.844
+# na_indices_RHmin <- na_indices_RHmin[-10013]
+# na_indices_RHmin <- unlist(na_indices_RHmin)
+# unique(na_indices_RHmin) #row 2991 is only NA for all other cells
+# #change row 2991 to average of all those same DOYs for a given cell
+# doy_indices <- which(RHmin$DOY==RHmin$DOY[2991])
+# doy_indices <- doy_indices[-9] #get rid of 2991
+# doy342_means <- apply(RHmin[doy_indices, 6:ncol(RHmin)], 2, mean)
+# RHmin[2991,6:ncol(RHmin)] <- doy342_means
+
 
 #check wind data
 U2 <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.U2update.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script
