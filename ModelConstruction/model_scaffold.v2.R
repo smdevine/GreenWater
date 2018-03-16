@@ -155,7 +155,7 @@ dim(grape.zone.names)
 #Southern California/Northern Baja Coast 
 #2381 
 grape.zone.names <- grape.zone.names['US_L3NAME']
-grape.zone.names$grape.zone.name <- ifelse(grape.zone.names$US_L3NAME == 'Cascades' | grape.zone.names$US_L3NAME == 'Central California Foothills and Coastal Mountains' | grape.zone.names$US_L3NAME == 'Coast Range' | grape.zone.names$US_L3NAME == 'Eastern Cascades Slopes and Foothills' | grape.zone.names$US_L3NAME == 'Klamath Mountains/California High North Coast Range' | grape.zone.names$US_L3NAME == 'Sierra Nevada' | grape.zone.names$US_L3NAME == 'Southern California Mountains' | grape.zone.names$US_L3NAME == 'Southern California/Northern Baja Coast', 'Coast, Foothills, and Mountains', ifelse(grape.zone.names$US_L3NAME == 'Central California Valley', 'Central Valley', 'Southern Desert'))
+grape.zone.names$grape.zone.name <- ifelse(grape.zone.names$US_L3NAME == 'Cascades' | grape.zone.names$US_L3NAME == 'Central California Foothills and Coastal Mountains' | grape.zone.names$US_L3NAME == 'Coast Range' | grape.zone.names$US_L3NAME == 'Eastern Cascades Slopes and Foothills' | grape.zone.names$US_L3NAME == 'Klamath Mountains/California High North Coast Range' | grape.zone.names$US_L3NAME == 'Sierra Nevada' | grape.zone.names$US_L3NAME == 'Southern California Mountains' | grape.zone.names$US_L3NAME == 'Southern California/Northern Baja Coast', 'Coast, Foothills, and Mountains', ifelse(grape.zone.names$US_L3NAME == 'Central California Valley', 'Central Valley', 'Southern Desert')) #thus, Sonoran and Mojave Basin and Range are grouped into 'Southern Desert'
 grape.zone.names$grape.zone.name[centroids.sp.aea.df$cropcode!='69'] <- NA #maintain all ecozone names to add back to crop.soils
 summary(as.factor(grape.zone.names$grape.zone.name))
 summary(as.factor(grape.zone.names$US_L3NAME))
@@ -196,10 +196,11 @@ head(model_scaffold_final, 20) #check manually that codes maintained integrity
 model_scaffold_final$latitude_NAD83 <- coordinates(centroids.sp.geo.df)[,2]
 model_scaffold_final$longitude_NAD83 <- coordinates(centroids.sp.geo.df)[,1]
 shapefile(model_scaffold_final, file.path(modelscaffoldDir, 'shapefiles', 'model_scaffold.3.6.18.shp'), overwrite=TRUE) #still in same projection as original LandIQ shapefile 'i15_Crop_Mapping_2014_Final_LandIQonAtlas.shp'; field_names abbreviated due to shapefile contraints
-write.csv(data.frame(model_scaffold_final), file.path(modelscaffoldDir, 'model_scaffold_allfields.3.18.18.csv'), row.names = FALSE) #this is a full copy of the model scaffold that contains duplicate unique climate x crop x map unit combinations
+write.csv(data.frame(model_scaffold_final), file.path(modelscaffoldDir, 'model_scaffold_allfields.3.8.18.csv'), row.names = FALSE) #this is a full copy of the model scaffold that contains duplicate unique climate x crop x map unit combinations
 
 #create model_scaffold for the only the unique model codes and write to disk as csv
 #maintain this order in columns: (1)mukey	(2)crop_code	(3)longitude_AEA	(4)latitude_AEA	(5)PRISMcellnumber	(6)CIMIScellnumber	(7)unique_model_code
+#IMPORTANT: some "unique_model_codes" will show up in the model_scaffold more than once as some climate x mapunit x crop combinations have more than one major component as part of the mapuunit; in the end, results will be percent component averaged
 
 unique_indices <- match(unique_model_codes, model_scaffold_final$unique_model_code)
 model_scaffold_unique <- data.frame(model_scaffold_final[unique_indices, c('mukey', 'cropcode', 'longitude_NAD83', 'latitude_NAD83', 'PRISMcellnumber', 'CIMIScellnumber', 'unique_model_code', 'alfalfa.zone', 'grape.zone', 'ecozone_L3NAME')])
@@ -282,6 +283,62 @@ data.frame(crops.soils)[crops.soils$mukey=='462096',] #mistake is that Peltier (
 
 #write unique model code scaffold to disk for running FAO56_dualcropcoeff.R
 write.csv(model_scaffold_majcomps, file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), row.names = FALSE) #v1 included alfalfa.zone column; v2 includes both alfalfa and grape zone column; v3 also includes column identifying whether or not column originally had data
+
+#read this back in for some further refinement of the scaffold
+model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), stringsAsFactors = FALSE)
+dim(model.scaffold) #112210 rows
+alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
+grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
+almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
+walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
+pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
+sum(model.scaffold$cropcode==grape_code) #37,488
+sum(model.scaffold$cropcode==alfalfa_code) #26,993
+sum(model.scaffold$cropcode==almond_code) #27,672
+sum(model.scaffold$cropcode==walnut_code) #13,411
+sum(model.scaffold$cropcode==pistachio_code) #6,946
+summary(as.factor(model.scaffold$alfalfa.zone[model.scaffold$cropcode==alfalfa_code]))
+#Central Valley Imperial Valley   Intermountain       NA's 
+#   14590            6044            4300            1759 
+#thus, 1759 NAs may not be run for alfalfa
+sum(model.scaffold$cropcode==alfalfa_code & model.scaffold$ecozone_L3NAME=='Sonoran Basin and Range' & is.na(model.scaffold$alfalfa.zone)) #only 61 NAs in Sonoran Basin and Range
+summary(as.factor(model.scaffold$ecozone_L3NAME[model.scaffold$cropcode==alfalfa_code & is.na(model.scaffold$alfalfa.zone)]))
+sum(model.scaffold$cropcode==grape_code & is.na(model.scaffold$grape.zone)) #0
+summary(as.factor(model.scaffold$grape.zone[model.scaffold$cropcode==grape_code]))
+#Central Valley   Coast, Foothills, and Mountains   Southern Desert
+#16193                           20975                    320
+
+summary(as.factor(model.scaffold$ecozone_L3NAME[model.scaffold$cropcode==almond_code]))
+summary(as.factor(model.scaffold$ecozone_L3NAME[model.scaffold$cropcode==walnut_code]))
+summary(as.factor(model.scaffold$ecozone_L3NAME[model.scaffold$cropcode==pistachio_code]))
+
+#conclusion is to clean up model_scaffold to remove AWC NAs and AWC zeroes, skip Southern Desert grapes and alfalfa zone NAs
+#save this modified model.scaffold with date tagged for march 2018 model run
+model.scaffold <- model.scaffold[!(model.scaffold$cropcode==alfalfa_code & is.na(model.scaffold$alfalfa.zone)),] #take out unique alfalfa soil & climate combinations outside of Intermountain, Central Valley, or Low Desert (Imperial Valley) regions, removing 1759
+model.scaffold <- model.scaffold[!(model.scaffold$cropcode==grape_code & model.scaffold$grape.zone=='Southern Desert'),] #this removes 320
+model.scaffold <- model.scaffold[!(is.na(model.scaffold$z1.5m_cmH2O_unmodified_comp)), ] #removes another 1290
+model.scaffold <- model.scaffold[!(model.scaffold$z1.5m_cmH2O_unmodified_comp == 0), ] #removes another 1071
+model.scaffold <- model.scaffold[!is.na(model.scaffold$TEW),] #removes another 714
+sum(is.na(model.scaffold$z1.5m_cmH2O_unmodified_comp))
+sum(model.scaffold$z1.5m_cmH2O_unmodified_comp==0)
+sum(is.na(model.scaffold$TEW))
+sum(model.scaffold$REW==0)
+sum(model.scaffold$TEW==0)
+sum(model.scaffold$TEW < model.scaffold$REW) #16 have this state; fixed in FAO56 model run
+dim(model.scaffold) #reduced to 107,561 unique crop x soil x climate combinations to model
+summary(as.factor(model.scaffold$cropcode))
+model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code, model.scaffold$cokey),]
+write.csv(model.scaffold, file.path(modelscaffoldDir, paste0('model_scaffold_majcomps', Sys.Date(),'.csv')), row.names = FALSE)
+
+#counts of major component by unique_model_code
+summary(as.factor(tapply(model.scaffold$cokey, model.scaffold$unique_model_code, length)))
+#84,304 have one major component; 10,101 have 2 major components; 1,001 have 3 majors; 13 have 4 majors
+
+#double check grape.zone and alfalfa.zone counts match cropcode counts now
+sum(model.scaffold$cropcode==36)
+sum(!is.na(model.scaffold$alfalfa.zone))
+sum(model.scaffold$cropcode==69)
+sum(!is.na(model.scaffold$grape.zone))
 
 #investigate NAs and 0's
 mukey_AD_isNA <- unique(model_scaffold_majcomps$mukey[which(is.na(model_scaffold_majcomps$z1.5m_cmH2O_unmodified_comp))]) #119 mukeys are NA for awc
