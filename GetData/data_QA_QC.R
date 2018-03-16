@@ -1,3 +1,6 @@
+#this script checks for physically impossible or missing values in the reference ET, wind, and daily minimum relative humidity spatial cimis derived estiamte and replaces them with period of record averages for the given, affected 2 km Spatial CIMIS cell; gap-filling procedure is arguably rudimentary, but bottomline is that dataset is at least 99.9% passable even without doing anything.  So this is more about getting uninterrupted, physically feasible climatic time-series that will allow the dual crop coefficent model to run
+#PRISM dataset is OK
+
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018'
 list.files(modelscaffoldDir)
 precip <- read.csv(file.path(modelscaffoldDir, 'PRISM_precip_data.csv'), stringsAsFactors=FALSE) #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download)
@@ -10,6 +13,7 @@ max(precip[,6:ncol(precip)]) #max precip was 10.2" in one day
 lapply(precip[,6:ncol(precip)], summary)
 #no changes made; use existing precip file created in 'download_PRISM.R'
 
+#QC check on relative humdity data
 RHmin <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.minRHupdate.rounded.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity by 2 km raster cell, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script
 dim(RHmin)
 sum(is.na(RHmin[,6:ncol(RHmin)])) #26,120 NAs as of 3/12/18; cell_148533 no longer a cell of interest, so all but 76 are from 2/23/18 missing data; this is 0.04% missing
@@ -24,6 +28,7 @@ hist(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #centered over
 max(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #max 58.9% across all days for one cell
 min(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #min 15.0% across all days for one cell
 mean(as.numeric(lapply(RHmin[,6:ncol(RHmin)], mean, na.rm=TRUE))) #mean 37.6% across all days for one cell
+
 #conclusion is to gap-fill 2/23/18 first, then rest of NAs, then numbers greater than 100%
 check2.23.data <- unlist(RHmin[which(RHmin$month==2 & RHmin$day==23 & RHmin$year!=2018),6:ncol(RHmin)])
 class(check2.23.data)
@@ -41,7 +46,8 @@ RHmin[RHmin$dates=='02_23_2018', 6:ncol(RHmin)] <- apply(RHmin[which(RHmin$month
 sum(is.na(RHmin[,6:ncol(RHmin)])) #now 13,060 which is exactly one other day
 RHmin$dates[is.na(RHmin$cell_3091)] #"12_08_2011"
 sum(is.na(RHmin[RHmin$dates=="12_08_2011",6:ncol(RHmin)])) #yup all NA on 12/8/2011
-#fix these using same approach as above
+
+#fix 12/8/2011 data using same approach as above
 test <- apply(RHmin[which(RHmin$month==12 & RHmin$day==8 & RHmin$year!=2011),6:ncol(RHmin)], 2, function(x) {mean(x[x<100])})
 summary(test)
 head(test)
@@ -49,10 +55,30 @@ length(test)
 rm(test)
 RHmin[RHmin$dates=='12_08_2011', 6:ncol(RHmin)] <- apply(RHmin[which(RHmin$month==12 & RHmin$day==8 & RHmin$year!=2011),6:ncol(RHmin)], 2, function(x) {mean(x[x<100])})
 sum(is.na(RHmin[,6:ncol(RHmin)])) #all NAs now gap-filled
+
 #fix >100 values
+pos_presence_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {sum(x > 100)})
+pos_presence_RHmin <- pos_presence_RHmin[pos_presence_RHmin > 0]
+pos_presence_RHmin
+length(pos_presence_RHmin) #352 cells with at least 1 >100% RHmin daily value
+for (i in seq_along(pos_presence_RHmin)) {
+  print(pos_presence_RHmin[i])
+  print(RHmin$dates[RHmin[names(pos_presence_RHmin)[i]] > 100])
+} #they are all different dates
+for (i in seq_along(pos_presence_RHmin)) {
+  dates <- RHmin$dates[RHmin[names(pos_presence_RHmin)[i]] > 100]
+  for (j in seq_along(dates)) {
+    day <- RHmin$day[RHmin$dates==dates[j]]
+    month <- RHmin$month[RHmin$dates==dates[j]]
+    gap.fill.data <- RHmin[which(RHmin$month==month & RHmin$day==day & RHmin$dates != '02_23_2018' & RHmin$dates != '12_08_2011'), names(pos_presence_RHmin)[i]]
+    print(c(mean(gap.fill.data), sd(gap.fill.data)))
+    RHmin[RHmin$dates==dates[j], names(pos_presence_RHmin)[i]] <- mean(gap.fill.data[gap.fill.data < 100], na.rm = TRUE) #remove any values >100 or NAs (even though NAs should have already been removed) calculating averages to gap fill
+  }
+}
+sum(RHmin[,6:ncol(RHmin)] > 100, na.rm = TRUE) #good now
+#inspect the values near the >100 values
 
-
-write.csv(RHmin, 'SpatialCIMIS_minRH_rounded_QCpass.csv', row.names = F)
+write.csv(RHmin, file.path(modelscaffoldDir, 'SpatialCIMIS.RHmin.QCpass.csv'), row.names = FALSE)
 
 #old code for RHmin data checking
 # na_indices_RHmin <- lapply(RHmin[,6:ncol(RHmin)], function(x) {which(is.na(x))})
@@ -136,6 +162,7 @@ head(test)
 length(test)
 rm(test)
 ETo[ETo$dates=='02_23_2018', 6:ncol(ETo)] <- apply(ETo[which(ETo$month==2 & ETo$day==23 & ETo$year!=2018),6:ncol(ETo)], 2, function(x) {mean(x[x>0])}) #reduces NA total to 76
+sum(is.na(ETo[,6:ncol(ETo)]))
 na_presence_ETo <- lapply(ETo[,6:ncol(ETo)], function(x) {sum(is.na(x))})
 na_presence_ETo <- na_presence_ETo[na_presence_ETo > 0]
 na_presence_ETo #7 cells have NAs
@@ -160,7 +187,7 @@ neg_presence_ETo
 length(neg_presence_ETo) #504 cells with negative ETo values
 for (i in seq_along(neg_presence_ETo)) {
   print(neg_presence_ETo[i])
-  print(ETo$dates[is.na(ETo[names(neg_presence_ETo)[i]])])
+  #print(ETo$dates[is.na(ETo[names(neg_presence_ETo)[i]])])
 } #they are all different dates
 for (i in seq_along(neg_presence_ETo)) {
   dates <- ETo$dates[ETo[names(neg_presence_ETo)[i]] < 0]
