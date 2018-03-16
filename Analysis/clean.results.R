@@ -2,6 +2,7 @@ resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.che
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Oct2017'
 clean.resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Dec2017.check/clean_results' #this is for most recent runs starting Oct 17, 2017
 #made revision on Dec 2017 to re-run results through but re-correcting GW.ET.growing for Irr.end.storage correction
+#GW.ET.growing correction no longer needed as of March 2018, so 2nd function argument set to FALSE
 if (!dir.exists(file.path(resultsDir, 'clean_results'))) {
   dir.create(file.path(resultsDir, 'clean_results'))
 }
@@ -60,14 +61,14 @@ CleanResults <- function(cropname, revise.GW) {
   }
 }
 #run function for walnuts
-CleanResults('walnut.mature', TRUE)
-CleanResults('almond.mature', TRUE)
-CleanResults('pistachios', TRUE)
-CleanResults('grapes.table', TRUE)
-CleanResults('grapes.wine', TRUE)
-CleanResults('alfalfa.intermountain', TRUE)
-CleanResults('alfalfa.CV', TRUE)
-CleanResults('alfalfa.imperial', TRUE)
+CleanResults('walnut.mature', FALSE)
+CleanResults('almond.mature', FALSE)
+CleanResults('pistachios', FALSE)
+CleanResults('grapes.table', FALSE)
+CleanResults('grapes.wine', FALSE)
+CleanResults('alfalfa.intermountain', FALSE)
+CleanResults('alfalfa.CV', FALSE)
+CleanResults('alfalfa.imperial', FALSE)
 #print-outs showed no concerns 10/5/17
 #error discovered 10/13/17: df$cokey %in% cokeys_uncertain_data was not returning anything because cokeys_uncertain_data is a data.frame; everything re-run with df$cokey %in% cokeys_uncertain_data$x now part of the logical statement to remove specific records
 #re-run 12/20/17 to check for sensitivity to irr.end.storage correction in GW.ET.growing calc, which was discovered to have produced problems for Alfalfa Imperial calculation
