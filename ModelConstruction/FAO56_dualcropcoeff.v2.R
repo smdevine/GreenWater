@@ -1,19 +1,19 @@
 #TO-DO:
-  #1.  Re-run all 30% and 80% allowable depletion scenarios because of correction of KsCalc function.
+  #1.  Re-run all 30% and 80% allowable depletion scenarios because of correction of KsCalc function. [DONE]
   #2.  Correct Ei and Ep functions such that TEW cannot be exceeded by Dei or Dep, respectively, in the upper layer [DONE].  
   #3.  Re-run all almond and walnut scenarios, since model codes were changed when tomatoes, etc. were added to the mix [DONE]
   #5.  Modify winter Kcb calculation for alfalfa: allow for fall growth in intermountain region before frost termination; allow for higher peak values in Fall then decline to 0.8 before rising again in Feb [DONE]
   #6.  Modify Fc equation for alfalfa, so that it is directly based off of Kcb values [DONE]
   #7.  Allow for winter residual "mulch" in intermountain alfalfa production (for every 10% effective surface coverage results in 5% reduction in TEW)
-  #8.  Modify irrigation decision so that irrigations can't occur before 2/?? in Central Valley, even with drought stress but ensure this doesn't adversely affect results calculations that depend on definitions of Jdev [DONE]
+  #8.  Modify irrigation decision so that irrigations can't occur before 2/7 in Central Valley, even with drought stress but ensure this doesn't adversely affect results calculations that depend on definitions of Jdev [DONE]
   #9. Add alfalfa zone to model scaffold [DONE]
   #10. Add grape zone to model scaffold [DONE]
 #modified KeiCalc and KepCalc on 9/11/17 to correct for overestimation of evaporation from sandy soils with very low TEW (i.e. <12 mm)
   #11. Simple tests or monte-Carlo simulation of effect of following effects (1) climatic adjustment of Kcb values (2) bloom and leaf-drop assumptions (3) Kcb values themselves
   #12. Test effect of varying alfalfa height on Kcb calcs
-  #13. Modify definition of GW.ET.growing so that it no longer includes a correction for irrigation water end storage
+  #13. Modify definition of GW.ET.growing so that it no longer includes a correction for irrigation water end storage, elminating need for post-run correction
   #14.  Remove one of the deep percolation definitions and do one for the growing season period
-  #15.  Do separate water balance tracking for irrigation and green water to get a more temporally accruate summation of green water utilization
+  #15.  Do separate water balance tracking for irrigation and green water to get a more temporally accruate summation of green water utilization[NOT NECESSARY; OPERATIONAL DEF WORKS]
   #16. Revise grape zone terminology
   
 #changed order of DPei and DPep on 9/11/17  
@@ -21,55 +21,24 @@
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018' #location of input data; copied from Sep2017 on 10/18/17
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018' #location of input data; re-worked early March 2018
 resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Mar2018'
 rounding_digits <- 3
-setwd(modelscaffoldDir)
-irrigation.parameters <- read.csv('irrigation_parameters.csv', stringsAsFactors = F)
-crop.parameters.df <- read.csv('crop_parameters.csv', stringsAsFactors = F) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
-P.df <- read.csv('PRISM.precip.data.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of precip from 10/1/2003-6/25/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 6/26/17 download); blanks checked for in 'data_QA_QC.R'
-U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
-RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" in data_QA_QC.R.  Now, no missing data except for cell 148533
-ETo.df <- read.csv('SpatialCIMIS.ETo.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days in data_QA_QC.R.  Now, no missing data except for cell 148533
-model.scaffold <- read.csv('model_scaffold_majcomps.v2.csv', stringsAsFactors = F)
+irrigation.parameters <- read.csv(file.path(modelscaffoldDir, 'irrigation_parameters.csv'), stringsAsFactors = FALSE)
+crop.parameters.df <- read.csv(file.path(modelscaffoldDir, 'crop_parameters.csv'), stringsAsFactors = FALSE) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
+P.df <- read.csv(file.path(modelscaffoldDir, 'PRISM_precip_data.csv'), stringsAsFactors = FALSE) #this is a daily summary of precip from 10/1/2003-3/8/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 3/9/18 download); blanks and negative values checked for in 'data_QA_QC.R'
+U2.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.U2.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
+RHmin.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.RHmin.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" & "02_23_2018" in data_QA_QC.R, along with 2,690 >100% values corrected
+ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days (all on "02_23_2018") in data_QA_QC.R, along with 1,633 negative and 11 zero values corrected.
+cropscape_legend <- read.csv(file.path(modelscaffoldDir, 'cropscape_legend.txt'), stringsAsFactors = FALSE)
+model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), stringsAsFactors = FALSE) #note this has several more columns than previous versions; will have affects downstream
+lapply(model.scaffold, class)
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
-model.scaffold$longitude_AEA <- NULL
-model.scaffold$latitude_AEA <- NULL
-model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Sonoran Basin and Range')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, table grape, raisin, or low-quality wine grape
-cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
-# sum(model.scaffold$crop_code==grape_code) #80312
-# sum(model.scaffold$grape.zone=='Central California Valley' | model.scaffold$grape.zone=='Central California Foothills and Coastal Mountains', na.rm=TRUE) #79767
-# dim(model.scaffold) #387970 rows
 
-#now merge SpCIMIS data updates and write to disk when necessary
-# setwd(file.path(modelscaffoldDir, 'SpCIMIS'))
-# U2.update <- read.csv('SpatialCIMIS.U2update.rounded.csv')
-# ETo.update <- read.csv('SpatialCIMIS.EToupdate.rounded.csv')
-# RHmin.update <- read.csv('SpatialCIMIS.minRHupdate.rounded.csv', stringsAsFactors = F)
-# setwd(modelscaffoldDir)
-# P.update <- read.csv('PRISM_precip_data_update.csv', stringsAsFactors = FALSE)
-# dim(U2.update)
-# dim(U2.df)
-# U2.df <- rbind(U2.df, U2.update)
-# dim(U2.df)
-# dim(ETo.df)
-# dim(ETo.update)
-# ETo.df <- rbind(ETo.df, ETo.update)
-# dim(RHmin.df)
-# dim(RHmin.update)
-# RHmin.df <- rbind(RHmin.df, RHmin.update)
-# dim(P.df)
-# P.df[nrow(P.df),1:20] #last date was 6/25/17 from June 26 2017 download
-# P.df <- P.df[-(which(P.df$dates=='12_01_2016'):nrow(P.df)), ]
-# dim(P.df)
-# P.df[nrow(P.df),1:20]
-# P.df <- rbind(P.df, P.update)
-# write.csv(P.df, 'PRISM.precip.data.updated9.13.17.csv', row.names=FALSE)
-# write.csv(U2.df, 'SpatialCIMIS.U2.updated9.13.17.csv', row.names=FALSE)
-# write.csv(ETo.df, 'SpatialCIMIS.ETo.updated9.13.17.csv', row.names=FALSE)
-# write.csv(RHmin.df, 'SpatialCIMIS.RHmin.updated9.13.17.csv', row.names=FALSE)
+#model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Southern Desert')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, table grape, raisin, or low-quality wine grape
 
-#define functions implement FA56 dual crop coefficients
+
+#define functions to implement FAO56 dual crop coefficient model
 #includes subroutine that separates evaporable water as P vs. Irr sourced
 #some results abbreviations
 #E=evaporation
@@ -94,11 +63,8 @@ cropscape_legend <- read.csv('cropscape_legend.txt', stringsAsFactors = FALSE)
 # row_start <- 1
 # RDI.min <- NA
 # alfalfa.zone <- 'Intermountain'
-# alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa'] #75380 total
-# grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
-# almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
-# walnut_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Walnuts']
-# pistachio_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Pistachios']
+
+
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
@@ -407,63 +373,73 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #results function to summarize each model's results
   #find time to first and last irrigation
   #Jdev is 1 and Jharv is 365 for alfalfa.CV and alfalfa.imperial; Jdev is Jini for alfalfa.intermountain and Jharv is doy 327 (complete dormancy), even though actual irrigations are shortened to <doy293 for alfalfa.intermountain and <doy322 for alfalfa.CV
+  #can use sum(df$Ir) in lieu of length(which(df$Ir)) as long as no NAs present in df$Ir, which there should not be --in this case--sum(df$Ir, na.rm=TRUE)
   IrDateCalc <- function(df) { #as.Date('1900-01-01) is a proxy for NA
-    first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
+    first.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[1] <= Jdev) {
       head(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
+        if (sum(df$Ir > 0) == 1 & df$doys.model[1] <= Jdev) { #in the case that overall model starts after Jdev, which it does in 2003
           which(df$Ir > 0)} else {vector()}
       }
-    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+    last.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
       tail(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+        if (sum(df$Ir > 0) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
           which(df$Ir > 0)} else {vector()}
       }
+    all.irr.doys <- if (sum(df$Ir > 0) > 0) {paste(as.character(df$doys.model[df$Ir > 0]), collapse = '.')} else {NA}
+    irr.count <- sum(df$Ir > 0)
     if (length(first.irr.index) == 0 & length(last.irr.index) == 0) {
-      data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'))
+      data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), Irr.All=NA, Irr.Count=irr.count)
     }
     else if (length(first.irr.index) == 0) {
-      data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=df$dates[last.irr.index])
+      data.frame(Irr.1=as.Date('1900-01-01'), Irr.Last=df$dates[last.irr.index], Irr.All=all.irr.doys, Irr.Count=irr.count)
     }
     else if (length(last.irr.index) == 0) {
-      data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=as.Date('1900-01-01'))
+      data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=as.Date('1900-01-01'), Irr.All=all.irr.doys, Irr.Count=irr.count)
     } else {
-      data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=df$dates[last.irr.index])
+      data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=df$dates[last.irr.index], Irr.All=all.irr.doys, Irr.Count=irr.count)
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc))
   
   #calculate Green Water utilized
-  #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  However a correction is applied to the growing season ET for residual irrigation water storage to correctly estimate green water utilization within the same year.
-  WaterBalanceCalc <- function(df) { #concept is to run by year on a data.frame trimmed to Jdev-Jharv each year
+  #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  A correction is no longer applied to the growing season ET for residual irrigation water storage (using the 'irr_end_storage' variable) to correctly estimate green water utilization within the same year.
+  #past definitation for year's with a final irrigation: GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_end_storage, where
+  #irr_storage <- max(AD - df$Dr.end[jharv_index] - sum(df$P[last.irr.index:jharv_index])
+  #RAW is readily available water
+  #PAW is plant available water
+  WaterBalanceCalc <- function(df, stress.point=0.5*PAW) { #concept is to run by year and get growing season results relative to Jdev-Jharv period each year for the respective crop
     #df <- model.result[which(model.result$years==2004),]
-    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+    leap_year <- if(df$years[1]%%4==0 & df$years[1]%%100 != 0) {TRUE} else if (df$years[1]%%400==0) {TRUE} else {FALSE}
+    final_doy <- df$doys.model[nrow(df)]
+    last.irr.index <- if (length(which(df$Ir >0)) > 1 & final_doy >= Jharv - days.no.irr) {
       tail(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+        if (length(which(df$Ir >0)) == 1 & final_doy >= Jharv - days.no.irr) {
           which(df$Ir > 0)} else {vector()}
       }
     jharv_index <- which(df$doys.model==Jharv)
     jdev_index <- which(df$doys.model==Jdev)
-    if (df$doys.model[1] > Jdev | df$doys.model[nrow(df)] < Jharv) { #if there is not a complete growing season, don't report any data
-      if (length(jharv_index)==0) { #data begins after leaf-drop or ends before leaf-drop; either way, can't get entire season or end season data
-        data.frame(RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Irr.end.storage = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
+    final_doy_index <- nrow(df)
+    if (df$doys.model[1] > Jdev | final_doy < Jharv) { #if there is not a complete growing season, can't report all data
+      if (length(jharv_index)==0) { #data ends before leaf-drop, so can't get entire season or end season data
+        data.frame(RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Dr.end.year = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing=NA, deep.perc.growing=NA)
       }
-      else if (length(last.irr.index)==0) { #implies no data when last irrigation occurred but there is data at Jharv; thus can get end of season storage data
-        data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Irr.end.storage = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
-      } else { #implies data exists from at least when last irrigation occurred to Jharv, so can get everything but entire growing season data
-        data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Irr.end.storage = max(AD - df$Dr.end[jharv_index] - sum(df$P[last.irr.index:jharv_index]), 0), GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = df$Ir[last.irr.index], ET.growing = NA, E.growing = NA, T.growing = NA, H2O.stress=NA)
+      else if (length(last.irr.index)==0) { #implies no data when last irrigation occurred but there is data at Jharv; thus can get end of season storage data but also need additional check for 12/31 Dr data
+        data.frame(RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Dr.end.year = if(final_doy==365 | final_doy==366) {df$Dr.end[final_doy_index]} else {NA}, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing=NA, deep.perc.growing=NA)
+      } else { #implies data exists from at least when last irrigation occurred to Jharv, so can get everything but entire growing season data but also still need additional check for Dr.end.year data
+        data.frame(RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Dr.end.year = if(final_doy==365 | final_doy==366) {df$Dr.end[final_doy_index]} else {NA}, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = df$Ir[last.irr.index], ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing=NA, deep.perc.growing=NA)
       }
     } else { #entire season's coverage available
-      if (length(last.irr.index)==0) { #but no final irrigation occurred
-        data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Irr.end.storage = NA, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]), Irr.app.total = sum(df$Ir), Irr.app.last = NA, ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), H2O.stress=sum(df$ETc.ns - df$ETc.act))
+      if (length(last.irr.index)==0) { #but in the event no irrigations occurred
+        data.frame(RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Dr.end.year = if(final_doy==365 | final_doy==366) {df$Dr.end[final_doy_index]} else {NA}, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]), Irr.app.total = sum(df$Ir), Irr.app.last = NA, ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index] - df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index]))
       } else {
-        irr_storage <- max(AD - df$Dr.end[jharv_index] - sum(df$P[last.irr.index:jharv_index]), 0)
-      data.frame(RAW.end.season = max(AD - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Irr.end.storage = irr_storage, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_storage, Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last.irr.index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), H2O.stress=sum(df$ETc.ns - df$ETc.act))
+      data.frame(RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Dr.end.year = if(final_doy==365 | final_doy==366) {df$Dr.end[final_doy_index]} else {NA}, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]), Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last.irr.index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index] - df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index])) #from this, can calculate dormant season values for E, ET, and H2O.stress later
       }
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
-  
+
   ##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
+  #does not give relevant results for alfalfa.imperial
   GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
     #df <- model.result[model.result$years==2004,]
     first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
@@ -481,47 +457,48 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc))
   
-  #determine deep percolation and annual water balance using subsetting by year
-  DeepPercCalc <- function(df) { #assumes Jharv index is after 10/1
+  #determine deep percolation and annual water balance using subsetting by year with sub-annual deep percolation summations relative to initial and final irrigation date
+  #note that deep percolation during the growing season is calculated in WaterBalanceCalc function
+  DeepPercCalc <- function(df) {
     #df <- model.result[which(model.result$years==2017), ]
     #print(df$years[1])
     jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-01-01')))
-    first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
+    first.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[1] <= Jdev) {
       head(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
+        if (sum(df$Ir > 0) == 1 & df$doys.model[1] <= Jdev) {
           which(df$Ir > 0)} else {vector()}
       }
-    last.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+    last.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
       tail(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+        if (sum(df$Ir > 0) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
           which(df$Ir > 0)} else {vector()}
       }
-    jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01')))
+    jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01'))) #if 7/1 not present, returns integer(0), which really means integer(length=0), so has length=0
     dec.31.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-12-31')))
     #print(df$years[1])
     if (df$dates[1] > as.Date(paste0(as.character(df$years[1]), '-01-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$years[nrow(df)]), '-12-31'))) { #this means they ain't a whole year's data
-      if (length(last.irr.index) == 0 & length(first.irr.index) == 0) { #not sufficient coverage to calc anything
+      if (length(last.irr.index) == 0 & length(first.irr.index) == 0) { #not sufficient coverage or irrigation dates to calc anything
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA, fall.deep.perc = NA)
       }
       else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) == 0) { #winter deep perc only
         data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=NA, fall.deep.perc = NA)
       }
-      else if (length(jan.1.index) != 0 & length(jul.1.index) != 0 & length(dec.31.index) == 0) { #winter and post Irr deep perc
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = NA)
+      else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(dec.31.index) == 0) { #winter and post Irr deep perc
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else {NA}, fall.deep.perc = NA)
       }
       else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #only Spring deep perc available
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = NA)
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else {NA}, fall.deep.perc = NA)
       }
-      else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(dec.31.index) != 0) { #spring and fall deep perc
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
+      else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(dec.31.index) != 0) { #spring and fall deep perc, assumes last irrigation if first irrigation exists
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else{NA}, fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
       } else {#fall perc only
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA,  fall.deep.perc =  sum(df$DPr[last.irr.index:(dec.31.index-1)]))
+        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA,  fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
       }
     } else { #entire annual coverage available
       if (length(first.irr.index)==0 & length(last.irr.index)==0) { #but no irrigations
-        data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), deep.perc.annual = sum(df$DPr), winter.deep.perc = NA, post.Irr1.deep.perc = NA, fall.deep.perc = NA)
+        data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = NA, post.Irr1.deep.perc = NA, fall.deep.perc = NA)
       } else {
-        data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = sum(df$DPr[last.irr.index:(dec.31.index)]))
+        data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = sum(df$DPr[last.irr.index:dec.31.index]))
       }
     }
   }
@@ -553,16 +530,16 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   model.length <- nrow(ETo.df)
   #get precip and spatial CIMIS data to same temporal end point
   last.date <- ETo.df$dates[nrow(ETo.df)]
-  P.df <- P.df[1:which(P.df$dates==last.date), ]
+  P.df <- P.df[1:which(P.df$dates==last.date), ] #trim the P dataset to match spatial CIMIS
   cropname.dir <-  paste0(cropname, '_majcomps')
-  scenario.name <- if (cropname == 'grapes.wine') { #this was modified after the fact so that AD or RDI.min precedes root depth
+  scenario.name <- if (cropname == 'grapes.wine') {
     paste0(cropname.dir, '/scenario_', root_depth, as.character(RDI.min), 'RDI.min')} else {
         paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
-      } #need to add irr.type here
+      } #need to add other variables here if performing sensitivity analysis
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
-    paw.var <- paste0('z', root_depth, '_cmH2O_unmodified_comp') 
+    paw.var <- paste0('z', root_depth, '_cmH2O_unmodified_comp') #use unmodified AWC SSURGO data for alfalfa only
   } else {
-      paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp')
+      paw.var <- paste0('z', root_depth, '_cmH2O_modified_comp') #for other crops use modified SSURGO data; see 'SSURGO_allCA_aggregation_awc_r.R' for details
   }
   if (!dir.exists(file.path(resultsDir, cropname.dir))) {
     dir.create(file.path(resultsDir, cropname.dir))
@@ -575,24 +552,22 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   TEW.fraction <- 0.5
 #limit model.scaffold to cropname
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
-    model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ] #further refine model.scaffold.crop if cropname == alfalfa according to geography
+    model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ] #further refine model.scaffold.crop if cropname == alfalfa according to geography
   } else if (cropname=='grapes.table' | cropname=='grapes.wine') {
-    model.scaffold.crop <- model.scaffold[grepl(grape.zone, model.scaffold$grape.zone), ] #further refine model.scaffold.crop if cropname == grape according to geography; wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range', the latter is forced to 'Central California Valley' after reading in model scaffold for simplicity's sake
+    model.scaffold.crop <- model.scaffold[grepl(grape.zone, model.scaffold$grape.zone), ] #wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range', the latter is forced to 'Central California Valley' after reading in model scaffold for simplicity's sake; note that grepl returns FALSE for NAs in x
   } else {
-      model.scaffold.crop <- model.scaffold[which(model.scaffold$crop_code==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
+      model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
   }
 #make a results data.frame
   if (results_file == 'new') {
-    model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/2003
+    model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/1/2003 & ends 3/8/18
     paw.vector <- model.scaffold.crop[[paw.var]]
-  #print(head(paw.vector))
-    #mukey	crop_code	PRISMcellnumber	CIMIScellnumber	unique_model_code	full_matrix_rownum	n_compkeys	cokey	compname	comppct_r	majcompflag	TEW	REW	surface.depth	z2.0m_cmH2O_modified_comp	Model.Year
-    model.scaffold2 <- model.scaffold.crop[ ,c(-11:-22, -26:-27)] #takes out paw data, grape.zone, and alfalfa.zone from model scaffold for pasting results later
-    model.scaffold2$paw <- paw.vector
-    colnames(model.scaffold2)[14] <- paw.var
+    #take out unnecessary paw data from model scaffold
+    model.scaffold2 <- model.scaffold.crop[ ,-which(grepl('cmH2O', colnames(model.scaffold.crop)))] 
+    model.scaffold2[[paw.var]] <- paw.vector #put back in relevant paw data
     model.scaffold.results <- model.scaffold2[rep(seq.int(1, nrow(model.scaffold2)), model.length.yrs), 1:ncol(model.scaffold2)] #makes a new data.frame with each row repeated model.length.yrs number of times
     model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
-    model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Irr.end.storage=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, H2O.stress=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
+    model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), Irr.All=NA, Irr.Count=NA, RAW.end.season=NA, PAW.end.season=NA, Dr.end.season=NA, P.end.season=NA, Dr.end.year=NA, GW.ET.growing=NA, Irr.app.total=NA, Irr.app.last=NA, ET.growing=NA, E.growing=NA, T.growing=NA, crop.stress.annual=NA, crop.stress.growing=NA, deep.perc.growing=NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, ET.annual=NA, E.annual=NA, T.annual=NA, deep.perc.annual=NA, winter.deep.perc=NA, post.Irr1.deep.perc=NA, fall.deep.perc=NA, GW.capture.net=NA)
     model.scaffold.results$unique_model_code_final <- paste0(as.character(model.scaffold.results$unique_model_code), as.character(model.scaffold.results$cokey)) #need to use as.character to preserve integrity of long integers
 #model.scaffold.results[which(model.scaffold.results$unique_model_code==100058 & model.scaffold.results$cokey==13094564), ]
     rm(model.scaffold2)
@@ -622,7 +597,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   if (cropname=='alfalfa.intermountain') {
     Jharv <- harvest.days[length(harvest.days)] + crop.parameters$Lini.cycle[crop.parameters$crop==cropname] + crop.parameters$Ldev.cycle[crop.parameters$crop==cropname] + crop.parameters$Lmid.cycle[crop.parameters$crop==cropname] + crop.parameters$Lfrost.kill[crop.parameters$crop==cropname] #Jharv is intended to represent end of growing season where alfalfa is dormant in this region, approx. 11/23 that would be best varied as function of TMIN
   } else if (cropname == 'alfalfa.imperial' | cropname=='alfalfa.CV') {
-    Jharv <- 365 #what about leap years?
+    Jharv <- 365 #what about leap years? replace this with function
   } else {
       Jharv <- crop.parameters$Jharv[crop.parameters$crop==cropname]
   }
@@ -657,10 +632,10 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     PRISMcell <- model.scaffold.crop$PRISMcellnumber[n]
     comppctr <- model.scaffold.crop$comppct_r[n]
     mukey <- model.scaffold.crop$mukey[n]
-    P <- P.df[ , which(colnames(P.df)==paste0('cell_', as.character(PRISMcell)))]
-    ETo <- ETo.df[ , which(colnames(ETo.df)==paste0('cell_', as.character(spCIMIScell)))]
-    U2 <- U2.df[ ,which(colnames(U2.df)==paste0('cell_', as.character(spCIMIScell)))]
-    RHmin <- RHmin.df[ ,which(colnames(RHmin.df)==paste0('cell_', as.character(spCIMIScell)))]
+    P <- P.df[ ,paste0('cell_', as.character(PRISMcell))] #was this: which(colnames(P.df)==paste0('cell_', as.character(PRISMcell))), note that comma followed by column name maintains numeric class
+    ETo <- ETo.df[ ,paste0('cell_', as.character(spCIMIScell))]
+    U2 <- U2.df[ ,paste0('cell_', as.character(spCIMIScell))]
+    RHmin <- RHmin.df[ ,paste0('cell_', as.character(spCIMIScell))]
     if (all(is.na(P)) | all(is.na(ETo))) {
       print(paste('Climate data is missing for scenario number', as.character(n))) #TO-DO: write this result to separate file of NAs
       next
