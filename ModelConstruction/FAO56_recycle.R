@@ -177,3 +177,84 @@ WaterBalanceCalc <- function(df, stress.point=0.5*PAW) { #concept is to run by y
     }
   }
 }
+
+#deep perc function just before incorporation into WaterBalance Calc function
+#determine deep percolation and annual water balance using subsetting by year with sub-annual deep percolation summations relative to initial and final irrigation date
+#note that deep percolation during the growing season is calculated in WaterBalanceCalc function on 3/26/18
+DeepPercCalc <- function(df) {
+  #df <- model.result[which(model.result$years==2017), ]
+  #print(df$years[1])
+  jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-01-01')))
+  first.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[1] <= Jdev) {
+    head(which(df$Ir > 0), 1)} else {
+      if (sum(df$Ir > 0) == 1 & df$doys.model[1] <= Jdev) {
+        which(df$Ir > 0)} else {vector()}
+    }
+  last.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+    tail(which(df$Ir > 0), 1)} else {
+      if (sum(df$Ir > 0) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
+        which(df$Ir > 0)} else {vector()}
+    }
+  jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01'))) #if 7/1 not present, returns integer(0), which really means integer(length=0), so has length=0
+  dec.31.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-12-31')))
+  #print(df$years[1])
+  if (df$dates[1] > as.Date(paste0(as.character(df$years[1]), '-01-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$years[nrow(df)]), '-12-31'))) { #this means they ain't a whole year's data
+    if (length(last.irr.index) == 0 & length(first.irr.index) == 0) { #not sufficient coverage or irrigation dates to calc anything
+      data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA, fall.deep.perc = NA)
+    }
+    else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) == 0) { #winter deep perc only
+      data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=NA, fall.deep.perc = NA)
+    }
+    else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(dec.31.index) == 0) { #winter and post Irr deep perc
+      data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else {NA}, fall.deep.perc = NA)
+    }
+    else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #only Spring deep perc available
+      data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else {NA}, fall.deep.perc = NA)
+    }
+    else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(dec.31.index) != 0) { #spring and fall deep perc, assumes last irrigation if first irrigation exists
+      data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else{NA}, fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
+    } else {#fall perc only
+      data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA,  fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
+    }
+  } else { #entire annual coverage available
+    if (length(first.irr.index)==0 & length(last.irr.index)==0) { #but no irrigations
+      data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = NA, post.Irr1.deep.perc = NA, fall.deep.perc = NA)
+    } else {
+      data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = sum(df$DPr[last.irr.index:dec.31.index]))
+    }
+  }
+}
+#do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))
+
+#implicitly incorporated into WaterBalanceCalc on 3/26/18 (ie. it can be calculated later from results that are collected)
+#determine green water capture from leaf-drop to flowering
+GreenWaterCaptureCalc <- function(df) {
+  if (cropname=='alfalfa.imperial') {
+    return(data.frame(GW.capture.net = NA))
+  } else if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
+    return(data.frame(GW.capture.net = NA))
+  } else {
+    return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
+  }
+}
+#do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc))
+
+#this function explicitly incorporated into WaterBalanceCalc on 3/26/18
+##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
+#does not give relevant results for alfalfa.imperial
+GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
+  #df <- model.result[model.result$years==2004,]
+  first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
+    head(which(df$Ir > 0), 1)} else {
+      if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
+        which(df$Ir > 0)} else {vector()}
+    }
+  jdev_index <- which(df$doys.model==Jdev)
+  #print(df$years[1])
+  if (df$doys.model[1] > Jdev | length(first.irr.index)==0) {
+    data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA)
+  } else {
+    data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first.irr.index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first.irr.index] + df$Ep[jdev_index:first.irr.index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first.irr.index] * df$Ks[jdev_index:first.irr.index] * df$ETo[jdev_index:first.irr.index]))
+  }
+}
+#do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc))
