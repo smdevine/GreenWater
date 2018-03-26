@@ -407,17 +407,17 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #irr_storage <- max(AD - df$Dr.end[jharv_index] - sum(df$P[last.irr.index:jharv_index])
   #RAW is readily available water
   #PAW is plant available water
+  #note that GW.ET.to.Irr1 is not relevant for alfalfa.imperial
   #new simplification of function to ignore results for partial years
   WaterBalanceCalc <- function(df, stress.point=0.5*PAW) { #concept is to run by year and get growing season results relative to Jdev-Jharv period each year for the respective crop
     #df <- model.result[which(model.result$years==2004),]
     leap.year <- if(df$years[1]%%4==0 & df$years[1]%%100 != 0) {TRUE} else if (df$years[1]%%400==0) {TRUE} else {FALSE}
     if (leap.year & nrow(df) < 366) {
-      return(data.frame(RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Dr.end.year = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing=NA, deep.perc.growing=NA, ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA, fall.deep.perc = NA))
+      return(data.frame(RAW.begin.season = NA, PAW.begin.season = NA, Dr.begin.season = NA, RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Dr.end.year = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing = NA, deep.perc.growing = NA, ET.annual = NA, E.annual = NA, T.annual = NA, crop.stress.annual = NA, deep.perc.annual = NA, non.irr.deep.perc = NA, Irr1.to.last.deep.perc = NA, fall.deep.perc = NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA))
     }
     if (!leap.year & nrow(df) < 365) {
-      return(data.frame(RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Dr.end.year = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing=NA, deep.perc.growing=NA, ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA, fall.deep.perc = NA))
+      return(data.frame(RAW.begin.season = NA, PAW.begin.season = NA, Dr.begin.season = NA, RAW.end.season = NA, PAW.end.season = NA, Dr.end.season = NA, P.end.season=NA, Dr.end.year = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing = NA, deep.perc.growing = NA, ET.annual = NA, E.annual = NA, T.annual = NA, crop.stress.annual = NA, deep.perc.annual = NA, non.irr.deep.perc = NA, Irr1.to.last.deep.perc = NA, fall.deep.perc = NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA))
     }
-    final_doy <- nrow(df) #because no partial years make it this far now
     first.irr.index <- if (sum(df$Ir > 0) > 1) {
       head(which(df$Ir > 0), 1)} else {
         if (sum(df$Ir > 0) == 1) {
@@ -428,95 +428,17 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
         if (length(which(df$Ir >0)) == 1) {
           which(df$Ir > 0)} else {vector()}
       }
-    jharv_index <- if (cropname != 'alfalfa.CV' & cropname != 'alfalfa.imperial') {which(df$doys.model==Jharv)} else {nrow(df)}
-    jdev_index <- which(df$doys.model==Jdev) #Jdev is redefined as doy 1 for alfalfa.imperial & alfalfa.CV
+    jharv_index <- if (cropname != 'alfalfa.CV' & cropname != 'alfalfa.imperial') {which(df$doys.model==Jharv)} else {nrow(df)} #Jharv is redefined as 365 during model initialization but redefined here as nrow(df) to accurately deal with leap years
+    jdev_index <- which(df$doys.model==Jdev) #Jdev is redefined as doy 1 for alfalfa.imperial & alfalfa.CV during model initialization for these crops for the purpose of tabulating results
     final_doy_index <- nrow(df)
     if (sum(df$Ir > 0) == 0) { #but in the event no irrigations occurred
-      data.frame(RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Dr.end.year = df$Dr.end[final_doy_index], GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]), Irr.app.total = 0, Irr.app.last = 0, ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index] - df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index], ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = NA, post.Irr1.deep.perc = NA, fall.deep.perc = NA))
+      data.frame(RAW.begin.season = max(stress.point - df$Dr.end[jdev_index], 0), PAW.begin.season = max(PAW - df$Dr.end[jdev_index], 0), Dr.begin.season = df$Dr.end[jdev_index], RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = NA, Dr.end.year = df$Dr.end[final_doy_index], GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index], -df$Ir), Irr.app.total = 0, Irr.app.last = 0, ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index], -df$Ei[jdev_index:jharv_index], -df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index], -df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index]), ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), non.irr.deep.perc = NA, Irr1.to.last.deep.perc = NA, fall.deep.perc = NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA)
     } else {
-      data.frame(RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Dr.end.year = if(final_doy==365 | final_doy==366) {df$Dr.end[final_doy_index]} else {NA}, GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]), Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last.irr.index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ei[jdev_index:jharv_index] - df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index] - df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index], ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = sum(df$DPr[last.irr.index:dec.31.index])) #from this, can calculate dormant season values for E, ET, and H2O.stress later
-      }
+      data.frame(RAW.begin.season = max(stress.point - df$Dr.end[jdev_index], 0), PAW.begin.season = max(PAW - df$Dr.end[jdev_index], 0), Dr.begin.season = df$Dr.end[jdev_index], RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Dr.end.year = df$Dr.end[final_doy_index], GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index], -df$Ir), Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last.irr.index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index], -df$Ei[jdev_index:jharv_index], -df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index], -df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index]), ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), non.irr.deep.perc = sum(df$DPr[1:first.irr.index], df$DPr[last.irr.index:final_doy_index]), Irr1.to.last.deep.perc = sum(df$DPr[first.irr.index:last.irr.index]), fall.deep.perc = sum(df$DPr[last.irr.index:final_doy_index]), GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first.irr.index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first.irr.index] + df$Ep[jdev_index:first.irr.index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first.irr.index] * df$Ks[jdev_index:first.irr.index] * df$ETo[jdev_index:first.irr.index])) #from this, can calculate dormant season values for E, ET, and H2O.stress later
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
 
-  ##this splits the overall results data.frame into subsets by year and then runs the GreenWaterCalc on each subset via lapply.  The result from each year is then bound together via rbind called by do.call; AD minus Dr.end at leaf-drop is the readily available water remaining in storage at leaf-drop; the source of this readily available water is minus precip since the last irrigation is Irr.End.Storage
-  #does not give relevant results for alfalfa.imperial
-  GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
-    #df <- model.result[model.result$years==2004,]
-    first.irr.index <- if (length(which(df$Ir >0)) > 1 & df$doys.model[1] <= Jdev) {
-      head(which(df$Ir > 0), 1)} else {
-        if (length(which(df$Ir >0)) == 1 & df$doys.model[1] <= Jdev) {
-          which(df$Ir > 0)} else {vector()}
-      }
-    jdev_index <- which(df$doys.model==Jdev)
-    #print(df$years[1])
-    if (df$doys.model[1] > Jdev | length(first.irr.index)==0) {
-      data.frame(GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA)
-    } else {
-      data.frame(GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first.irr.index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first.irr.index] + df$Ep[jdev_index:first.irr.index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first.irr.index] * df$Ks[jdev_index:first.irr.index] * df$ETo[jdev_index:first.irr.index]))
-    }
-  }
-  #do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc))
-  
-  #determine deep percolation and annual water balance using subsetting by year with sub-annual deep percolation summations relative to initial and final irrigation date
-  #note that deep percolation during the growing season is calculated in WaterBalanceCalc function
-  DeepPercCalc <- function(df) {
-    #df <- model.result[which(model.result$years==2017), ]
-    #print(df$years[1])
-    jan.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-01-01')))
-    first.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[1] <= Jdev) {
-      head(which(df$Ir > 0), 1)} else {
-        if (sum(df$Ir > 0) == 1 & df$doys.model[1] <= Jdev) {
-          which(df$Ir > 0)} else {vector()}
-      }
-    last.irr.index <- if (sum(df$Ir > 0) > 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
-      tail(which(df$Ir > 0), 1)} else {
-        if (sum(df$Ir > 0) == 1 & df$doys.model[nrow(df)] >= Jharv - days.no.irr) {
-          which(df$Ir > 0)} else {vector()}
-      }
-    jul.1.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-07-01'))) #if 7/1 not present, returns integer(0), which really means integer(length=0), so has length=0
-    dec.31.index <- which(df$dates==as.Date(paste0(as.character(df$years[1]), '-12-31')))
-    #print(df$years[1])
-    if (df$dates[1] > as.Date(paste0(as.character(df$years[1]), '-01-01')) | df$dates[nrow(df)] < as.Date(paste0(as.character(df$years[nrow(df)]), '-12-31'))) { #this means they ain't a whole year's data
-      if (length(last.irr.index) == 0 & length(first.irr.index) == 0) { #not sufficient coverage or irrigation dates to calc anything
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA, fall.deep.perc = NA)
-      }
-      else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) == 0) { #winter deep perc only
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=NA, fall.deep.perc = NA)
-      }
-      else if (length(jan.1.index) != 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(dec.31.index) == 0) { #winter and post Irr deep perc
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else {NA}, fall.deep.perc = NA)
-      }
-      else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(jul.1.index) != 0 & length(last.irr.index) == 0) { #only Spring deep perc available
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else {NA}, fall.deep.perc = NA)
-      }
-      else if (length(jan.1.index) == 0 & length(first.irr.index) != 0 & length(dec.31.index) != 0) { #spring and fall deep perc, assumes last irrigation if first irrigation exists
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])} else{NA}, fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
-      } else {#fall perc only
-        data.frame(ET.annual = NA, E.annual = NA, T.annual = NA, deep.perc.annual = NA, winter.deep.perc = NA, post.Irr1.deep.perc=NA,  fall.deep.perc =  sum(df$DPr[last.irr.index:dec.31.index]))
-      }
-    } else { #entire annual coverage available
-      if (length(first.irr.index)==0 & length(last.irr.index)==0) { #but no irrigations
-        data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = NA, post.Irr1.deep.perc = NA, fall.deep.perc = NA)
-      } else {
-        data.frame(ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), winter.deep.perc = sum(df$DPr[jan.1.index:first.irr.index]), post.Irr1.deep.perc = if(first.irr.index < jul.1.index) {sum(df$DPr[(first.irr.index+1):jul.1.index])}else{NA}, fall.deep.perc = sum(df$DPr[last.irr.index:dec.31.index]))
-      }
-    }
-  }
-  #do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))
-  
-  #determine green water capture from leaf-drop to flowering
-  GreenWaterCaptureCalc <- function(df) {
-    if (cropname=='alfalfa.imperial') {
-      return(data.frame(GW.capture.net = NA))
-    } else if (df$doys.model[1] > Jharv | df$doys.model[nrow(df)] < Jmid) {
-        return(data.frame(GW.capture.net = NA))
-    } else {
-        return(data.frame(GW.capture.net = df$Dr.end[which(df$doys.model == Jharv)] - df$Dr.end[which(df$doys.model == Jdev)]))
-    }
-  }
-  #do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc))
   if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
     doys.model <- U2.df$DOY
     dates <- as.Date(U2.df$dates, format='%m_%d_%Y')
@@ -589,8 +511,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   }
   if (cropname=='alfalfa.intermountain') {
     Jdev <- crop.parameters$Jini[crop.parameters$crop==cropname] #Jdev is intended to represent start of growing season as DOY
-  } else if (cropname=='alfalfa.CV' | cropname == 'alfalfa.imperial') {
-    Jdev <- 1 #day 1 is start of green alfalfa growth, though supressed by cold
+  } else if (cropname == 'alfalfa.imperial' | cropname=='alfalfa.CV') {
+      Jdev <- 1 #day 1 is start of green alfalfa growth, though supressed by cold
   } else {
       Jdev <- crop.parameters$Jdev[crop.parameters$crop==cropname]
   }
@@ -599,7 +521,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   if (cropname=='alfalfa.intermountain') {
     Jharv <- harvest.days[length(harvest.days)] + crop.parameters$Lini.cycle[crop.parameters$crop==cropname] + crop.parameters$Ldev.cycle[crop.parameters$crop==cropname] + crop.parameters$Lmid.cycle[crop.parameters$crop==cropname] + crop.parameters$Lfrost.kill[crop.parameters$crop==cropname] #Jharv is intended to represent end of growing season where alfalfa is dormant in this region, approx. 11/23 that would be best varied as function of TMIN
   } else if (cropname == 'alfalfa.imperial' | cropname=='alfalfa.CV') {
-    Jharv <- 365 #what about leap years? replace this with function
+    Jharv <- 365 #this no longer serves a purpose as complete model years are now only used for tabulating results and nrow(df) by year is taken as Jharv for Imperial Valley alfalfa
   } else {
       Jharv <- crop.parameters$Jharv[crop.parameters$crop==cropname]
   }
