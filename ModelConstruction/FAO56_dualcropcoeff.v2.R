@@ -65,7 +65,7 @@ model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 # alfalfa.zone <- 'Intermountain'
 
 
-FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone) {
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
   almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
@@ -331,20 +331,22 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     } else if (cropname == 'alfalfa.CV' | cropname == 'alfalfa.intermountain') {
         if (doys.model[i] < crop.parameters$Jini[which(crop.parameters$crop==cropname)] | doys.model[i] %in% harvest.days | doys.model[i] > harvest.days[length(harvest.days)] + buffer.days - days.no.irr) {
           return(0)
-        } else if(Dr.initial[i] > AD | doys.model[i] == harvest.days[length(harvest.days)] + buffer.days - days.no.irr) {
-        return(Dr.initial[i])
-      } else {
-          return(0)
-      }
+        } else if(Dr.initial[i] > AD) {
+            return(Dr.initial[i])
+        } else if (doys.model[i] == harvest.days[length(harvest.days)] + buffer.days - days.no.irr & Dr.initial[i] > 0) { #added "& Dr.initial[i] > 0" as condition on 3/27/18; see note below
+            return(Dr.initial[i])
+        } else {
+            return(0)
+        }
     } else if (doys.model[i] < Jdev | doys.model[i] > Jharv - days.no.irr) {
       return(0)
     } else if (cropname == 'grapes.wine' & doys.model[i] < Jharv - days.no.irr & Ks[i] < RDI.min) {
       return(Dr.initial[i] - AD)
     } else if (Dr.initial[i] > AD & cropname != 'grapes.wine') {
       return(Dr.initial[i])
-    } else if (doys.model[i] == Jharv - days.no.irr & cropname=='grapes.wine') {
+    } else if (doys.model[i] == Jharv - days.no.irr & cropname=='grapes.wine' & Dr.initial[i] > 0) {
       return(GrapeLastIrr())
-    } else if (doys.model[i] == Jharv - days.no.irr) {
+    } else if (doys.model[i] == Jharv - days.no.irr & Dr.initial[i] > 0) { #added "& Dr.initial[i] > 0" condition on 3/27/18; was leading to an occassional negative irrigation on the last day of irrigation for each model when there was a large rain event the same day resulting in negative Dr.initial that results in deep percolation
       return(Dr.initial[i])
     } else {
       return(0)
@@ -353,11 +355,11 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   DPrCalc <- function(P, Ir, ETc.ns, Dr.end, i) { #DON'T RUN THIS FOR i=1
     max(P[i] + Ir[i-1] - ETc.ns[i] - Dr.end[i - 1], 0)
   }
-  KsCalc <- function(Dr.initial, PAW, stress.point=0.5*PAW, i) {
+  KsCalc <- function(Dr.initial, PAW, stress.point=stress.assumption*PAW, i) { #condition where PAW is exceeded?
     if (Dr.initial[i] > stress.point) {
-      (PAW - Dr.initial[i])/(PAW - stress.point)
+      max((PAW - Dr.initial[i])/(PAW - stress.point), 0)
     } else { 
-      return(1)
+      1
     }
   }
   KcactCalc <- function(Ks, Kcb, Kei, Kep, i) {#equation 4 in Allen et al. 2005
@@ -409,7 +411,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   #PAW is plant available water
   #note that GW.ET.to.Irr1 is not relevant for alfalfa.imperial
   #new simplification of function to ignore results for partial years
-  WaterBalanceCalc <- function(df, stress.point=0.5*PAW) { #concept is to run by year and get growing season results relative to Jdev-Jharv period each year for the respective crop
+  WaterBalanceCalc <- function(df, stress.point=stress.assumption*PAW) { #concept is to run by year and get growing season results relative to Jdev-Jharv period each year for the respective crop
     #df <- model.result[which(model.result$years==2004),]
     leap.year <- if(df$years[1]%%4==0 & df$years[1]%%100 != 0) {TRUE} else if (df$years[1]%%400==0) {TRUE} else {FALSE}
     if (leap.year & nrow(df) < 366) {
@@ -438,6 +440,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
+  
+  WaterBalanceMonthly <- function(df, )
 
   if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
     doys.model <- U2.df$DOY
