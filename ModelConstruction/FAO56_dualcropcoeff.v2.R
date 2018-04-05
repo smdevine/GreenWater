@@ -31,7 +31,7 @@ U2.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.U2.QCpass.csv'), str
 RHmin.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.RHmin.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" & "02_23_2018" in data_QA_QC.R, along with 2,690 >100% values corrected
 ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days (all on "02_23_2018") in data_QA_QC.R, along with 1,633 negative and 11 zero values corrected.
 cropscape_legend <- read.csv(file.path(modelscaffoldDir, 'cropscape_legend.txt'), stringsAsFactors = FALSE)
-model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps.v3.csv'), stringsAsFactors = FALSE) #note this has several more columns than previous versions; will have affects downstream
+model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps2018-03-15.csv'), stringsAsFactors = FALSE) #note this has several more columns than previous versions; will have affects downstream
 lapply(model.scaffold, class)
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 
@@ -54,15 +54,15 @@ model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
 
 #temporary arguments for working inside the function when necessary
-# cropname <- 'alfalfa.intermountain'
-# cropcode <- alfalfa_code
-# AD.percentage <- 30
-# root_depth <- '1.0m'
-# irr.type <- 'Border'
-# results_file <- 'new'
-# row_start <- 1
-# RDI.min <- NA
-# alfalfa.zone <- 'Intermountain'
+cropname <- 'almond.mature'
+cropcode <- 75
+AD.percentage <- 30
+root_depth <- '0.5m'
+irr.type <- 'Microspray, orchards'
+results_file <- 'new'
+row_start <- 1
+RDI.min <- NA
+alfalfa.zone <- NA
 
 
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption) {
@@ -226,12 +226,14 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   DPepCalc <- function(P, Dep.end, i) { #DON'T RUN THIS FOR i=1
     max(P[i] - Dep.end[i-1], 0)
   }
+  #as implmented below in loop: DPep[i] <- DPepCalc(P, Dep.initial, i)
   DepEndCalc <- function(Dep.end, P, Ep, fewp, DPep, i) { #DON'T RUN THIS FOR i=1
     Dep.end.est <- max(Dep.end[i - 1] - P[i] + Ep[i] / fewp[i] + DPep[i], 0)
   } #ignores transpiration and runoff from upper layer
   DPeiCalc <- function(P, Ir, fw, Dei.end, i) { #DON'T RUN THIS FOR i=1
-    max(0, P[i] + Ir[i - 1] / fw - Dei.end[i-1])
+    max(0, P[i] + Ir[i - 1] / fw - Dei.end[i - 1])
   }
+  #as implemented below in loop: DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial, i)
   DeiEndCalc <- function(Dei.end, P, Ir, fw, fewi, Ei, DPei, i) { #DON'T RUN THIS FOR i=1
     max(Dei.end[i - 1] - P[i] - Ir[i - 1] / fw + Ei[i] / fewi[i] + DPei[i], 0)
   } #again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21)
@@ -241,7 +243,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   ETcnsCalc <- function(Kc.ns, ETo, i) {
     Kc.ns[i] * ETo[i]
   }
-  DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir, i) { #DON'T RUN THIS FOR i=1
+  DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir, i) { #DON'T RUN THIS FOR i=1; this only used for irrigation decisions as of 4/5
     Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
   }
   #need to refine days.no.irr based on ETo data for a given location
@@ -355,12 +357,11 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   DPrCalc <- function(P, Ir, ETc.ns, Dr.end, i) { #DON'T RUN THIS FOR i=1
     max(P[i] + Ir[i-1] - ETc.ns[i] - Dr.end[i - 1], 0)
   }
-  KsCalc <- function(Dr.initial, PAW, stress.point=stress.assumption*PAW, i) { #condition where PAW is exceeded?
-    if (Dr.initial[i] > stress.point) {
-      max((PAW - Dr.initial[i])/(PAW - stress.point), 0)
-    } else { 
-      1
-    }
+  KsCalc <- function(Dr.end, P, Ir, PAW, stress.point=stress.assumption*PAW, i) { #changed Ks to definition to assume soil water status from previous day's ending value plus early morning precip and rain
+    Dr.temp <- Dr.end[i - 1] - P[i] - Ir[i - 1] #don't include current days' ET.ns in estimate of soil water status
+    if (Dr.temp > stress.point) {
+      max((PAW - Dr.temp) / (PAW - stress.point), 0)
+    } else {1}
   }
   KcactCalc <- function(Ks, Kcb, Kei, Kep, i) {#equation 4 in Allen et al. 2005
     Ks[i] * Kcb[i] + Kei[i] + Kep[i]
@@ -539,6 +540,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
   } else {save.times <- 1000}
   for (n in row_start:nrow(model.scaffold.crop)) {
+    ###TEMP line below
+    n <- which(model.scaffold.crop$unique_model_code==105603)
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW
@@ -619,7 +622,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Kc.ns[1] <- KcnsCalc(Kcb.adjusted, Kei, Kep, 1)
     ETc.ns[1] <- ETcnsCalc(Kc.ns, ETo, 1)
     Dr.initial[1] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
-    Ks[1] <- KsCalc(Dr.initial=Dr.initial, PAW=PAW, i=1)
+    #Ks[1] <- KsCalc(Dr.end=Dr.initial, PAW=PAW, i=1) #NEED TO CORRECT THIS
     Ir[1] <- IrCalc(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, 1)
     DPr[1] <- max(max(P[1] + Ir[1] - TEW.parameter * TEW.fraction - ETc.ns[1], 0)) #initial calc
     Kc.act[1] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, 1)
@@ -631,8 +634,8 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       Kri[i] <- KrCalc(TEW.parameter, REW.parameter, Dei.initial, i)
       Krp[i] <- KrCalc(TEW.parameter, REW.parameter, Dep.initial, i)
       W[i] <- WCalc(TEW.parameter, Dei.initial, Dep.initial, fewp, fewi, i)
-      DPep[i] <- DPepCalc(P, Dep.initial, i)
-      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.initial, i)
+      DPep[i] <- DPepCalc(P, Dep.end, i) #changed to Dep.end instead of Dep.initial 4/5/18
+      DPei[i] <- DPeiCalc(P, Ir, fw, Dei.end, i) #changed to Dei.end instead of Dei.initial 4/5/18
       Kei[i] <- KeiCalc(Kri, W, Kcmax, Kcb.adjusted, fewi, TEW.parameter, Dei.end, DPei, P, ETo, i)
       Kep[i] <- KepCalc(Krp, W, Kcmax, Kcb.adjusted, fewp, TEW.parameter, Dep.end, DPep, P, ETo, i)
       Ep[i] <- EpCalc(ETo, Kep, i)
