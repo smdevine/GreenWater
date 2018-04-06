@@ -55,7 +55,7 @@ model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 
 #temporary arguments for working inside the function when necessary
 cropname <- 'almond.mature'
-cropcode <- 75
+cropcode <- almond_code #grape code
 AD.percentage <- 30
 root_depth <- '0.5m'
 irr.type <- 'Microspray, orchards'
@@ -63,6 +63,8 @@ results_file <- 'new'
 row_start <- 1
 RDI.min <- NA
 alfalfa.zone <- NA
+grape.zone <- NA
+stress.assumption <- 0.5
 
 
 FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption) {
@@ -243,7 +245,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   ETcnsCalc <- function(Kc.ns, ETo, i) {
     Kc.ns[i] * ETo[i]
   }
-  DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir, i) { #DON'T RUN THIS FOR i=1; this only used for irrigation decisions as of 4/5
+  DrInitialCalc <- function(Dr.end, ETc.ns, P, Ir, i) { #DON'T RUN THIS FOR i=1; this only used for making irrigation decisions as of 4/5, because Ks calc should not be dependent on pre-assuming that no-stress ET will be the case
     Dr.end[i - 1] - P[i] - Ir[i-1] + ETc.ns[i]
   }
   #need to refine days.no.irr based on ETo data for a given location
@@ -360,7 +362,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   KsCalc <- function(Dr.end, P, Ir, PAW, stress.point=stress.assumption*PAW, i) { #changed Ks to definition to assume soil water status from previous day's ending value plus early morning precip and rain
     Dr.temp <- Dr.end[i - 1] - P[i] - Ir[i - 1] #don't include current days' ET.ns in estimate of soil water status
     if (Dr.temp > stress.point) {
-      max((PAW - Dr.temp) / (PAW - stress.point), 0)
+      max((PAW - Dr.temp) / (PAW - stress.point), 0) #in the case where Dr.temp exceeds PAW, result will be 0, not negative
     } else {1}
   }
   KcactCalc <- function(Ks, Kcb, Kei, Kep, i) {#equation 4 in Allen et al. 2005
@@ -372,7 +374,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   DrEndCalc <- function(Dr.end, P, Ir, Kc.act, ETo, DPr, i) { #NOT TO BE USED for i=1
     Dr.end[i - 1] - P[i] - Ir[i-1] + Kc.act[i] * ETo[i] + DPr[i]
   }
-  
   #results function to summarize each model's results
   #find time to first and last irrigation
   #Jdev is 1 and Jharv is 365 for alfalfa.CV and alfalfa.imperial; Jdev is Jini for alfalfa.intermountain and Jharv is doy 327 (complete dormancy), even though actual irrigations are shortened to <doy293 for alfalfa.intermountain and <doy322 for alfalfa.CV
@@ -402,7 +403,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       data.frame(Irr.1=df$dates[first.irr.index], Irr.Last=df$dates[last.irr.index], Irr.All=all.irr.doys, Irr.Count=irr.count)
     }
   }
-  #do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc))
+ do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc))
   
   #calculate Green Water utilized
   #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  A correction is no longer applied to the growing season ET for residual irrigation water storage (using the 'irr_end_storage' variable) to attempt to correctly estimate green water utilization within the same year.
@@ -440,10 +441,32 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       data.frame(RAW.begin.season = max(stress.point - df$Dr.end[jdev_index], 0), PAW.begin.season = max(PAW - df$Dr.end[jdev_index], 0), Dr.begin.season = df$Dr.end[jdev_index], RAW.end.season = max(stress.point - df$Dr.end[jharv_index], 0), PAW.end.season = max(PAW - df$Dr.end[jharv_index], 0), Dr.end.season = df$Dr.end[jharv_index], P.end.season = sum(df$P[last.irr.index:jharv_index]), Dr.end.year = df$Dr.end[final_doy_index], GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index], -df$Ir), Irr.app.total = sum(df$Ir), Irr.app.last = df$Ir[last.irr.index], ET.growing = sum(df$ETc.act[jdev_index:jharv_index]), E.growing = sum(df$Ei[jdev_index:jharv_index], df$Ep[jdev_index:jharv_index]), T.growing = sum(df$ETc.act[jdev_index:jharv_index], -df$Ei[jdev_index:jharv_index], -df$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(df$ETc.ns[jdev_index:jharv_index], -df$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(df$DPr[jdev_index:jharv_index]), ET.annual = sum(df$ETc.act), E.annual = sum(df$Ei, df$Ep), T.annual = sum(df$ETc.act, -df$Ei, -df$Ep), crop.stress.annual = sum(df$ETc.ns, -df$ETc.act), deep.perc.annual = sum(df$DPr), non.irr.deep.perc = sum(df$DPr[1:first.irr.index], df$DPr[last.irr.index:final_doy_index]), Irr1.to.last.deep.perc = sum(df$DPr[first.irr.index:last.irr.index]), fall.deep.perc = sum(df$DPr[last.irr.index:final_doy_index]), GW.ET.to.Irr1 = sum(df$ETc.act[jdev_index:first.irr.index]), GW.E.to.Irr1 = sum(df$Ei[jdev_index:first.irr.index] + df$Ep[jdev_index:first.irr.index]), GW.T.to.Irr1 = sum(df$Kcb.adjusted[jdev_index:first.irr.index] * df$Ks[jdev_index:first.irr.index] * df$ETo[jdev_index:first.irr.index])) #from this, can calculate dormant season values for E, ET, and H2O.stress later
     }
   }
-  #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
+  do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
   
-  WaterBalanceMonthly <- function(df, )
-
+  WaterBalanceMonthly <- function(df) {
+    leap.year <- if(df$years[1]%%4==0 & df$years[1]%%100 != 0) {TRUE} else if (df$years[1]%%400==0) {TRUE} else {FALSE}
+    if (leap.year & nrow(df) < 366) {
+      data.frame(IrrApp.Jan = NA, IrrApp.Feb = NA, IrrApp.Mar = NA, IrrApp.Apr = NA, IrrApp.May = NA, IrrApp.Jun = NA, IrrApp.Jul = NA, IrrApp.Aug = NA, IrrApp.Sep = NA, IrrApp.Oct = NA, IrrApp.Nov = NA, IrrApp.Dec = NA, ET.Jan = NA, ET.Feb = NA, ET.Mar = NA, ET.Apr = NA, ET.May = NA, ET.Jun = NA, ET.Jul = NA, ET.Aug = NA, ET.Sep = NA, ET.Oct = NA, ET.Nov = NA, ET.Dec = NA, E.Jan = NA, E.Feb = NA, E.Mar = NA, E.Apr = NA, E.May = NA, E.Jun = NA, E.Jul = NA, E.Aug = NA, E.Sep = NA, E.Oct = NA, E.Nov = NA, E.Dec = NA, DeepPerc.Jan = NA, DeepPerc.Feb = NA, DeepPerc.Mar = NA, DeepPerc.Apr = NA, DeepPerc.May = NA, DeepPerc.Jun = NA, DeepPerc.Jul = NA, DeepPerc.Aug = NA, DeepPerc.Sep = NA, DeepPerc.Oct = NA, DeepPerc.Nov = NA, DeepPerc.Dec = NA, CropStress.Jan = NA, CropStress.Feb = NA, CropStress.Mar = NA, CropStress.Apr = NA, CropStress.May = NA, CropStress.Jun = NA, CropStress.Jul = NA, CropStress.Aug = NA, CropStress.Sep = NA, CropStress.Oct = NA, CropStress.Nov = NA, CropStress.Dec = NA)
+    }
+    else if (!leap.year & nrow(df) < 365) {
+      data.frame(IrrApp.Jan = NA, IrrApp.Feb = NA, IrrApp.Mar = NA, IrrApp.Apr = NA, IrrApp.May = NA, IrrApp.Jun = NA, IrrApp.Jul = NA, IrrApp.Aug = NA, IrrApp.Sep = NA, IrrApp.Oct = NA, IrrApp.Nov = NA, IrrApp.Dec = NA, ET.Jan = NA, ET.Feb = NA, ET.Mar = NA, ET.Apr = NA, ET.May = NA, ET.Jun = NA, ET.Jul = NA, ET.Aug = NA, ET.Sep = NA, ET.Oct = NA, ET.Nov = NA, ET.Dec = NA, E.Jan = NA, E.Feb = NA, E.Mar = NA, E.Apr = NA, E.May = NA, E.Jun = NA, E.Jul = NA, E.Aug = NA, E.Sep = NA, E.Oct = NA, E.Nov = NA, E.Dec = NA, DeepPerc.Jan = NA, DeepPerc.Feb = NA, DeepPerc.Mar = NA, DeepPerc.Apr = NA, DeepPerc.May = NA, DeepPerc.Jun = NA, DeepPerc.Jul = NA, DeepPerc.Aug = NA, DeepPerc.Sep = NA, DeepPerc.Oct = NA, DeepPerc.Nov = NA, DeepPerc.Dec = NA, CropStress.Jan = NA, CropStress.Feb = NA, CropStress.Mar = NA, CropStress.Apr = NA, CropStress.May = NA, CropStress.Jun = NA, CropStress.Jul = NA, CropStress.Aug = NA, CropStress.Sep = NA, CropStress.Oct = NA, CropStress.Nov = NA, CropStress.Dec = NA)
+    } else {
+        jan_indices <- which(df$months==1)
+        feb_indices <- which(df$months==2)
+        mar_indices <- which(df$months==3)
+        apr_indices <- which(df$months==4)
+        may_indices <- which(df$months==5)
+        jun_indices <- which(df$months==6)
+        jul_indices <- which(df$months==7)
+        aug_indices <- which(df$months==8)
+        sep_indices <- which(df$months==9)
+        oct_indices <- which(df$months==10)
+        nov_indices <- which(df$months==11)
+        dec_indices <- which(df$months==12)
+        data.frame(IrrApp.Jan = sum(df$Ir[jan_indices]), IrrApp.Feb = sum(df$Ir[feb_indices]), IrrApp.Mar = sum(df$Ir[mar_indices]), IrrApp.Apr = sum(df$Ir[apr_indices]), IrrApp.May = sum(df$Ir[may_indices]), IrrApp.Jun = sum(df$Ir[jun_indices]), IrrApp.Jul = sum(df$Ir[jul_indices]), IrrApp.Aug = sum(df$Ir[aug_indices]), IrrApp.Sep = sum(df$Ir[sep_indices]), IrrApp.Oct = sum(df$Ir[oct_indices]), IrrApp.Nov = sum(df$Ir[nov_indices]), IrrApp.Dec = sum(df$Ir[dec_indices]), ET.Jan = sum(df$ETc.act[jan_indices]), ET.Feb = sum(df$ETc.act[feb_indices]), ET.Mar = sum(df$ETc.act[mar_indices]), ET.Apr = sum(df$ETc.act[apr_indices]), ET.May = sum(df$ETc.act[may_indices]), ET.Jun = sum(df$ETc.act[jun_indices]), ET.Jul = sum(df$ETc.act[jul_indices]), ET.Aug = sum(df$ETc.act[aug_indices]), ET.Sep = sum(df$ETc.act[sep_indices]), ET.Oct = sum(df$ETc.act[oct_indices]), ET.Nov = sum(df$ETc.act[nov_indices]), ET.Dec = sum(df$ETc.act[dec_indices]), E.Jan = sum(df$Ei[jan_indices], df$Ep[jan_indices]), E.Feb = sum(df$Ei[feb_indices], df$Ep[feb_indices]), E.Mar = sum(df$Ei[mar_indices], df$Ep[mar_indices]), E.Apr = sum(df$Ei[apr_indices], df$Ep[apr_indices]), E.May = sum(df$Ei[may_indices], df$Ep[may_indices]), E.Jun = sum(df$Ei[jun_indices], df$Ep[jun_indices]), E.Jul = sum(df$Ei[jul_indices], df$Ep[jul_indices]), E.Aug = sum(df$Ei[aug_indices], df$Ep[aug_indices]), E.Sep = sum(df$Ei[sep_indices], df$Ep[sep_indices]), E.Oct = sum(df$Ei[oct_indices], df$Ep[oct_indices]), E.Nov = sum(df$Ei[nov_indices], df$Ep[nov_indices]), E.Dec = sum(df$Ei[dec_indices], df$Ep[dec_indices]), DeepPerc.Jan = sum(df$DPr[jan_indices]), DeepPerc.Feb = sum(df$DPr[feb_indices]), DeepPerc.Mar = sum(df$DPr[mar_indices]), DeepPerc.Apr = sum(df$DPr[apr_indices]), DeepPerc.May = sum(df$DPr[may_indices]), DeepPerc.Jun = sum(df$DPr[jun_indices]), DeepPerc.Jul = sum(df$DPr[jul_indices]), DeepPerc.Aug = sum(df$DPr[aug_indices]), DeepPerc.Sep = sum(df$DPr[sep_indices]), DeepPerc.Oct = sum(df$DPr[oct_indices]), DeepPerc.Nov = sum(df$DPr[nov_indices]), DeepPerc.Dec = sum(df$DPr[dec_indices]), CropStress.Jan = sum(df$ETc.ns[jan_indices], -df$ETc.act[jan_indices]), CropStress.Feb = sum(df$ETc.ns[feb_indices], -df$ETc.act[feb_indices]), CropStress.Mar = sum(df$ETc.ns[mar_indices], -df$ETc.act[mar_indices]), CropStress.Apr = sum(df$ETc.ns[apr_indices], -df$ETc.act[apr_indices]), CropStress.May =sum(df$ETc.ns[may_indices], -df$ETc.act[may_indices]), CropStress.Jun = sum(df$ETc.ns[jun_indices], -df$ETc.act[jun_indices]), CropStress.Jul = sum(df$ETc.ns[jul_indices], -df$ETc.act[jul_indices]), CropStress.Aug = sum(df$ETc.ns[aug_indices], -df$ETc.act[aug_indices]), CropStress.Sep = sum(df$ETc.ns[sep_indices], -df$ETc.act[sep_indices]), CropStress.Oct = sum(df$ETc.ns[oct_indices], -df$ETc.act[oct_indices]), CropStress.Nov = sum(df$ETc.ns[nov_indices], -df$ETc.act[nov_indices]), CropStress.Dec = sum(df$ETc.ns[dec_indices], -df$ETc.act[dec_indices]))
+    }
+  }
+  #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceMonthly))
   if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
     doys.model <- U2.df$DOY
     dates <- as.Date(U2.df$dates, format='%m_%d_%Y')
@@ -479,13 +502,13 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
 #initialization assumptions
   first_irrigation <- 0
   TEW.fraction <- 0.5
-#limit model.scaffold to cropname
+#limit model.scaffold to cropname and location, if applicable
   if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
-    model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ] #further refine model.scaffold.crop if cropname == alfalfa according to geography
+    model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode & model.scaffold$alfalfa.zone==alfalfa.zone), ]
   } else if (cropname=='grapes.table' | cropname=='grapes.wine') {
-    model.scaffold.crop <- model.scaffold[grepl(grape.zone, model.scaffold$grape.zone), ] #wine.grapes will be run with 'Central California Foothills and Coastal Mountains'; grapes.table will be run for 'Central California Valley' and 'Sonora Basin and Range', the latter is forced to 'Central California Valley' after reading in model scaffold for simplicity's sake; note that grepl returns FALSE for NAs in x
+    model.scaffold.crop <- model.scaffold[grepl(grape.zone, model.scaffold$grape.zone), ] #wine.grapes will be run with 'Coast, Foothills, and Mountains'; grapes.table will be run for 'Central Valley'; note that grepl returns FALSE for NAs in x
   } else {
-      model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode), ] #80,401 unique crop, soil, and climate combinations for almond (spatially, this is the equivalent of only 7,236 ha)
+      model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode), ]
   }
 #make a results data.frame
   if (results_file == 'new') {
@@ -501,10 +524,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
 #model.scaffold.results[which(model.scaffold.results$unique_model_code==100058 & model.scaffold.results$cokey==13094564), ]
     rm(model.scaffold2)
   } else {
-    setwd(file.path(resultsDir, scenario.name))
     #fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
     #model.scaffold.results <- read.csv(fname, stringsAsFactors = FALSE)
-    model.scaffold.results <- read.csv(results_file, stringsAsFactors = FALSE)
+    model.scaffold.results <- read.csv(file.path(resultsDir, scenario.name, results_file), stringsAsFactors = FALSE)
     model.scaffold.results$Irr.1 <- as.Date(model.scaffold.results$Irr.1)
     model.scaffold.results$Irr.Last <- as.Date(model.scaffold.results$Irr.Last)
   }
@@ -541,7 +563,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   } else {save.times <- 1000}
   for (n in row_start:nrow(model.scaffold.crop)) {
     ###TEMP line below
-    n <- which(model.scaffold.crop$unique_model_code==105603)
+    n <- which(model.scaffold.crop$unique_model_code==105603)# & model.scaffold.crop$cokey==14607354)
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
     AD <- (AD.percentage/100)*PAW
@@ -622,7 +644,9 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     Kc.ns[1] <- KcnsCalc(Kcb.adjusted, Kei, Kep, 1)
     ETc.ns[1] <- ETcnsCalc(Kc.ns, ETo, 1)
     Dr.initial[1] <- max(TEW.parameter * TEW.fraction - P[1] + ETc.ns[1], 0) #initial calc
-    #Ks[1] <- KsCalc(Dr.end=Dr.initial, PAW=PAW, i=1) #NEED TO CORRECT THIS
+    Ks[1] <-  if (max(TEW.parameter * TEW.fraction - P[1], 0) > stress.assumption*PAW) {
+                max((PAW - max(TEW.parameter * TEW.fraction - P[1], 0)) / (PAW - stress.assumption*PAW), 0)
+              } else {1}
     Ir[1] <- IrCalc(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, 1)
     DPr[1] <- max(max(P[1] + Ir[1] - TEW.parameter * TEW.fraction - ETc.ns[1], 0)) #initial calc
     Kc.act[1] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, 1)
@@ -645,47 +669,52 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       Kc.ns[i] <- KcnsCalc(Kcb.adjusted, Kei, Kep, i)
       ETc.ns[i] <- ETcnsCalc(Kc.ns, ETo, i)
       Dr.initial[i] <- DrInitialCalc(Dr.end, ETc.ns, P, Ir, i)
-      Ks[i] <- KsCalc(Dr.initial=Dr.initial, PAW=PAW, i=i) #corrected on 10/18/17
+      Ks[i] <- KsCalc(Dr.end = Dr.initial, P = P, Ir = Ir, PAW = PAW, stress.point = stress.assumption * PAW, i = i) #corrected on 10/18/17
       Ir[i] <- IrCalc(Ks, RDI.min, AD, Dr.initial, doys.model, Jdev, Jharv, days.no.irr, i)
       DPr[i] <- DPrCalc(P, Ir, ETc.ns, Dr.end, i)
       Kc.act[i] <- KcactCalc(Ks, Kcb.adjusted, Kei, Kep, i)
       Dr.end[i] <- DrEndCalc(Dr.end, P, Ir, Kc.act, ETo, DPr, i)
       ETc.act[i] <- ETcactCalc(Kc.act, ETo, i) #could take this out of loop
     }
-    model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, Dpei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
-    model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), which(colnames(model.scaffold.results)=='Irr.1'):(which(colnames(model.scaffold.results)=='GW.capture.net'))] <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc)), do.call(rbind, lapply(split(model.result, model.result$years), DeepPercCalc))), do.call(rbind, lapply(split(model.result, model.result$water.year), GreenWaterCaptureCalc)), by="row.names", all=TRUE)[ ,2:26]
+    model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, DPei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
+    model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), which(colnames(model.scaffold.results)=='Irr.1'):(which(colnames(model.scaffold.results)=='CropStress.Dec'))] <- cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceMonthly))) #took out merge call since each results function now should result in equal row results
     print(paste(scenario.name, as.character(n)))
     if (n==1 | n %in% rows.to.sample) {
-      setwd(file.path(resultsDir, scenario.name))
       if (cropname=='grapes.wine') {
-        write.csv(model.result, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
+        write.csv(model.result, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
       } else {
-      write.csv(model.result, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv'), row.names=FALSE)
+      write.csv(model.result, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
       }
     }
     if (n %in% save.times) { #was (n==100 | n %in% save.times)
-      setwd(file.path(resultsDir, scenario.name))
       if (cropname=='grapes.wine') {
-        write.csv(model.scaffold.results, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv'), row.names=FALSE)
+        write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv')), row.names=FALSE)
       } else {
-        write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
+        write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv')), row.names=FALSE)
       }
     } else {next}
   }
-  setwd(file.path(resultsDir, scenario.name))
   if (cropname=='grapes.wine') {
-    write.csv(model.scaffold.results, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv'), row.names=FALSE)
+    write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv')), row.names=FALSE)
   } else {
-      write.csv(model.scaffold.results, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv'), row.names=FALSE)
+      write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv')), row.names=FALSE)
   }
   metadata <- cbind(data.frame(date.run=Sys.Date(), crop=cropname, cropscape.code=cropcode, AD.percentage=AD.percentage, rooting.depth=root_depth, irrigation.type=irr.type, paw.varname = paw.var, model.days=model.length, first.day=dates[1], last.day=dates[length(dates)], n.models=nrow(model.scaffold.crop)), crop.parameters[which(crop.parameters$crop==cropname), 2:ncol(crop.parameters)], irrigation.parameters[which(irrigation.parameters$irrigation.type==irr.type), 'fw'])
   colnames(metadata)[ncol(metadata)] <- 'fw'
   if (cropname == 'grapes.wine') {
-    write.csv(metadata, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_model_metadata.csv'), row.names = FALSE)
+    write.csv(metadata, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_model_metadata.csv')), row.names = FALSE)
   } else {
-      write.csv(metadata, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv'), row.names = FALSE)
+      write.csv(metadata, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv')), row.names = FALSE)
   }
 }
+###END OF FUNCTION
+
+#temp
+lapply(model.result, function(x) sum(x < 0))
+write.csv(model.result, file.path(resultsDir, 'TESTS', paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
+test <- cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceMonthly)))
+test <- merge(cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceMonthly))), by="row.names", all=TRUE)
+
 #incorporate into results
 results$wb[i] <- sum(df$P) + sum(df$Ir[1:(nrow(df) - 1)]) - sum(df$ETc.act) - sum(df$DPr) + (df$Dr.end[nrow(df)] - df$Dr.initial[1])
 results$rel.error[i] <- 100 * (results$wb[i] / sum(df$P, df$Ir[1:(nrow(df) - 1)]))
