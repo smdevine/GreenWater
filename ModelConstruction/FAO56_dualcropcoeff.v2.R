@@ -22,7 +22,7 @@
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
 modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018' #location of input data; re-worked early March 2018
-resultsDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/results/Mar2018'
+resultsDir <- 'D:/Allowable_Depletion/results/Mar2018'
 rounding_digits <- 3
 irrigation.parameters <- read.csv(file.path(modelscaffoldDir, 'irrigation_parameters.csv'), stringsAsFactors = FALSE)
 crop.parameters.df <- read.csv(file.path(modelscaffoldDir, 'crop_parameters.csv'), stringsAsFactors = FALSE) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
@@ -32,10 +32,8 @@ RHmin.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.RHmin.QCpass.csv'
 ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days (all on "02_23_2018") in data_QA_QC.R, along with 1,633 negative and 11 zero values corrected.
 cropscape_legend <- read.csv(file.path(modelscaffoldDir, 'cropscape_legend.txt'), stringsAsFactors = FALSE)
 model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps2018-03-15.csv'), stringsAsFactors = FALSE) #note this has several more columns than previous versions; will have affects downstream
-lapply(model.scaffold, class)
 model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
-
-#model.scaffold$grape.zone[which(model.scaffold$grape.zone=='Southern Desert')] <- 'Central California Valley' #this zone will be treated like 'Central California Valley,' that is, table grape, raisin, or low-quality wine grape
+#lapply(model.scaffold, class)
 
 
 #define functions to implement FAO56 dual crop coefficient model
@@ -50,24 +48,23 @@ model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 #ET.growing=total ET from flowering (Jdev) to leaf-drop (Jharv)
 #ET.WY=total annual ET on water-year basis
 #deep.perc is annual deep percolation ()
-#GW.capture.net is net change in soil root zone depletion from Jharv (leaf drop) to Jdev (flowering and development)
 #end.season.Dr is soil root zone depletion at Jharv (leaf drop)
 
 #temporary arguments for working inside the function when necessary
-cropname <- 'almond.mature'
-cropcode <- almond_code #grape code
-AD.percentage <- 30
-root_depth <- '0.5m'
-irr.type <- 'Microspray, orchards'
-results_file <- 'new'
-row_start <- 1
-RDI.min <- NA
-alfalfa.zone <- NA
-grape.zone <- NA
-stress.assumption <- 0.5
+# cropname <- 'almond.mature'
+# cropcode <- almond_code #grape code
+# AD.percentage <- 50
+# root_depth <- '0.5m'
+# irr.type <- 'Microspray, orchards'
+# results_file <- 'new'
+# row_start <- 1
+# RDI.min <- NA
+# alfalfa.zone <- NA
+# grape.zone <- NA
+# stress.assumption <- 0.5
 
 
-FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption) {
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption, dailyWBsave) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
   almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
@@ -404,7 +401,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     }
   }
 #do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc))
-  
   #calculate Green Water utilized
   #this asssumes that residual irrigation water storage from previous fall will not contribute to the following year's growing season ET for the purpose of calculating green water utilization.  A correction is no longer applied to the growing season ET for residual irrigation water storage (using the 'irr_end_storage' variable) to attempt to correctly estimate green water utilization within the same year.
   #past definitation for year's with a final irrigation: GW.ET.growing = sum(df$ETc.act[jdev_index:jharv_index] - df$Ir[jdev_index:jharv_index]) + irr_end_storage, where
@@ -441,8 +437,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
       data.frame(Dr.begin.year = d.f$Dr.end[1], Dr.begin.season = d.f$Dr.end[jdev_index], Dr.end.season = d.f$Dr.end[jharv_index], P.end.season = sum(d.f$P[last.irr.index:jharv_index]), Dr.end.year = d.f$Dr.end[final_doy_index], GW.ET.growing = sum(d.f$ETc.act[jdev_index:jharv_index], -d.f$Ir), Irr.app.total = sum(d.f$Ir), Irr.app.last = d.f$Ir[last.irr.index], ET.growing = sum(d.f$ETc.act[jdev_index:jharv_index]), E.growing = sum(d.f$Ei[jdev_index:jharv_index], d.f$Ep[jdev_index:jharv_index]), T.growing = sum(d.f$ETc.act[jdev_index:jharv_index], -d.f$Ei[jdev_index:jharv_index], -d.f$Ep[jdev_index:jharv_index]), crop.stress.growing=sum(d.f$ETc.ns[jdev_index:jharv_index], -d.f$ETc.act[jdev_index:jharv_index]), deep.perc.growing=sum(d.f$DPr[jdev_index:jharv_index]), ET.annual = sum(d.f$ETc.act), E.annual = sum(d.f$Ei, d.f$Ep), T.annual = sum(d.f$ETc.act, -d.f$Ei, -d.f$Ep), crop.stress.annual = sum(d.f$ETc.ns, -d.f$ETc.act), deep.perc.annual = sum(d.f$DPr), non.irr.deep.perc = sum(d.f$DPr[1:first.irr.index], d.f$DPr[last.irr.index:final_doy_index]), Irr1.to.last.deep.perc = sum(d.f$DPr[first.irr.index:last.irr.index]), fall.deep.perc = sum(d.f$DPr[last.irr.index:final_doy_index]), GW.ET.to.Irr1 = sum(d.f$ETc.act[jdev_index:first.irr.index]), GW.E.to.Irr1 = sum(d.f$Ei[jdev_index:first.irr.index] + d.f$Ep[jdev_index:first.irr.index]), GW.T.to.Irr1 = sum(d.f$Kcb.adjusted[jdev_index:first.irr.index] * d.f$Ks[jdev_index:first.irr.index] * d.f$ETo[jdev_index:first.irr.index])) #from this, can calculate dormant season values for E, ET, and H2O.stress later
     }
   }
-  do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
-  
+  #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc))
   WaterBalanceMonthly <- function(d.f) {
     leap.year <- if(d.f$years[1]%%4==0 & d.f$years[1]%%100 != 0) {TRUE} else if (d.f$years[1]%%400==0) {TRUE} else {FALSE}
     if (leap.year & nrow(d.f) < 366) {
@@ -467,7 +462,6 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     }
   }
   #do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceMonthly))
-  
   if (length(U2.df$DOY)==length(RHmin.df$DOY) & length(U2.df$DOY)==length(ETo.df$DOY)) {
     doys.model <- U2.df$DOY
     dates <- as.Date(U2.df$dates, format='%m_%d_%Y') #'%b_%d_%Y'
@@ -515,35 +509,37 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     #take out unnecessary paw data from model scaffold
     model.scaffold2 <- model.scaffold.crop[ ,-which(grepl('cmH2O', colnames(model.scaffold.crop)))] 
     model.scaffold2[[paw.var]] <- paw.vector #put back in relevant paw data and use this as basis for QC results template below
-    model.scaffold3 <- model.scaffold2[ ,c('mukey', 'cropcode', 'PRISMcellnumber', 'CIMIScellnumber', 'unique_model_code', 'cokey', 'comppct_r', 'TEW', 'REW', 'surface.depth')] #and this for annual results template to be expanded below
+    model.scaffold3 <- model.scaffold2[ ,c('mukey', 'cropcode', 'PRISMcellnumber', 'CIMIScellnumber', 'unique_model_code', 'cokey', 'comppct_r', 'TEW', 'REW', 'surface.depth')] #and this for by year results template to be expanded below
     model.scaffold.results <- model.scaffold3[rep(seq.int(1, nrow(model.scaffold3)), model.length.yrs), 1:ncol(model.scaffold3)] #makes a new data.frame with each row repeated model.length.yrs number of times
     model.scaffold.results <- model.scaffold.results[order(model.scaffold.results$unique_model_code, model.scaffold.results$cokey), ] #for some reason it is produced out of order
     model.scaffold.results <- data.frame(model.scaffold.results, Model.Year=rep(seq(from=min(ETo.df$year), to=max(ETo.df$year), by=1), times=nrow(model.scaffold.crop)), Irr.1=as.Date('1900-01-01'), Irr.Last=as.Date('1900-01-01'), Irr.All=NA, Irr.Count=NA, Dr.begin.year = NA, Dr.begin.season = NA, Dr.end.season = NA, P.end.season=NA, Dr.end.year = NA, GW.ET.growing = NA, Irr.app.total = NA, Irr.app.last = NA, ET.growing = NA, E.growing = NA, T.growing = NA, crop.stress.growing = NA, deep.perc.growing = NA, ET.annual = NA, E.annual = NA, T.annual = NA, crop.stress.annual = NA, deep.perc.annual = NA, non.irr.deep.perc = NA, Irr1.to.last.deep.perc = NA, fall.deep.perc = NA, GW.ET.to.Irr1=NA, GW.E.to.Irr1=NA, GW.T.to.Irr1=NA, IrrApp.Jan = NA, IrrApp.Feb = NA, IrrApp.Mar = NA, IrrApp.Apr = NA, IrrApp.May = NA, IrrApp.Jun = NA, IrrApp.Jul = NA, IrrApp.Aug = NA, IrrApp.Sep = NA, IrrApp.Oct = NA, IrrApp.Nov = NA, IrrApp.Dec = NA, ET.Jan = NA, ET.Feb = NA, ET.Mar = NA, ET.Apr = NA, ET.May = NA, ET.Jun = NA, ET.Jul = NA, ET.Aug = NA, ET.Sep = NA, ET.Oct = NA, ET.Nov = NA, ET.Dec = NA, E.Jan = NA, E.Feb = NA, E.Mar = NA, E.Apr = NA, E.May = NA, E.Jun = NA, E.Jul = NA, E.Aug = NA, E.Sep = NA, E.Oct = NA, E.Nov = NA, E.Dec = NA, DeepPerc.Jan = NA, DeepPerc.Feb = NA, DeepPerc.Mar = NA, DeepPerc.Apr = NA, DeepPerc.May = NA, DeepPerc.Jun = NA, DeepPerc.Jul = NA, DeepPerc.Aug = NA, DeepPerc.Sep = NA, DeepPerc.Oct = NA, DeepPerc.Nov = NA, DeepPerc.Dec = NA, CropStress.Jan = NA, CropStress.Feb = NA, CropStress.Mar = NA, CropStress.Apr = NA, CropStress.May = NA, CropStress.Jun = NA, CropStress.Jul = NA, CropStress.Aug = NA, CropStress.Sep = NA, CropStress.Oct = NA, CropStress.Nov = NA, CropStress.Dec = NA)
     QC.results <- data.frame(model.scaffold2, DaysNoIrr=NA, WaterBlncError=NA, WaterBlncInput=NA, NegFlags=NA)
-    Dr.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
-    Dr.results$unique_model_code <- model.scaffold.crop$unique_model_code
-    Dr.results$cokey <- model.scaffold.crop$cokey
-    colnames(Dr.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
-    ETc.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
-    ETc.results$unique_model_code <- model.scaffold.crop$unique_model_code
-    ETc.results$cokey <- model.scaffold.crop$cokey
-    colnames(ETc.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
-    Ir.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
-    Ir.results$unique_model_code <- model.scaffold.crop$unique_model_code
-    Ir.results$cokey <- model.scaffold.crop$cokey
-    colnames(Ir.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
-    DPr.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
-    DPr.results$unique_model_code <- model.scaffold.crop$unique_model_code
-    DPr.results$cokey <- model.scaffold.crop$cokey
-    colnames(DPr.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
-    E.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
-    E.results$unique_model_code <- model.scaffold.crop$unique_model_code
-    E.results$cokey <- model.scaffold.crop$coke
-    colnames(E.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
-    CropStress.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
-    CropStress.results$unique_model_code <- model.scaffold.crop$unique_model_code
-    CropStress.results$cokey <- model.scaffold.crop$cokey
-    colnames(CropStress.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+    if (dailyWBsave) {
+      Dr.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
+      colnames(Dr.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+      Dr.results$unique_model_code <- model.scaffold.crop$unique_model_code
+      Dr.results$cokey <- model.scaffold.crop$cokey
+      ETc.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
+      colnames(ETc.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+      ETc.results$unique_model_code <- model.scaffold.crop$unique_model_code
+      ETc.results$cokey <- model.scaffold.crop$cokey
+      Ir.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
+      colnames(Ir.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+      Ir.results$unique_model_code <- model.scaffold.crop$unique_model_code
+      Ir.results$cokey <- model.scaffold.crop$cokey
+      DPr.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
+      colnames(DPr.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+      DPr.results$unique_model_code <- model.scaffold.crop$unique_model_code
+      DPr.results$cokey <- model.scaffold.crop$cokey
+      E.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
+      colnames(E.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+      E.results$unique_model_code <- model.scaffold.crop$unique_model_code
+      E.results$cokey <- model.scaffold.crop$cokey
+      CropStress.results <- data.frame(matrix(data=NA, nrow=nrow(model.scaffold.crop), ncol=2+length(dates)))
+      colnames(CropStress.results) <- c('unique_model_code', 'cokey', format.Date(dates, '%b_%d_%Y'))
+      CropStress.results$unique_model_code <- model.scaffold.crop$unique_model_code
+      CropStress.results$cokey <- model.scaffold.crop$cokey
+    }
     rm(model.scaffold2, model.scaffold3)
   } else {  ###THIS NEEDS TO BE EDITED FOR FUTURE INTERRUPTED RUNS, given the new results collection additions
     #fname <- list.files(pattern = glob2rx('*_FAO56results.csv'))
@@ -580,10 +576,10 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   fewp <- fewpCalc(fc, fewi)
 #loop through all rows of model scaffold but only do these operations once for each model.scaffold.crop row
   set.seed(461980)
-  rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.01*nrow(model.scaffold.crop))
+  rows.to.sample <- sample(1:nrow(model.scaffold.crop), 0.01*nrow(model.scaffold.crop)) #save 1% of model runs
   if (nrow(model.scaffold.crop) > 10000) {
     save.times <- seq(from=10000, to=nrow(model.scaffold.crop), by=10000)
-  } else {save.times <- 1000}
+  } else {save.times <- round(0.5 * nrow(model.scaffold.crop), digits = 0)}
   for (n in row_start:nrow(model.scaffold.crop)) {
     model.code <- model.scaffold.crop$unique_model_code[n]
     PAW <- model.scaffold.crop[[paw.var]][n]*10
@@ -700,12 +696,14 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, Kcb.std, Kcb.adjusted, Kcmax, fc, fw, fewi, fewp, Dei.initial, Dep.initial, Kri, Krp, W, Kei, Kep, Ei, Ep, DPei, DPep, Dei.end, Dep.end, Kc.ns, ETc.ns, Dr.initial, Ir, DPr, Ks, Kc.act, ETc.act, Dr.end)
     model.scaffold.results[which(model.scaffold.results$unique_model_code==model.code & model.scaffold.results$cokey == cokey), which(colnames(model.scaffold.results)=='Irr.1'):(which(colnames(model.scaffold.results)=='CropStress.Dec'))] <- cbind(do.call(rbind, lapply(split(model.result, model.result$years), IrDateCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceCalc)), do.call(rbind, lapply(split(model.result, model.result$years), WaterBalanceMonthly)))
     QC.results[which(QC.results$unique_model_code==model.code & QC.results$cokey == cokey), which(colnames(QC.results)=='DaysNoIrr'):(which(colnames(QC.results)=='NegFlags'))] <- cbind(DaysNoIrr=days.no.irr, WaterBlncError=sum(model.result$P) + sum(model.result$Ir[1:(nrow(model.result) - 1)]) - sum(model.result$ETc.act) - sum(model.result$DPr) + (model.result$Dr.end[nrow(model.result)] - model.result$Dr.initial[1]), WaterBlncInput=sum(model.result$P, model.result$Ir[1:(nrow(model.result) - 1)]), NegFlags=sum(subset(model.result, select = -c(Dei.initial, Dep.initial, Dr.initial, Dr.end)) < 0))
-    Dr.results[which(Dr.results$unique_model_code == model.code & Dr.results$cokey == cokey), 3:ncol(Dr.results)] <- round(Dr.end, 3)
-    ETc.results[which(ETc.results$unique_model_code == model.code & ETc.results$cokey == cokey), 3:ncol(ETc.results)] <- round(ETc.act, 3)
-    Ir.results[which(Ir.results$unique_model_code == model.code & Ir.results$cokey == cokey), 3:ncol(Ir.results)] <- round(Ir, 3)
-    DPr.results[which(DPr.results$unique_model_code == model.code & DPr.results$cokey == cokey), 3:ncol(DPr.results)] <- round(DPr, 3)
-    E.results[which(E.results$unique_model_code == model.code & E.results$cokey == cokey), 3:ncol(E.results)] <- round(Ei + Ep, 3)
-    CropStress.results[which(CropStress.results$unique_model_code == model.code & CropStress.results$cokey == cokey), 3:ncol(CropStress.results)] <- round(ETc.ns - ETc.act, 3)
+    if (dailyWBsave) {
+      Dr.results[which(Dr.results$unique_model_code == model.code & Dr.results$cokey == cokey), 3:ncol(Dr.results)] <- round(Dr.end, 3)
+      ETc.results[which(ETc.results$unique_model_code == model.code & ETc.results$cokey == cokey), 3:ncol(ETc.results)] <- round(ETc.act, 3)
+      Ir.results[which(Ir.results$unique_model_code == model.code & Ir.results$cokey == cokey), 3:ncol(Ir.results)] <- round(Ir, 3)
+      DPr.results[which(DPr.results$unique_model_code == model.code & DPr.results$cokey == cokey), 3:ncol(DPr.results)] <- round(DPr, 3)
+      E.results[which(E.results$unique_model_code == model.code & E.results$cokey == cokey), 3:ncol(E.results)] <- round(Ei + Ep, 3)
+      CropStress.results[which(CropStress.results$unique_model_code == model.code & CropStress.results$cokey == cokey), 3:ncol(CropStress.results)] <- round(ETc.ns - ETc.act, 3)
+    }
     print(paste(scenario.name, as.character(n)))
     if (n==1 | n %in% rows.to.sample) {
       model.result <- data.frame(dates, months, days, years, water.year, doys.model, P, ETo, RHmin, U2, lapply(X=list(Kcb.std=Kcb.std, Kcb.adjusted=Kcb.adjusted, Kcmax=Kcmax, fceff=fc, fw=fw, fewi=fewi, fewp=fewp, Dei.initial=Dei.initial, Dep.initial=Dep.initial, Kri=Kri, Krp=Krp, W=W, Kei=Kei, Kep=Kep, Ei=Ei, Ep=Ep, DPei=DPei, DPep=DPep, Dei.end=Dei.end, Dep.end=Dep.end, Kc.ns=Kc.ns, ETc.ns=ETc.ns, Dr.initial=Dr.initial, Ir=Ir, DPr=DPr, Ks=Ks, Kc.act=Kc.act, ETc.act=ETc.act, Dr.end=Dr.end), round, digits=rounding_digits))
@@ -718,25 +716,25 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   } #now, outside of model.scaffold.crop loop, all scenarios run, save complete results, QC, and metadata files
   write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv')), row.names=FALSE)
   write.csv(QC.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_QC.results.csv')), row.names=FALSE)
-  write.csv(Dr.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_Dr.results.csv')), row.names=FALSE) #daily root zone depletion
-  write.csv(ETc.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_ETc.act.results.csv')), row.names=FALSE) #daily actual ET
-  write.csv(Ir.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_IrrApp.results.csv')), row.names=FALSE) #daily irrigation applications
-  write.csv(DPr.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_DPr.results.csv')), row.names=FALSE) #daily root zone deep percolation
-  write.csv(E.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_E.results.csv')), row.names=FALSE) #daily soil surface evaporation
-  write.csv(CropStress.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_CropStress.results.csv')), row.names=FALSE) #daily crop stress
+  if (dailyWBsave) {
+    write.csv(Dr.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_Dr.results.csv')), row.names=FALSE) #daily root zone depletion
+    write.csv(ETc.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_ETc.act.results.csv')), row.names=FALSE) #daily actual ET
+    write.csv(Ir.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_IrrApp.results.csv')), row.names=FALSE) #daily irrigation applications
+    write.csv(DPr.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_DPr.results.csv')), row.names=FALSE) #daily root zone deep percolation
+    write.csv(E.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_E.results.csv')), row.names=FALSE) #daily soil surface evaporation
+    write.csv(CropStress.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_CropStress.results.csv')), row.names=FALSE) #daily crop stress
+  }
   metadata <- cbind(data.frame(date.run=Sys.Date(), crop=cropname, alfalfa.zone=alfalfa.zone, grape.zone=grape.zone, cropscape.code=cropcode, AD.percentage=AD.percentage, RDI.min=RDI.min, stress.assumption=stress.assumption, rooting.depth=root_depth, irrigation.type=irr.type, paw.varname = paw.var, model.days=model.length, first.day=dates[1], last.day=dates[length(dates)], n.models=nrow(model.scaffold.crop)), crop.parameters[which(crop.parameters$crop==cropname), 2:ncol(crop.parameters)], irrigation.parameters[which(irrigation.parameters$irrigation.type==irr.type), 'fw'])
   colnames(metadata)[ncol(metadata)] <- 'fw'
   write.csv(metadata, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv')), row.names = FALSE)
 }
+#test_function
+FAO56DualCropCalc(cropname = 'almond.mature', cropcode = almond_code, AD.percentage = 50, root_depth = '0.5m', irr.type = 'Microspray, orchards', crop.parameters.df = crop.parameters.df, model.scaffold = model.scaffold, U2.df = U2.df, P.df = P.df, ETo.df = ETo.df, RHmin.df = RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = NA, grape.zone = NA, stress.assumption = 0.5, dailyWBsave = FALSE)
 ###END OF FUNCTION
 #arguments to function: cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption
 #temp
 lapply(model.result, function(x) sum(x < 0))
 write.csv(model.result, file.path(resultsDir, 'TESTS', paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
-
-#incorporate into results
-results$wb[i] <- sum(df$P) + sum(df$Ir[1:(nrow(df) - 1)]) - sum(df$ETc.act) - sum(df$DPr) + (df$Dr.end[nrow(df)] - df$Dr.initial[1])
-results$rel.error[i] <- 100 * (results$wb[i] / sum(df$P, df$Ir[1:(nrow(df) - 1)]))
 
 #legend for FAO56 abbreviations
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
