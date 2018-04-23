@@ -258,3 +258,36 @@ GreenWaterIrr1Calc <- function(df) { #works on a data.frame split by year
   }
 }
 #do.call(rbind, lapply(split(model.result, model.result$years), GreenWaterIrr1Calc))
+
+#old scenario naming conventions
+scenario.name <- if (cropname == 'grapes.wine') {
+  paste0(cropname.dir, '/scenario_', root_depth, as.character(RDI.min), 'RDI.min')} else {
+    paste0(cropname.dir, '/scenario_', root_depth, as.character(AD.percentage), 'AD')
+  } #need to add other variables here if performing sensitivity analysis
+#old water balance file saving convention based on previous scenario naming conventions
+if (cropname=='grapes.wine') {
+  write.csv(model.result, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
+} else {
+  write.csv(model.result, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
+}
+#old overall results saving convention
+if (n %in% save.times) { #was (n==100 | n %in% save.times)
+  if (cropname=='grapes.wine') {
+    write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv')), row.names=FALSE)
+  } else {
+    write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv')), row.names=FALSE)
+  }
+} else {next}
+#old final overall results saving convention
+if (cropname=='grapes.wine') {
+  write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_FAO56results.csv')), row.names=FALSE)
+} else {
+  write.csv(model.scaffold.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_FAO56results.csv')), row.names=FALSE)
+}
+#old metadata saving convention
+if (cropname == 'grapes.wine') {
+  write.csv(metadata, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'RDI.min', as.character(RDI.min), '_model_metadata.csv')), row.names = FALSE)
+} else {
+  write.csv(metadata, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv')), row.names = FALSE)
+}
+
