@@ -74,7 +74,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     crop.parameters <- crop.parameters[which(crop.parameters$crop==cropname), ]  
     bloom.date <- strptime(paste0(as.character(crop.parameters$bloom.mo), '/', as.character(crop.parameters$bloom.day)), '%m/%d')
     if (cropname=='alfalfa.intermountain' | cropname=='alfalfa.CV' | cropname=='alfalfa.imperial') {
-      crop.parameters$Jini <- as.integer(format.Date(bloom.date, '%j')) #this covers the first cutting
+      crop.parameters$Jini <- as.integer(format.Date(bloom.date, '%j')) + bloom.offset #this covers the first cutting
       crop.parameters$Jdev <- crop.parameters$Jini + crop.parameters$Lini
       crop.parameters$Jmid <- crop.parameters$Jdev + crop.parameters$Ldev
       crop.parameters$Jlate <- crop.parameters$Jmid + crop.parameters$Lmid
@@ -551,7 +551,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     model.scaffold.results$Irr.1 <- as.Date(model.scaffold.results$Irr.1)
     model.scaffold.results$Irr.Last <- as.Date(model.scaffold.results$Irr.Last)
   }
-  crop.parameters <- CropParametersDefine(crop.parameters.df, cropname)
+  crop.parameters <- CropParametersDefine(crop.parameters.df, cropname, bloom.offset)
   Kcb.std <- KcbDefine(doys.model, cropname) #this will be substituted with a crop code
   fc <- fcCalc(doys.model, crop.parameters, cropname) #TO-DO: implement alternative fc calculation in accordance with Eq. 11 from Allen et al. 2005: ((Kcb-Kcmin)/(Kcmax-Kcmin))^(1+0.5*h).  However, this produced a strange result in spreadsheet model for almonds, where increasing h decreases fc.
   if (cropname == 'alfalfa.intermountain' | cropname == 'alfalfa.CV' | cropname == 'alfalfa.imperial') {
@@ -727,8 +727,7 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
     write.csv(E.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_E.results.csv')), row.names=FALSE) #daily soil surface evaporation
     write.csv(CropStress.results, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_CropStress.results.csv')), row.names=FALSE) #daily crop stress
   }
-  metadata <- cbind(data.frame(date.run=Sys.Date(), crop=cropname, alfalfa.zone=alfalfa.zone, grape.zone=grape.zone, cropscape.code=cropcode, AD.percentage=AD.percentage, RDI.min=RDI.min, stress.assumption=stress.assumption, rooting.depth=root_depth, irrigation.type=irr.type, paw.varname = paw.var, model.days=model.length, first.day=dates[1], last.day=dates[length(dates)], n.models=nrow(model.scaffold.crop)), crop.parameters[which(crop.parameters$crop==cropname), 2:ncol(crop.parameters)], irrigation.parameters[which(irrigation.parameters$irrigation.type==irr.type), 'fw'], bloom.offset.days=bloom.offset)
-  colnames(metadata)[ncol(metadata)] <- 'fw'
+  metadata <- cbind(data.frame(date.run=Sys.Date(), crop=cropname, alfalfa.zone=alfalfa.zone, grape.zone=grape.zone, cropscape.code=cropcode, AD.percentage=AD.percentage, RDI.min=RDI.min, stress.assumption=stress.assumption, rooting.depth=root_depth, irrigation.type=irr.type, paw.varname = paw.var, model.days=model.length, first.day=dates[1], last.day=dates[length(dates)], n.models=nrow(model.scaffold.crop)), crop.parameters[which(crop.parameters$crop==cropname), 2:ncol(crop.parameters)], fw = irrigation.parameters[which(irrigation.parameters$irrigation.type==irr.type), 'fw'], bloom.offset.days=bloom.offset)
   write.csv(metadata, file.path(resultsDir, scenario.dir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv')), row.names = FALSE)
 }
 #test_function
