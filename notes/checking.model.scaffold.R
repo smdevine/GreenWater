@@ -1,4 +1,15 @@
 #model scaffold exploration after reading in FAO56_dualcropcoeff.v2.R
+modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018' #location of input data; re-worked early March 2018
+model.scaffold <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_majcomps2018-03-15.csv'), stringsAsFactors = FALSE) #note this has several more columns than previous versions; will have affects downstream
+nrow(model.scaffold) #107,561 unique combinations of crop, soil, and climate
+length(unique(model.scaffold$compname)) #1143
+length(unique(model.scaffold$muname)) #4345
+length(unique(model.scaffold$mukey)) #4889
+length(unique(model.scaffold$cokey)) #5887
+length(unique(model.scaffold$PRISMcellnumber)) #4,262 prism cells of interest
+length(unique(model.scaffold$CIMIScellnumber)) #12,524 CIMIS cells of interest
+
+#check TEW and REW data
 summary(model.scaffold$TEW)
 sum(model.scaffold$TEW < 10)
 sum(model.scaffold$TEW < 5)
