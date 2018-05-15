@@ -60,3 +60,41 @@ foreach(i=7:nrow(modelgrid)) %dopar% {
   FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], 'Microspray, orchards', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = NA, grape.zone = NA, stress.assumption=0.5, dailyWBsave = FALSE, modelgrid$scenario.dir[i], modelgrid$bloom.offset[i])
 } ##function arguments as of 4/17/18:cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption, scenario.dir, bloom.offset
 stopCluster(cl)
+
+#third set is on Kcb.dorm values, going back to microspray irr.type assumption and standard crop growth timing
+modelgrid <- expand.grid(root.depths = c('0.5m', '1.0m', '2.0m', '3.0m'), cropnames = c('walnut.mature', 'almond.mature'), stringsAsFactors = FALSE)
+rep.number <- nrow(modelgrid)
+modelgrid <- rbind(modelgrid, modelgrid)
+modelgrid$AD.percentage <- ifelse(modelgrid$root.depths=='0.5m', 30, 50)
+modelgrid$cropcode <- ifelse(modelgrid$cropnames=='almond.mature', almond_code, ifelse(modelgrid$cropnames=='walnut.mature', walnut_code, ifelse(modelgrid$cropnames=='pistachios', pistachio_code, ifelse(modelgrid$cropnames=='grapes.table', grape_code, ifelse(modelgrid$cropnames=='grapes.wine', grape_code, ifelse(modelgrid$cropnames=='alfalfa.intermountain' | modelgrid$cropnames=='alfalfa.CV' | modelgrid$cropnames=='alfalfa.imperial', alfalfa_code, print('Done')))))))
+crop.parameters.df_Kcb.dorm0.1 <- crop.parameters.df
+crop.parameters.df_Kcb.dorm0.1$Kcb.dorm[!(crop.parameters.df_Kcb.dorm0.1$crop=='alfalfa.CV' | crop.parameters.df_Kcb.dorm0.1$crop == 'alfalfa.imperial')] <- 0.1
+crop.parameters.df_Kcb.dorm0.2 <- crop.parameters.df
+crop.parameters.df_Kcb.dorm0.2$Kcb.dorm[!(crop.parameters.df_Kcb.dorm0.2$crop=='alfalfa.CV' | crop.parameters.df_Kcb.dorm0.2$crop == 'alfalfa.imperial')] <- 0.2
+crop.parameters.list <- c(rep(list(crop.parameters.df_Kcb.dorm0.1), rep.number), rep(list(crop.parameters.df_Kcb.dorm0.2), rep.number))
+modelgrid$scenario.dir <- c(rep('Kcb.dorm_0.1', rep.number), rep('Kcb.dorm_0.2', rep.number))
+modelgrid
+cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.list", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
+registerDoSNOW(cl)
+foreach(i=1:nrow(modelgrid)) %dopar% {
+  FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], 'Microspray, orchards', crop.parameters.list[[i]], model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = NA, grape.zone = NA, stress.assumption=0.5, dailyWBsave = FALSE, modelgrid$scenario.dir[i], bloom.offset = 0)
+} ##function arguments as of 4/17/18:cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption, scenario.dir, bloom.offset
+stopCluster(cl)
+
+#fourth set is on surface depth assumption, using either a flat 10 cm or 15 cm
+modelgrid <- expand.grid(root.depths = c('0.5m', '1.0m', '2.0m', '3.0m'), cropnames = c('walnut.mature', 'almond.mature'), stringsAsFactors = FALSE)
+rep.number <- nrow(modelgrid)
+modelgrid <- rbind(modelgrid, modelgrid)
+modelgrid$AD.percentage <- ifelse(modelgrid$root.depths=='0.5m', 30, 50)
+modelgrid$cropcode <- ifelse(modelgrid$cropnames=='almond.mature', almond_code, ifelse(modelgrid$cropnames=='walnut.mature', walnut_code, ifelse(modelgrid$cropnames=='pistachios', pistachio_code, ifelse(modelgrid$cropnames=='grapes.table', grape_code, ifelse(modelgrid$cropnames=='grapes.wine', grape_code, ifelse(modelgrid$cropnames=='alfalfa.intermountain' | modelgrid$cropnames=='alfalfa.CV' | modelgrid$cropnames=='alfalfa.imperial', alfalfa_code, print('Done')))))))
+modelgrid$surface.assumption <- c(rep('10cm', rep.number), rep('15cm', rep.number))
+modelgrid$scenario.dir <- c(rep('surface.depth.10cm', rep.number), rep('surface.depth.15cm', rep.number))
+modelgrid
+cl <- makeCluster(6, type = 'SOCK') #change the number to your desired number of CPU cores  
+clusterExport(cl, list=c("resultsDir", "rounding_digits", "FAO56DualCropCalc", "crop.parameters.df", "model.scaffold", "U2.df", "P.df", "ETo.df", "RHmin.df", "irrigation.parameters", "cropscape_legend"))
+registerDoSNOW(cl)
+foreach(i=1:nrow(modelgrid)) %dopar% {
+  FAO56DualCropCalc(modelgrid$cropnames[i], modelgrid$cropcode[i], modelgrid$AD.percentage[i], modelgrid$root.depths[i], 'Microspray, orchards', crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = NA, grape.zone = NA, stress.assumption=0.5, dailyWBsave = FALSE, scenario.dir = modelgrid$scenario.dir[i], bloom.offset = 0, surface.assumption = modelgrid$surface.assumption[i])
+} ##function arguments as of 4/17/18:cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption, scenario.dir, bloom.offset
+stopCluster(cl)
