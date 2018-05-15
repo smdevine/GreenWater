@@ -198,6 +198,19 @@ model_scaffold_final$longitude_NAD83 <- coordinates(centroids.sp.geo.df)[,1]
 shapefile(model_scaffold_final, file.path(modelscaffoldDir, 'shapefiles', 'model_scaffold.3.6.18.shp'), overwrite=TRUE) #still in same projection as original LandIQ shapefile 'i15_Crop_Mapping_2014_Final_LandIQonAtlas.shp'; field_names abbreviated due to shapefile contraints
 write.csv(data.frame(model_scaffold_final), file.path(modelscaffoldDir, 'model_scaffold_allfields.3.8.18.csv'), row.names = FALSE) #this is a full copy of the model scaffold that contains duplicate unique climate x crop x map unit combinations
 
+#get hectares by unique model code
+model_scaffold_final <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_allfields.3.8.18.csv'), stringsAsFactors = FALSE) #323422 fields x mapunit combos
+model_scaffold_final$hectares <- model_scaffold_final$Acres / 2.47105
+sum(model_scaffold_final$hectares) #1,486,959 hectares
+length(unique(model_scaffold_final$unique_model_code)) #98,980 unique model codes
+area_summary <- as.data.frame(tapply(model_scaffold_final$hectares, model_scaffold_final$unique_model_code, sum))
+colnames(area_summary) <- 'hectares'
+area_summary$unique_model_code <- rownames(area_summary)
+write.csv(area_summary, file.path(modelscaffoldDir, paste0('hectares_by_model_code', Sys.Date(), '.csv')), row.names = FALSE)
+crop_summary <- data.frame(hectares=tapply(model_scaffold_final$hectares, model_scaffold_final$Crop2014, sum))
+crop_summary$crop <- rownames(crop_summary)
+write.csv(crop_summary, file.path(modelscaffoldDir, paste0('hectares_by_crop', Sys.Date(), '.csv')), row.names = FALSE)
+
 #create model_scaffold for the only the unique model codes and write to disk as csv
 #maintain this order in columns: (1)mukey	(2)crop_code	(3)longitude_AEA	(4)latitude_AEA	(5)PRISMcellnumber	(6)CIMIScellnumber	(7)unique_model_code
 #IMPORTANT: some "unique_model_codes" will show up in the model_scaffold more than once as some climate x mapunit x crop combinations have more than one major component as part of the mapuunit; in the end, results will be percent component averaged
