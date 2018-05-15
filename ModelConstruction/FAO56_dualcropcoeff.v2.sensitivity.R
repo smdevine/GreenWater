@@ -64,7 +64,7 @@ model.scaffold <- model.scaffold[order(model.scaffold$unique_model_code), ]
 # stress.assumption <- 0.5
 
 
-FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption, dailyWBsave, scenario.dir, bloom.offset) {
+FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption, dailyWBsave, scenario.dir, bloom.offset, surface.assumption) {
   alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Alfalfa']
   grape_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Grapes']
   almond_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME=='Almonds']
@@ -505,6 +505,18 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   } else {
       model.scaffold.crop <- model.scaffold[which(model.scaffold$cropcode==cropcode), ]
   }
+  if (surface.assumption=='Standard') {
+    print('Surface depth assumption of 10-15 cm is based on mean weighted particle diameter')
+  }
+  else if (surface.assumption=='10cm') {
+    model.scaffold.crop$TEW <- 10 * (model.scaffold.crop$TEW / model.scaffold.crop$surface.depth)
+    model.scaffold.crop$REW <- 10 * (model.scaffold.crop$REW / model.scaffold.crop$surface.depth)
+  }
+  else if (surface.assumption=='15cm') {
+    model.scaffold.crop$TEW <- 15 * (model.scaffold.crop$TEW / model.scaffold.crop$surface.depth)
+    model.scaffold.crop$REW <- 15 * (model.scaffold.crop$REW / model.scaffold.crop$surface.depth)
+  }
+  else {print('Hey dude, you forgot to state your surface depth assumption')}
 #make a results data.frame
   if (results_file == 'new') {
     model.length.yrs <- max(ETo.df$year) - min(ETo.df$year) + 1 #data starts 10/1/2003 & ends 3/8/18
