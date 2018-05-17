@@ -16,10 +16,10 @@ if (!dir.exists(file.path(original.resultsDir, 'summaries'))) {
 # cell_numbers_of_interest <- read.csv('cellnumbers_to_modelcodes.csv', stringsAsFactors = FALSE)
 # raster.model.codes <- raster('model.codes.Aug2017.tif')
 P.df <- read.csv(file.path(modelscaffoldDir, 'PRISM_precip_data.csv'), stringsAsFactors = FALSE) #this is a daily summary of precip from 10/1/2003-3/8/17 from 'free' daily PRISM 4km resolution for cells of interest in California, created in download_PRISM.R script (from 3/9/18 download); blanks and negative values checked for in 'data_QA_QC.R'
-U2.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.U2.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
-RHmin.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.RHmin.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" & "02_23_2018" in data_QA_QC.R, along with 2,690 >100% values corrected
+#U2.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.U2.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
+#RHmin.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.RHmin.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of minimum relative humidity, estimated from download of spatial CIMIS Tdew and Tmax data, created in spatialCIMIS.R script.  Blanks filled on "12_08_2011" & "02_23_2018" in data_QA_QC.R, along with 2,690 >100% values corrected
 ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.QCpass.csv'), stringsAsFactors = FALSE) #this is a daily summary of reference ET from download of spatial CIMIS data, created in spatialCIMIS.R script.  Blanks filled on multiple days (all on "02_23_2018") in data_QA_QC.R, along with 1,633 negative and 11 zero values corrected.
-
+area.summary <- read.csv(file.path(modelscaffoldDir, 'hectares_by_model_code2018-05-14.csv'), stringsAsFactors = FALSE)
 #summarize ETo, RHmin, and U2 data by various time windows
 #if output is water.year summary then winter='no' & WY.basis='yes' & growing='no'
 #if output is calendar year summary then winter='no' & WY.basis='no' & growing='no'
@@ -199,7 +199,7 @@ PrecipAggregateMonthly <- function(df, years) {
     }
   )
 }
-P.monthly <- PrecipAggregateMonthly(P.df, 2004:2017)
+#P.monthly <- PrecipAggregateMonthly(P.df, 2004:2017)
 
 ClimateAggregateMonthly <- function(df, years) {
   df <- df[df$year %in% years,]
@@ -214,7 +214,7 @@ ClimateAggregateMonthly <- function(df, years) {
   }
   )
 }
-ETo.monthly <- ClimateAggregateMonthly(ETo.df, 2004:2017)
+#ETo.monthly <- ClimateAggregateMonthly(ETo.df, 2004:2017)
 
 #this will now be run on the QC_results file for each crop x soil storage scenario
 AggregateSoilPars <- function(df, paw.varname, area_summary) {
@@ -252,7 +252,7 @@ AggregateSoilPars <- function(df, paw.varname, area_summary) {
   var.final$cokeys <- as.character(cokeys)
   var.final$PRISMcellnumber <- df$PRISMcellnumber[match(var.final$unique_model_code, df$unique_model_code)]
   var.final$CIMIScellnumber <- df$CIMIScellnumber[match(var.final$unique_model_code, df$unique_model_code)]
-  var.final$hectares <- area.summary$hectares[match(var.final$unique_model_code, area.summary$unique_model_code)]
+  var.final$hectares <- area_summary$hectares[match(var.final$unique_model_code, area_summary$unique_model_code)]
   rownames(var.final) <- NULL
   var.final
 }
@@ -451,8 +451,8 @@ data.to.allyrs <- function(cropname, cropname2) {
   #setwd(modelscaffoldDir)
   cropscape_legend <- read.csv(file.path(modelscaffoldDir, 'cropscape_legend.txt'), stringsAsFactors = FALSE)
   cropcode <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME==cropname2]
-  P.df <- read.csv(file.path(modelscaffoldDir, 'PRISM.precip.data.updated9.13.17.csv'), stringsAsFactors = FALSE)
-  ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.updated9.13.17.csv'), stringsAsFactors = FALSE)
+  #P.df <- read.csv(file.path(modelscaffoldDir, 'PRISM.precip.data.updated9.13.17.csv'), stringsAsFactors = FALSE)
+  #ETo.df <- read.csv(file.path(modelscaffoldDir, 'SpatialCIMIS.ETo.updated9.13.17.csv'), stringsAsFactors = FALSE)
   #U2.df <- read.csv('SpatialCIMIS.U2.updated9.13.17.csv', stringsAsFactors = F) #this is a daily summary of wind data from download of spatial CIMIS data, created in spatialCIMIS.R script.  No missing data except for cell 148533
   #RHmin.df <- read.csv('SpatialCIMIS.RHmin.updated9.13.17.csv', stringsAsFactors = F)
   area.summary <- read.csv(file.path(modelscaffoldDir, 'hectares_by_model_code2018-05-14.csv'), stringsAsFactors = FALSE)
@@ -484,6 +484,7 @@ data.to.allyrs <- function(cropname, cropname2) {
       P.annual <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=NA, Jharv=NA, WY.basis='no', growing='no')
       P.WY <- PrecipAggregate(precip_df = P.df, winter = 'no', Jdev=NA, Jharv=NA, WY.basis='yes', growing='no')
       P.monthly <- PrecipAggregateMonthly(P.df, 2004:2017) #produces list of data.frames for each month with columns by year and rows by cell name
+      ETo.monthly <- ClimateAggregateMonthly(ETo.df, 2004:2017)
       if (cropname2=='Pistachios' | cropname2=='Almonds' | cropname2=='Walnuts' | cropname2=='Grapes' | cropname=='alfalfa.intermountain') {  #this block not relevant to alfalfa.CV or alfalfa.imperial
         P.winter <- PrecipAggregate(precip_df = P.df, winter='yes', Jdev=Jdev, Jharv=Jharv, WY.basis = 'yes', growing='no')
         P.growing <- PrecipAggregate(precip_df = P.df, winter='no', Jdev=Jdev, Jharv=Jharv, WY.basis = 'no', growing='yes')
@@ -515,6 +516,11 @@ data.to.allyrs <- function(cropname, cropname2) {
       df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.growing, colname='P.growing')) #Jharv to Jdev
       df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, climate_data=ETo.winter, colname='ETo.winter'))
       df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetClimateValues.AllYrs, climate_data=ETo.growing, colname='ETo.growing'))
+    } else { #this leaves alfalfa in Central and Imperial Valleys
+        df_allyrs$P.winter <- NA_real_
+        df_allyrs$P.growing <- df_allyrs$P.annual
+        df_allyrs$ETo.winter <- NA_real_
+        df_allyrs$ETo.growing <- df_allyrs$ETo.annual
     }
     df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.monthly$`1`, colname='P.Jan'))
     df_allyrs <- do.call(rbind, lapply(split(df_allyrs, df_allyrs$Model.Year), SetPrecipValues.AllYrs, precip_data=P.monthly$`2`, colname='P.Feb'))
@@ -548,14 +554,16 @@ data.to.allyrs <- function(cropname, cropname2) {
   }
 }
 #run the function
+data.to.allyrs('alfalfa.intermountain', 'Alfalfa')
 data.to.allyrs('pistachios', 'Pistachios')
 data.to.allyrs('walnut.mature', 'Walnuts')
 data.to.allyrs('grapes.table', 'Grapes')
-data.to.allyrs('almond.mature', 'Almonds')
 data.to.allyrs('alfalfa.imperial', 'Alfalfa')
-data.to.allyrs('grapes.wine', 'Grapes')
 data.to.allyrs('alfalfa.CV', 'Alfalfa')
-data.to.allyrs('alfalfa.intermountain', 'Alfalfa')
+data.to.allyrs('almond.mature', 'Almonds')
+data.to.allyrs('grapes.wine', 'Grapes')
+
+
 
 
 
