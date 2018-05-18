@@ -101,9 +101,15 @@ df.grapes.wine[which(df.grapes.wine$unique_model_code==100793 & df.grapes.wine$M
 df[which(df$unique_model_code==100793 & df$Model.Year==2008),]
 
 #look at underlying allcrops data for 2.0m x 50% AD
-df <- read.csv(file.path(resultsDir, 'allcrops','allcrops2.0mAD50_FAO56results_MUaggregated.csv'), stringsAsFactors = FALSE)
+var_df <- read.csv(file.path(resultsDir, 'allcrops','allcrops2.0mAD50_FAO56results_MUaggregated.csv'), stringsAsFactors = FALSE)
 area.summary <- read.csv(file.path(modelscaffoldDir, 'hectares_by_model_code2018-05-14.csv'), stringsAsFactors = FALSE)
 sum(!df$unique_model_code %in% area.summary$unique_model_code) #check that all codes are accounted for
+var_df$hectares <- area.summary$hectares[match(var_df$unique_model_code, area.summary$unique_model_code)]
+modeled_ha_by.crop <- data.frame(cropname = unique(var_df$cropname)[order(unique(var_df$cropname))], hectares = round(tapply(var_df$hectares[var_df$Model.Year==2004], var_df$cropname[var_df$Model.Year==2004], sum), 1))
+modeled_ha_by.crop$acres <- round(modeled_ha_by.crop$hectares *2.47105, 1)
+write.csv(modeled_ha_by.crop, file.path(dissertationDir, 'model_stats', 'modeled_ha_by.crop.csv'), row.names = FALSE)
+sum(var_df$hectares[var_df$Model.Year==2004])
+
 
 #m3 per acre foot assumption: see below
 #function to quantify water volumes for green water, blue water, precip
@@ -172,8 +178,8 @@ volumes.calculate.AF <- function(cropname) {
     volume.stats.AF$GW_to_ET <- round(volume.stats.AF$green.water.AF / volume.stats.AF$ET.growing.AF, 2)
     volume.stats.AF$GW_to_P <- round(volume.stats.AF$green.water.AF / volume.stats.AF$P.annual.AF, 2)
     volume.stats.AF$irr.count.wtd.avg <- round(tapply(var_df$Irr.Count * var_df$hectares, var_df$Model.Year, sum) / modeled_ha, 1)
-    volume.stats.AF$irr.1.doy.wtd.avg <- round(tapply(var_df$Irr.1.doy * var_df$hectares, var_df$Model.Year, sum) / modeled_ha, 1)
-    volume.stats.AF$last.irr.doy.wtd.avg <- round(tapply(var_df$Irr.Last.doy * var_df$hectares, var_df$Model.Year, sum) / modeled_ha, 1)
+    volume.stats.AF$irr.1.doy.wtd.avg <- round(tapply(var_df$Irr.1.doy * var_df$hectares, var_df$Model.Year, sum, na.rm = TRUE) / modeled_ha, 1)
+    volume.stats.AF$last.irr.doy.wtd.avg <- round(tapply(var_df$Irr.Last.doy * var_df$hectares, var_df$Model.Year, sum, na.rm = TRUE) / modeled_ha, 1)
     volume.stats.TAF <- data.frame(Model.Year=volume.stats.AF$Model.Year, round(volume.stats.AF[,4:30] / 1000, 1))
     colnames(volume.stats.TAF)[2:ncol(volume.stats.TAF)] <- gsub('AF', 'TAF', colnames(volume.stats.TAF)[2:ncol(volume.stats.TAF)])
     volume.stats.km3 <- data.frame(Model.Year = volume.stats.AF$Model.Year, round(volume.stats.AF[,4:30] * (AF.to.m3/(1000^3)), 3))
@@ -189,6 +195,7 @@ volumes.calculate.AF <- function(cropname) {
     write.csv(depth.stats.mm, file.path(resultsDir, cropname, 'allyrs_stats', 'depth.mm.summaries', paste0(scenario_name, '.mm.summary.by.year.csv')), row.names = FALSE)
   }
 }
+
 volumes.calculate.AF('alfalfa.intermountain')
 volumes.calculate.AF('alfalfa.imperial')
 volumes.calculate.AF('alfalfa.CV')
@@ -204,8 +211,8 @@ combine.scenarios <- function(cropname, year_start, year_end) {
   AF.to.km3 <- 43560 * (12 ^ 3) * (2.54 ^ 3) * (0.01 ^ 3) * (0.001 ^ 3)
   fnames_full <- list.files(path=file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'), pattern=glob2rx(pattern='*.csv'), full.names = TRUE)
   fnames <- list.files(path=file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'), pattern=glob2rx(pattern='*.csv'))
-  scenario.AF.summary <- as.data.frame(matrix(data=NA, nrow=length(fnames), ncol=20))
-  colnames(scenario.AF.summary) <- c('root.depth', 'allowable.depletion', 'AD.inches', 'irr.count', 'irr.1.doy', 'last.irr.doy', 'green.water', 'blue.water', 'evaporation', 'deep.percolation', 'crop.stress.annual', 'dormant.ET', 'precipitation', 'crop.stress.growing', 'non.irr.deep.perc', 'Irr1.to.last.deep.perc', 'fall.deep.perc', 'delta.S.model.span', 'P.balance.error', 'P.balance.error.perc')
+  scenario.AF.summary <- as.data.frame(matrix(data=NA, nrow=length(fnames), ncol=21))
+  colnames(scenario.AF.summary) <- c('root.depth', 'allowable.depletion', 'AD.inches', 'irr.count', 'irr.1.doy', 'last.irr.doy', 'green.water', 'blue.water', 'ET.growing', 'evaporation.growing', 'deep.percolation.annual', 'crop.stress.annual', 'dormant.ET', 'precipitation', 'crop.stress.growing', 'non.irr.deep.perc', 'Irr1.to.last.deep.perc', 'fall.deep.perc', 'delta.S.model.span', 'P.balance.error', 'P.balance.error.perc')
   for (i in seq_along(fnames)) {
     df <- read.csv(fnames_full[i], stringsAsFactors = FALSE)
     start_yr <- which(df$Model.Year==year_start)
@@ -219,8 +226,9 @@ combine.scenarios <- function(cropname, year_start, year_end) {
     scenario.AF.summary$last.irr.doy[i] <- round(mean(df$last.irr.doy.wtd.avg), 1)
     scenario.AF.summary$green.water[i] <- sum(df$green.water.AF[start_yr:stop_yr]) #rows 2:14 are years 2005-2017
     scenario.AF.summary$blue.water[i] <- sum(df$blue.water.AF[start_yr:stop_yr])
-    scenario.AF.summary$evaporation[i] <- sum(df$E.growing.AF[start_yr:stop_yr])
-    scenario.AF.summary$deep.percolation[i] <- sum(df$deep.perc.annual.AF[start_yr:stop_yr])
+    scenario.AF.summary$ET.growing[i] <- sum(df$ET.growing.AF)
+    scenario.AF.summary$evaporation.growing[i] <- sum(df$E.growing.AF[start_yr:stop_yr])
+    scenario.AF.summary$deep.percolation.annual[i] <- sum(df$deep.perc.annual.AF[start_yr:stop_yr])
     scenario.AF.summary$crop.stress.annual[i] <- sum(df$crop.stress.annual.AF[start_yr:stop_yr])
     scenario.AF.summary$dormant.ET[i] <- sum(df$ET.winter.AF[start_yr:stop_yr])
     scenario.AF.summary$precipitation[i] <- sum(df$P.annual.AF[start_yr:stop_yr])
@@ -228,32 +236,76 @@ combine.scenarios <- function(cropname, year_start, year_end) {
     scenario.AF.summary$non.irr.deep.perc[i] <- sum(df$non.irr.deep.perc.AF[start_yr:stop_yr])
     scenario.AF.summary$Irr1.to.last.deep.perc[i] <- sum(df$Irr1.to.last.deep.perc.AF[start_yr:stop_yr])
     scenario.AF.summary$fall.deep.perc[i] <- sum(df$fall.deep.perc.AF[start_yr:stop_yr])
-    scenario.AF.summary$delta.S.model.span[i] <- df$year.end.depletion.AF[stop_yr] - df$year.end.depletion.AF[start_yr-1]
+    scenario.AF.summary$delta.S.model.span[i] <- df$year.end.depletion.AF[stop_yr] - df$year.end.depletion.AF[start_yr - 1]
   }
-  scenario.AF.summary$P.balance.error <- scenario.AF.summary$green.water + scenario.AF.summary$deep.percolation + scenario.AF.summary$dormant.ET - scenario.AF.summary$precipitation
+  scenario.AF.summary$P.balance.error <- scenario.AF.summary$green.water + scenario.AF.summary$deep.percolation.annual + scenario.AF.summary$dormant.ET - scenario.AF.summary$precipitation
   scenario.AF.summary$P.balance.error.perc <- round(100 * (scenario.AF.summary$P.balance.error / scenario.AF.summary$precipitation), 2)
+  scenario.AF.summary$GW_to_P <- round(scenario.AF.summary$green.water / scenario.AF.summary$precipitation, 2)
+  scenario.AF.summary$GW_to_ET <- round(scenario.AF.summary$green.water / scenario.AF.summary$ET.growing, 2)
   scenario.AF.summary <- scenario.AF.summary[order(scenario.AF.summary$AD.inches), ]
-  scenario.MAF.summary <- cbind(scenario.AF.summary[,1:6], round(scenario.AF.summary[7:(ncol(scenario.AF.summary) - 1)] / 10^6, 3), scenario.AF.summary['P.balance.error.perc'])
-  scenario.TAF.summary <- cbind(scenario.AF.summary[,1:6], round(scenario.AF.summary[7:(ncol(scenario.AF.summary) - 1)] / 10^3, 0), scenario.AF.summary['P.balance.error.perc'])
-  scenario.km3.summary <- cbind(scenario.AF.summary[,1:6], round(scenario.AF.summary[7:(ncol(scenario.AF.summary) - 1)] * AF.to.km3, 3), scenario.AF.summary['P.balance.error.perc'])
+  scenario.MAF.summary <- cbind(scenario.AF.summary[,1:6], round(scenario.AF.summary[7:(ncol(scenario.AF.summary) - 3)] / 10^6, 3), scenario.AF.summary[c('P.balance.error.perc', 'GW_to_P', 'GW_to_ET')])
+  scenario.TAF.summary <- cbind(scenario.AF.summary[,1:6], round(scenario.AF.summary[7:(ncol(scenario.AF.summary) - 3)] / 10^3, 0), scenario.AF.summary[c('P.balance.error.perc', 'GW_to_P', 'GW_to_ET')])
+  scenario.km3.summary <- cbind(scenario.AF.summary[,1:6], round(scenario.AF.summary[7:(ncol(scenario.AF.summary) - 3)] * AF.to.km3, 3), scenario.AF.summary[c('P.balance.error.perc', 'GW_to_P', 'GW_to_ET')])
   scenario.km3.summary$AD.inches <- scenario.km3.summary$AD.inches * 25.4
   colnames(scenario.km3.summary)[which(colnames(scenario.km3.summary) == 'AD.inches')] <- 'AD.mm'
+  write.csv(scenario.AF.summary, file=file.path(dissertationDir, 'tables', 'AF.summaries', paste0(cropname, '.all.scenarios.AF.summary.csv')), row.names=FALSE)
   write.csv(scenario.MAF.summary, file=file.path(dissertationDir, 'tables', 'MAF.summaries', paste0(cropname, '.all.scenarios.MAF.summary.csv')), row.names=FALSE)
   write.csv(scenario.TAF.summary, file=file.path(dissertationDir, 'tables', 'TAF.summaries', paste0(cropname, '.all.scenarios.TAF.summary.csv')), row.names=FALSE)
   write.csv(scenario.km3.summary, file=file.path(dissertationDir, 'tables', 'km3.summaries', paste0(cropname, 'all.scenario.km3.summary.csv')), row.names=FALSE)
 }
+
 combine.scenarios('alfalfa.intermountain', 2005, 2017)
-combine.scenarios('almond.mature')
-combine.scenarios('alfalfa.imperial')
-combine.scenarios('alfalfa.CV')
-combine.scenarios('walnut.mature')
-combine.scenarios('pistachios')
-combine.scenarios('grapes.table')
-combine.scenarios('grapes.wine')
-combine.scenarios('allcrops')
+combine.scenarios('almond.mature', 2005, 2017)
+combine.scenarios('alfalfa.imperial', 2005, 2017)
+combine.scenarios('alfalfa.CV', 2005, 2017)
+combine.scenarios('walnut.mature', 2005, 2017)
+combine.scenarios('pistachios', 2005, 2017)
+combine.scenarios('grapes.table', 2005, 2017)
+combine.scenarios('grapes.wine', 2005, 2017)
+combine.scenarios('allcrops', 2005, 2017)
 
 #combine variables across crops and scenarios from stats summaries in mm
-#connected summaries with allyrs_stats_v4, which is only 2005-2016 results
+combine.crops.by.scenario <- function(root.depth, AD, years) {
+  modeled_ha_by.crop <- read.csv(file.path(dissertationDir, 'model_stats', 'modeled_ha_by.crop.csv'), stringsAsFactors = FALSE)
+  cropnames <- c('almond.mature', 'alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
+  varnames <- c('cropname', 'allowable.depletion', "irr.count", "irr.1.doy", "last.irr.doy", "green.water", "blue.water", "ET.growing", "evaporation.growing", "deep.percolation.annual", "crop.stress.annual", "dormant.ET", "precipitation", "crop.stress.growing", "non.irr.deep.perc", "Irr1.to.last.deep.perc", "fall.deep.perc", "delta.S.model.span", "P.balance.error", "P.balance.error.perc", "GW_to_P", "GW_to_ET")
+  var.summary <- as.data.frame(matrix(data=NA, nrow=length(cropnames), ncol=length(varnames)))
+  colnames(var.summary) <- varnames
+  for (i in seq_along(cropnames)) {
+    fname.path <- file.path(dissertationDir, 'tables', 'AF.summaries', paste0(cropnames[i], '.all.scenarios.AF.summary.csv'))
+    result <- read.csv(fname.path, stringsAsFactors = FALSE)
+    var.summary[i,] <- cbind(cropname = as.character(cropnames[i]), result[which(result$root.depth==root.depth & result$allowable.depletion==AD), 3:ncol(result)], stringsAsFactors=FALSE)
+  }
+    var.summary.inches <- var.summary  
+    var.summary.inches$acres <- modeled_ha_by.crop$acres[match(var.summary.inches$cropname, modeled_ha_by.crop$cropname)]
+    var.summary.inches[,6:19] <- round((var.summary.inches[,6:19] / var.summary.inches$acres) * (12 / length(years)), 2) #conversion to inches yr-1
+    var.summary.inches$modeled_years <- paste0(years[1], '_', years[length(years)])
+    var.summary.mm <- var.summary
+    var.summary.mm$acres <- modeled_ha_by.crop$acres[match(var.summary.mm$cropname, modeled_ha_by.crop$cropname)]
+    var.summary.mm[,6:19] <- round((var.summary.mm[,6:19] / var.summary.mm$acres) * (12 * 25.4 / length(years)), 2) #conversion to mm yr-1
+    var.summary.mm$acres <- NULL
+    var.summary.mm$hectares <- modeled_ha_by.crop$hectares[match(var.summary.mm$cropname, modeled_ha_by.crop$cropname)]
+    var.summary.mm$allowable.depletion <- var.summary.mm$allowable.depletion * 25.4
+    var.summary.mm$modeled_years <- paste0(years[1], '_', years[length(years)])
+    write.csv(var.summary.inches, file.path(dissertationDir, 'tables', 'crop.comparisons', 'by.depth.inches', paste0(as.character(root.depth), 'm_AD', as.character(AD), '.inches.mean.annual.comparisons.csv')), row.names = FALSE)
+    write.csv(var.summary.mm, file.path(dissertationDir, 'tables', 'crop.comparisons', 'by.depth.mm', paste0(as.character(root.depth), 'm_AD', as.character(AD), '.mm.mean.annual.comparisons.csv')), row.names = FALSE)
+}
+combine.crops.by.scenario(root.depth = 0.5, AD = 30, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 0.5, AD = 50, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 0.5, AD = 80, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 1.0, AD = 30, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 1.0, AD = 50, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 1.0, AD = 80, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 2.0, AD = 30, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 2.0, AD = 50, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 2.0, AD = 80, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 3.0, AD = 30, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 3.0, AD = 50, years = 2005:2017)
+combine.crops.by.scenario(root.depth = 3.0, AD = 80, years = 2005:2017)
+
+
+
+#connected summaries with allyrs_stats_v4 [in progress]
 make.crop.water.depth.table <- function(scenario_name, stat) {
   cropnames <- c('almond.mature', 'alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
   paw_varname_end <- ifelse(grepl('alfalfa', cropnames), '_mmH2O_unmodified_comp', '_mmH2O_modified_comp')
