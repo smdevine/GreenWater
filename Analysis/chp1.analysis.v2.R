@@ -303,47 +303,85 @@ combine.crops.by.scenario(root.depth = 3.0, AD = 30, years = 2005:2017)
 combine.crops.by.scenario(root.depth = 3.0, AD = 50, years = 2005:2017)
 combine.crops.by.scenario(root.depth = 3.0, AD = 80, years = 2005:2017)
 
-
-
-#connected summaries with allyrs_stats_v4 [in progress]
-make.crop.water.depth.table <- function(scenario_name, stat) {
-  cropnames <- c('almond.mature', 'alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
-  paw_varname_end <- ifelse(grepl('alfalfa', cropnames), '_mmH2O_unmodified_comp', '_mmH2O_modified_comp')
-  paw_varnames <- paste0('z', substr(scenario_name, 1, 4), paw_varname_end) 
-  varnames <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'post.Irr1.deep.perc', 'H2O.stress', 'P.annual', 'ETo.growing', 'TEW', 'PAW')
-  varnames.v2 <- c('cropname', 'GW.ET.growing', 'Irr.app.total', 'E.growing', 'deep.perc.annual', 'post.Irr1.deep.perc', 'H2O.stress', 'P.annual', 'ETo.annual', 'TEW', 'PAW')
-  var.summary <- as.data.frame(matrix(data=NA, nrow=length(cropnames), ncol=length(varnames)))
-  colnames(var.summary) <- varnames
-  var.summary$cropname <- cropnames
-  for (i in seq_along(cropnames)) {
-    paw_varname <- paw_varnames[i]
-    varnames[length(varnames)] <- paw_varname
-    varnames.v2[length(varnames.v2)] <- paw_varname
-    if (cropnames[i]=='alfalfa.CV' | cropnames[i]=='alfalfa.imperial') {
-      varnames.temp <- varnames.v2
-    } else {varnames.temp <- varnames}
-    if (cropnames[i]=='grapes.wine') {
-      scenario_name_wine <- paste0(substr(scenario_name, 1, 4), if(substr(scenario_name, 7, 8)=='30') {'RDI.min0.8'} else if(substr(scenario_name, 7, 8)=='50') {'RDI.min0.5'} else if(substr(scenario_name, 7, 8)=='80'){'RDI.min0.2'})
-      fname <- paste0(cropnames[i], scenario_name_wine, '_FAO56_summarystats_', '2005_2016', '.csv')
-    } else {
-      fname <- paste0(cropnames[i], scenario_name, '_FAO56_summarystats_', '2005_2016', '.csv') #example fname almond.mature0.5mAD30_FAO56_summarystats_2005_2016.csv
-    }
-    fname_full <- file.path(resultsDir, cropnames[i], 'allyrs_stats_v4', fname)
-    df <- read.csv(fname_full, stringsAsFactors = FALSE)
-    var.summary[i, 2:length(varnames.temp)] <- df[match(varnames.temp[2:length(varnames.temp)], df$varname), stat]
-  }
-  write.csv(var.summary, file=file.path(dissertationDir, 'tables', paste0(scenario_name, '.', stat, '.crop.water.balance.mm.csv')), row.names=FALSE)
-  var.summary
+#create some 2005-2017 allcrop model summaries for merging with shapefile
+result.summarize <- function(df, years, climate) {
+  var_df <- read.csv(file.path(resultsDir, 'allcrops', df), stringsAsFactors=FALSE)
+  var_df2 <- var_df[which(var_df$Model.Year %in% years),]
+  var_df_summary <- data.frame(unique_model_code = unique(var_df2$unique_model_code)[order(unique(var_df2$unique_model_code))], GW.mean = as.numeric(tapply(var_df2[['GW.ET.growing']], var_df2$unique_model_code, mean)), BW.mean = as.numeric(tapply(var_df2[['Irr.app.total']], var_df2$unique_model_code, mean)), ET.growing = as.numeric(tapply(var_df2[['ET.growing']], var_df2$unique_model_code, mean)), E.growing.mean = as.numeric(tapply(var_df2[['E.growing']], var_df2$unique_model_code, mean)),  DP.max = as.numeric(tapply(var_df2[['deep.perc.annual']], var_df2$unique_model_code, max)), Irr1.mean = as.numeric(tapply(var_df2[['Irr.1.doy']], var_df2$unique_model_code, mean, na.rm = TRUE)), IrrCount.mean = as.numeric(tapply(var_df2[['Irr.Count']], var_df2$unique_model_code, mean, na.rm = TRUE)), IrrLast.doy = as.numeric(tapply(var_df2[['Irr.Last.doy']], var_df2$unique_model_code, mean, na.rm = TRUE)), ETo.growing = as.numeric(tapply(var_df2[['ETo.growing']], var_df2$unique_model_code, mean)), ETo.annual = as.numeric(tapply(var_df2[['ETo.annual']], var_df2$unique_model_code, mean)), P.annual = as.numeric(tapply(var_df2[['P.annual']], var_df2$unique_model_code, mean)))
+  fname <- paste0(gsub('.csv', '', df), '_', as.character(years[1]), '_', as.character(years[length(years)]), '_synthesis.csv')
+  write.csv(var_df_summary, file.path(resultsDir, 'allcrops', '2005_2017_by_model_code', fname), row.names = FALSE)
+  var_df_summary
 }
-#make.crop.water.depth.table('2.0mAD50', 'Median')
-#make.crop.water.depth.table('1.0mAD50', 'Median')
-#make.crop.water.depth.table('0.5mAD30', 'Median')
-#re-run 2/27/18 for NRCS Chico presentation
-make.crop.water.depth.table('2.0mAD50', 'Mean')
-make.crop.water.depth.table('1.0mAD50', 'Mean')
-make.crop.water.depth.table('0.5mAD30', 'Mean')
+results_0.5mAD30 <- result.summarize('allcrops0.5mAD30_FAO56results_MUaggregated.csv', 2005:2017, TRUE)
+results_1.0mAD50 <- result.summarize('allcrops1.0mAD50_FAO56results_MUaggregated.csv', 2005:2017, TRUE)
+results_2.0mAD50 <- result.summarize('allcrops2.0mAD50_FAO56results_MUaggregated.csv', 2005:2017, TRUE)
+
+#update model scaffold shapefile with model results and write to file for plotting
+model_shp <- shapefile(file.path(modelscaffoldDir, 'shapefiles', 'model_scaffold.3.6.18.shp'))
+names(model_shp)
+colnames(results_0.5mAD30)
+model_shp_0.5mAD30 <- merge(model_shp, results_0.5mAD30, by.x='unq_md_', by.y='unique_model_code')
+model_shp_1.0mAD50 <- merge(model_shp, results_1.0mAD50, by.x='unq_md_', by.y='unique_model_code')
+model_shp_2.0mAD50 <- merge(model_shp, results_2.0mAD50, by.x='unq_md_', by.y='unique_model_code')
+summary(model_shp_0.5mAD30$GW.mean) #9,669 NAs
+sum(model_shp_0.5mAD30$Acres[is.na(model_shp_0.5mAD30$GW.mean)]) #78,468.28 acres not modeled
+#check GW sum for each scenario
+AF.to.m3 <- 43560 * (12 ^ 3) * (2.54 ^ 3) * (0.01 ^ 3)
+length(2005:2017) * sum(model_shp_0.5mAD30$Acres * (model_shp_0.5mAD30$GW.mean / (25.4 * 12)), na.rm = TRUE) #14,109,683 acre-feet from 2005-2017 (matches output from volumes.calculate.AF function above)
+length(2005:2017) * sum(model_shp_1.0mAD50$Acres * (model_shp_1.0mAD50$GW.mean / (25.4 * 12)), na.rm = TRUE) #19,929,729 acre-feet from 2005-2017 (matches output from volumes.calculate.AF function above)
+length(2005:2017) * sum(model_shp_2.0mAD50$Acres * (model_shp_2.0mAD50$GW.mean / (25.4 * 12)), na.rm = TRUE) #24,013,443 acre-feet from 2005-2017 (matches output from volumes.calculate.AF function above)
+
+#write results shapefiles to file for plotting in ArcMap
+shapefile(model_shp_0.5mAD30, file.path(dissertationDir, 'shapefiles', 'results_0.5mAD30.shp'), overwrite=TRUE)
+shapefile(model_shp_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'), overwrite=TRUE)
+shapefile(model_shp_2.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'), overwrite=TRUE)
+
+#get deep (2.0mAD50) - shallow (0.5mAD30) scenario differences
+deep_vs_shallow_shp <- model_shp
+deep_vs_shallow_shp$GW.mean <- model_shp_2.0mAD50$GW.mean - model_shp_0.5mAD30$GW.mean
+deep_vs_shallow_shp$BW.mean <- model_shp_0.5mAD30$BW.mean - model_shp_2.0mAD50$BW.mean
+deep_vs_shallow_shp$irr1.days <- model_shp_2.0mAD50$Irr1.mean - model_shp_0.5mAD30$Irr1.mean
+deep_vs_shallow_shp$irrlast.days <- model_shp_0.5mAD30$IrrLast.doy - model_shp_2.0mAD50$IrrLast.doy
+deep_vs_shallow_shp$irrcount <- model_shp_0.5mAD30$IrrCount.mean - model_shp_2.0mAD50$IrrCount.mean
+deep_vs_shallow_shp$E.growing <- model_shp_0.5mAD30$E.growing.mean - model_shp_2.0mAD50$E.growing.mean
+deep_vs_shallow_shp$ET.growing <- model_shp_0.5mAD30$ET.growing - model_shp_2.0mAD50$ET.growing
+shapefile(deep_vs_shallow_shp, file.path(dissertationDir, 'shapefiles', 'deep_vs_shallow_diffs.shp'), overwrite=TRUE)
+
+#get shallow (0.5mAD30) vs. intermediate (1.0mAD50) diffs
+intermed_vs_shallow_shp <- model_shp
+intermed_vs_shallow_shp$GW.mean <- model_shp_1.0mAD50$GW.mean - model_shp_0.5mAD30$GW.mean
+intermed_vs_shallow_shp$BW.mean <- model_shp_0.5mAD30$BW.mean - model_shp_1.0mAD50$BW.mean
+intermed_vs_shallow_shp$irr1.days <- model_shp_1.0mAD50$Irr1.mean - model_shp_0.5mAD30$Irr1.mean
+intermed_vs_shallow_shp$irrlast.days <- model_shp_0.5mAD30$IrrLast.doy - model_shp_1.0mAD50$IrrLast.doy
+intermed_vs_shallow_shp$irrcount <- model_shp_0.5mAD30$IrrCount.mean - model_shp_1.0mAD50$IrrCount.mean
+intermed_vs_shallow_shp$E.growing <- model_shp_0.5mAD30$E.growing.mean - model_shp_1.0mAD50$E.growing.mean
+intermed_vs_shallow_shp$ET.growing <- model_shp_0.5mAD30$ET.growing - model_shp_1.0mAD50$ET.growing
+shapefile(intermed_vs_shallow_shp, file.path(dissertationDir, 'shapefiles', 'intermed_vs_shallow_diffs.shp'), overwrite=TRUE)
+
+
+#calculate 20% breaks for each scenario for plotting purposes
+percentiles_func <- function(percens, df, varnames) {
+  df$GW.to.ET <- df$GW.mean / df$ET.growing
+  result <- data.frame(breaks = percens, lapply(varnames, function(y) {
+    df <- df[order(df[[y]]),]
+    df$varname.perc.area <- cumsum(df$Acres) / sum(df$Acres)
+    round(sapply(percens, function(x) {
+      mean(df[[y]][which(df$varname.perc.area > (x - 0.001) & df$varname.perc.area < (x + 0.001))])
+    }), 3)
+  }))
+  colnames(result)[2:(length(varnames)+1)] <- varnames
+  print(result)
+  result
+}
+
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_0.5mAD30, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_0.5mAD30_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_1.0mAD50_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_2.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_2.0mAD50_percentiles.csv'), row.names=FALSE)
+
+
 
 #font_import() #only needs to be done once?
+#needs to be edited and based on percentiles and weighted means
 CustomBP <- function(x) {
   lower.x <- quantile(x, 0.1, na.rm = TRUE)
   q1.x <- quantile(x, 0.25, na.rm = TRUE)
@@ -830,57 +868,6 @@ collect.stats.v4('alfalfa.CV', 2005:2016, '2005_2016')
 collect.stats.v4('alfalfa.imperial', 2005:2016, '2005_2016')
 collect.stats.v4('allcrops', 2005:2016, '2005_2016')
 
-
-#make a box plot of green water availability by year [not finished]
-gw_bp <- boxplot(GW.ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-years <- 2004:2016
-for (i in 1:ncol(gw_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  gw_bp$stats[,i] <- CustomBP(df$GW.ET.growing)
-  
-}
-
-#make a Blue Water boxplot by year
-bw_bp <- boxplot(Irr.app.total ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-for (i in 1:ncol(bw_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  bw_bp$stats[,i] <- CustomBP(df$Irr.app.total)
-}
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50ADbluewaterdemand.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-bxp(bw_bp, outline = FALSE, boxfill='lightblue', las=2, ylab='', xlab='')
-mtext(text='Year', side=1, line=3.5)
-mtext(text='Irrigation applied (mm)', side=2, line=3.5)
-dev.off()
-
-#make an ET.growing boxplot
-et_bp <- boxplot(ET.growing ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-for (i in 1:ncol(et_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  et_bp$stats[,i] <- CustomBP(df$ET.growing)
-}
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond2.0m50AD.ET.growing.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-bxp(et_bp, outline = FALSE, boxfill='orange', las=2, ylab='', xlab='')
-mtext(text='Year', side=1, line=3.5)
-mtext(text='Growing season ET (mm)', side=2, line=3.5)
-dev.off()
-
-#make an annual P boxplot
-P_bp <- boxplot(annual.P ~ Model.Year, data=almond_points_allyrs, plot=FALSE)
-for (i in 1:ncol(P_bp$stats)) {
-  df <- almond_points_allyrs[which(almond_points_allyrs$Model.Year==years[i]),]
-  P_bp$stats[,i] <- CustomBP(df$annual.P)
-}
-setwd(file.path(SepResultsDir, 'figures'))
-png(paste('almond.annual.P.png', sep = ''), family = 'Book Antiqua', width = 7, height = 5, units = 'in', res = 600)
-par(mai=c(0.9, 0.9, 0.2, 0.2))
-bxp(P_bp, outline = FALSE, boxfill='blue', las=2, ylab='', xlab='')
-mtext(text='Year', side=1, line=3.5)
-mtext(text='Annual precipitation (mm)', side=2, line=3.5)
-dev.off()
 
 #single year combined histogram and boxplot of blue water
 nf <- layout(mat = matrix(c(1,2),2,1, byrow=TRUE),  height = c(1,3))
