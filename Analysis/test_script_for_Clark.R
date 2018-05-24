@@ -195,7 +195,7 @@ combine.crops.by.scenario <- function(root.depth, AD, years) {
     dir.create(file.path(dissertationDir, 'tables', 'crop.comparisons'))
   }
   if (!dir.exists(file.path(dissertationDir, 'tables', 'crop.comparisons', 'by.depth.inches'))) {
-    dir.create(file.path(dissertationDir, 'tables', 'crop.comparisons'))
+    dir.create(file.path(dissertationDir, 'tables', 'crop.comparisons', 'by.depth.inches'))
   }
   if (!dir.exists(file.path(dissertationDir, 'tables', 'crop.comparisons', 'by.depth.mm'))) {
     dir.create(file.path(dissertationDir, 'tables', 'crop.comparisons', 'by.depth.mm'))
