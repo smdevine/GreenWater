@@ -361,7 +361,7 @@ shapefile(intermed_vs_shallow_shp, file.path(dissertationDir, 'shapefiles', 'int
 
 #calculate 20% breaks for each scenario for plotting purposes
 percentiles_func <- function(percens, df, varnames) {
-  df$GW.to.ET <- df$GW.mean / df$ET.growing
+  #df$GW.to.ET <- df$GW.mean / df$ET.growing
   result <- data.frame(breaks = percens, lapply(varnames, function(y) {
     df <- df[order(df[[y]]),]
     df$varname.perc.area <- cumsum(df$Acres) / sum(df$Acres)
@@ -377,7 +377,26 @@ percentiles_func <- function(percens, df, varnames) {
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_0.5mAD30, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_0.5mAD30_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_1.0mAD50_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_2.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_2.0mAD50_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, c('ETo_grwng', 'ETo_nnl', 'P_annul')), file.path(dissertationDir, 'tables', 'climate_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_2.0mAD50, c('X2.0mPAW.mmH2O', 'TEW', 'REW', 'surface.depth')), file.path(dissertationDir, 'tables', 'soil2.0m_percentiles.csv'), row.names=FALSE)
 
+#update shapefiles with soil data
+#1m x 50% AD scenario
+model_shp_1.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'))
+soils_1.0mAD50 <- read.csv(file.path(resultsDir, 'allcrops', 'MUaggregated_soildata', "allcrops1.0mAD50_soilsdata.csv"), stringsAsFactors = FALSE)
+colnames(soils_1.0mAD50)
+soils_1.0mAD50[,c('PRISMcellnumber', 'CIMIScellnumber', 'hectares', 'cropcode', 'mukey')] <- NULL
+names(model_shp_1.0mAD50)
+model_shp_1.0mAD50 <- merge(model_shp_1.0mAD50, soils_1.0mAD50, by.x='unq_md_', by.y='unique_model_code')
+shapefile(model_shp_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'), overwrite=TRUE)
+#2m x 50% AD scenario
+model_shp_2.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'))
+soils_2.0mAD50 <- read.csv(file.path(resultsDir, 'allcrops', 'MUaggregated_soildata', "allcrops2.0mAD50_soilsdata.csv"), stringsAsFactors = FALSE)
+colnames(soils_2.0mAD50)
+soils_2.0mAD50[,c('PRISMcellnumber', 'CIMIScellnumber', 'hectares', 'cropcode', 'mukey')] <- NULL
+names(model_shp_2.0mAD50)
+model_shp_2.0mAD50 <- merge(model_shp_2.0mAD50, soils_2.0mAD50, by.x='unq_md_', by.y='unique_model_code')
+shapefile(model_shp_2.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'), overwrite=TRUE)
 
 
 #font_import() #only needs to be done once?
@@ -517,179 +536,8 @@ MakeBPs.v2('grapes.wine')
 MakeBPs.v2('alfalfa.CV')
 MakeBPs.v2('alfalfa.imperial')
 
-#build a raster based on a single results filename and variable of interest
-raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif')) #'model.codes.Aug2017.CA.TA.tif'))
-cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
-RasterBuild <- function(readraster=FALSE, readcellnums=FALSE, cropname, fname, years) {
-  if (!dir.exists(file.path(rasterResultsDir, cropname))) {
-    dir.create(file.path(rasterResultsDir, cropname))
-  }
-  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures'))) {
-    dir.create(file.path(rasterResultsDir, cropname, 'figures'))
-  }
-  rasterize.result.statistic <- function(varname, func, funcname, years) {
-    raster.result <- raster.model.codes
-    var_df2 <- var_df[which(var_df$Model.Year %in% years),]
-    var_df_summary <- data.frame(varname = tapply(var_df2[[varname]], var_df2$unique_model_code, func))
-    colnames(var_df_summary) <- paste0(varname, '.', funcname)
-    var_df_summary$unique_model_code <- row.names(var_df_summary)
-    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_summary[[paste0(varname, '.', funcname)]][match(cell_numbers_to_codes$unique_model_codes, var_df_summary$unique_model_code)]
-    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
-      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
-    }
-    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', funcname, '.tif')), format='GTiff')
-    removeTmpFiles(h=0.0001)
-  }
-  rasterize.result.annual <- function(varname, year) {
-    raster.result <- raster.model.codes
-    var_df_annual <- var_df[var_df$Model.Year==year, ]
-    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_annual[[varname]][match(cell_numbers_to_codes$unique_model_codes, var_df_annual$unique_model_code)]
-    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
-      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
-    }
-    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', as.character(year), '.tif')), format='GTiff')
-    removeTmpFiles(h=0.0001)
-  }
-  if (readraster) {
-    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
-  }
-  if (readcellnums) {
-    cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
-  }
-  var_df <- read.csv(file.path(resultsDir, cropname, fname), stringsAsFactors = FALSE)
-  scenario_name <- gsub('_FAO56results_points_rounded.csv', '', fname)
-  scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
-  print(scenario_name)
-  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name))) {
-    dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name))
-  }
-  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))) {
-    dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))
-  }
-  # rasterize.result.statistic(varname = 'GW.ET.growing', func = mean, 'mean', years = years)
-  # rasterize.result.statistic(varname = 'Irr.app.total', func = mean, 'mean', years = years)
-  # rasterize.result.statistic(varname = 'E.growing', func = mean, 'mean', years = years)
-  # rasterize.result.statistic(varname = 'deep.perc.annual', func = max, 'max', years = years)
-  # rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
-  rasterize.result.statistic(varname='cropcode', func = unique, funcname = 'CS', years = years) #CS stands for CropScape
-  # rasterize.result.statistic(varname='P.annual', func=mean, 'mean', years = years)
-  # rasterize.result.statistic(varname='ETo.annual', func=mean, 'mean', years = years)
-  # rasterize.result.statistic(varname = 'X1.0mPAW.mmH2O', func=median, 'SSURGO', years = years)
-  # rasterize.result.statistic(varname='ETo.annual', func=mean, 'mean', years = years)
-  # rasterize.result.statistic(varname = 'TEW', func=median, 'SSURGO', years = years)
-  # rasterize.result.statistic(varname='ETo.growing', func=mean, 'mean', years = years)
-}
-#last run on 1.31.18 to export to Jan2018.AEA
-RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops0.5mAD30_FAO56results_points_rounded.csv', years=2005:2016)
-RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops1.0mAD50_FAO56results_points_rounded.csv', years=2005:2016)
-RasterBuild(readraster=FALSE, readcellnums=FALSE, cropname = 'allcrops', fname = 'allcrops2.0mAD50_FAO56results_points_rounded.csv', years=2005:2016)
-#confirm cell counts with valid crop codes vs. counts of cells with valid GW results
-crop.codes <- raster(file.path(rasterResultsDir, 'allcrops', 'figures', 'scenario_2.0mAD50', 'rasters', 'cropcode', 'cropcode.CS.tif'))
-sum(!is.na(crop.codes))
-#18,039,013 have crop codes in USGS AEA
-#  have crop codes in CA Teale Albers, because resolution changed after projection
-sum(var_df$cellcounts30m2[var_df$Model.Year==2005 & !is.na(var_df$GW.ET.growing)]) #18,039,219 cells have data
 
-#read-in raster.model.codes to global environment if you so choose
-#function updates include option to convert negative GW to zero (not recommened as of 1/2018)
-raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.CA.TA.tif'))
-cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'test_cellnumbers_to_modelcodes.CA.TA.csv'), stringsAsFactors = FALSE)
-RasterBuild.v2 <- function(readraster=FALSE, readcellnums=FALSE, cropname, convert.negative.GW) {
-  if (!dir.exists(file.path(rasterResultsDir, cropname))) {
-    dir.create(file.path(rasterResultsDir, cropname))
-  }
-  if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures'))) {
-    dir.create(file.path(rasterResultsDir, cropname, 'figures'))
-  }
-  rasterize.result.annual <- function(varname, year) {
-    raster.result <- raster.model.codes
-    var_df_annual <- var_df[var_df$Model.Year==year, ]
-    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_annual[[varname]][match(cell_numbers_to_codes$unique_model_codes, var_df_annual$unique_model_code)]
-    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
-      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
-    }
-    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', as.character(unique(var_df$Model.Year)[j]), '.tif')), format='GTiff')
-    removeTmpFiles(h=0.0001)
-  }
-  rasterize.result.statistic <- function(varname, func, funcname, years) {
-    raster.result <- raster.model.codes
-    var_df2 <- var_df[which(var_df$Model.Year %in% years),]
-    var_df_summary <- data.frame(varname = tapply(var_df2[[varname]], var_df2$unique_model_code, func))
-    colnames(var_df_summary) <- paste0(varname, '.', funcname)
-    var_df_summary$unique_model_code <- row.names(var_df_summary)
-    raster.result[cell_numbers_to_codes$cell_numbers_of_interest] <- var_df_summary[[paste0(varname, '.', funcname)]][match(cell_numbers_to_codes$unique_model_codes, var_df_summary$unique_model_code)]
-    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))) {
-      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname))
-    }
-    writeRaster(raster.result, file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters', varname, paste0(varname, '.', funcname, '.tif')), format='GTiff')
-    removeTmpFiles(h=0.0001)
-  }
-  if (readraster) {
-    raster.model.codes <- raster(file.path(modelscaffoldDir, 'model.codes.Aug2017.tif'))
-  }
-  if (readcellnums) {
-    cell_numbers_to_codes <- read.csv(file.path(modelscaffoldDir, 'cellnumbers_to_modelcodes.csv'), stringsAsFactors = FALSE)
-  }
-  cropfnames <- list.files(path = file.path(resultsDir, cropname), pattern = glob2rx('*.csv'))
-  for (i in 1:(length(cropfnames)-1)) { #seq_along(cropfnames)) { #because 3.0m x 80AD ok
-    var_df <- read.csv(file.path(resultsDir, cropname, cropfnames[i]), stringsAsFactors = FALSE)
-    if (convert.negative.GW) {
-      var_df$GW.ET.growing[var_df$GW.ET.growing < 0] <- 0
-    }
-    scenario_name <- gsub('_FAO56results_points_rounded.csv', '', cropfnames[i])
-    AD.percent <- as.integer(substr(scenario_name, nchar(scenario_name)-1, nchar(scenario_name)))
-    scenario_name <- paste0('scenario_', gsub(cropname, '', scenario_name))
-    if (!grepl('mmH2O', colnames(var_df)[3])) {
-      stop("check input data.frame because PAW not in 3rd column")
-    }
-    #var_df$AD.less.Dr.end.season <- ((AD.percent / 100) * var_df[,3]) - var_df$Dr.end.season #positive is mm surplus water at end of season compared to target
-    #var_df$Dr.begin.season <- pmax(var_df$Dr.end.season - var_df$GW.capture.net, 0)
-    #var_df$AD.less.Dr.begin.season <-  ((AD.percent /100) * var_df[,3]) - var_df$Dr.begin.season
-    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name))) {
-      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name))
-    }
-    if (!dir.exists(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))) {
-      dir.create(file.path(rasterResultsDir, cropname, 'figures', scenario_name, 'rasters'))
-    }
-    for (j in seq_along(unique(var_df$Model.Year))) {
-      rasterize.result.annual(varname = 'GW.ET.growing', year = unique(var_df$Model.Year)[j])
-      #raster.result.annual(varname = '')
-      #rasterize.result.annual(varname = 'Irr.app.total', year = unique(var_df$Model.Year)[j])
-      #rasterize.result.annual(varname = 'Irr.1.doy', year = unique(var_df$Model.Year)[j])
-      #rasterize.result.annual(varname = 'deep.perc.annual', year = unique(var_df$Model.Year)[j])
-    }
-    rasterize.result.statistic(varname = 'GW.ET.growing', func = mean, 'mean', years = 2005:2016)
-    rasterize.result.statistic(varname = 'Irr.app.total', func = mean, 'mean', years = 2005:2016)
-    rasterize.result.statistic(varname = 'E.growing', func = mean, 'mean', years = 2005:2016)
-    rasterize.result.statistic(varname = 'deep.perc.annual', func = max, 'max', years = 2005:2016)
-    # rasterize.result.statistic(varname = 'GW.ET.growing', func = median, 'median')
-    # rasterize.result.statistic(varname = 'E.growing', func = median, 'median')
-    # rasterize.result.statistic(varname = 'Irr.app.total', func = median, 'median')
-    # rasterize.result.statistic(varname = 'Irr.1.doy', func = median, 'median')
-    # rasterize.result.statistic(varname = 'deep.perc.annual', func = median, 'median')
-    # rasterize.result.statistic(varname = 'GW.ET.growing', func = min, 'min')
-    # rasterize.result.statistic(varname = 'E.growing', func = min, 'min')
-    # rasterize.result.statistic(varname = 'Irr.app.total', func = min, 'min')
-    # rasterize.result.statistic(varname = 'Irr.1.doy', func = min, 'min')
-    # rasterize.result.statistic(varname = 'deep.perc.annual', func = min, 'min')
-    # rasterize.result.statistic(varname = 'GW.ET.growing', func = max, 'max')
-    # rasterize.result.statistic(varname = 'E.growing', func = max, 'max')
-    # rasterize.result.statistic(varname = 'Irr.app.total', func = max, 'max')
-    # rasterize.result.statistic(varname = 'Irr.1.doy', func = max, 'max')
-    # rasterize.result.statistic(varname = 'deep.perc.annual', func = max, 'max')
-    # rasterize.result.statistic(varname = colnames(var_df)[3], func = unique, 'PAW')
-  }
-}
-RasterBuild.v2(cropname = 'allcrops', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'alfalfa.intermountain', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'walnut.mature', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'pistachios', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'almond.mature', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'alfalfa.CV', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'alfalfa.imperial', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'grapes.table', convert.negative.GW = FALSE)
-# RasterBuild.v2(cropname = 'grapes.wine', convert.negative.GW = FALSE)
-
+#these functions were for raster based data, as they used cell counts
 #read in summary data for each scenario to summarize data with the help of cell counts
 #updated 11.29.17 for allcrops directory
 collect.stats <- function(cropname) {
