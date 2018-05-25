@@ -21,8 +21,10 @@
 # changed Ir decision function on 8/23/17 to accomodate different irrigation decisions for wine grapes
 # concept for wine irrigation decisions is to set a min Ks threshold and irrigate to allowable depletion when that threshold is crossed, as opposed to irrigating to field capacity when allowable depletion is crossed
 #script to implement the FAO56 dual crop coefficient ET routine
-modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018' #location of input data; re-worked early March 2018
-resultsDir <- 'D:/Allowable_Depletion/results/Mar2018'
+#modelscaffoldDir <- 'C:/Users/smdevine/Desktop/Allowable_Depletion/model_scaffold/run_model/Mar2018' #location of input data; re-worked early March 2018
+modelscaffoldDir <- '/scratch/clarkf/scott/model_scaffold'
+#resultsDir <- 'D:/Allowable_Depletion/results/Mar2018'
+resultsDir <- '/scratch/clarkf/scott/results'
 rounding_digits <- 3
 irrigation.parameters <- read.csv(file.path(modelscaffoldDir, 'irrigation_parameters.csv'), stringsAsFactors = FALSE)
 crop.parameters.df <- read.csv(file.path(modelscaffoldDir, 'crop_parameters.csv'), stringsAsFactors = FALSE) #necessary parameters by crop to run the FAO56 dual crop coefficient ET model
