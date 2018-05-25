@@ -1,4 +1,5 @@
 options(mc.cores = 20)
+source("FAO56_dualcropcoeff.v2.R")
 
 cropscape_legend <- read.csv(file.path(modelscaffoldDir, "cropscape_legend.txt"), stringsAsFactors = FALSE)
 alfalfa_code <- cropscape_legend$VALUE[cropscape_legend$CLASS_NAME == "Alfalfa"]
