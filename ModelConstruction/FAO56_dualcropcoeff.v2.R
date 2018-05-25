@@ -730,14 +730,16 @@ FAO56DualCropCalc <- function(cropname, cropcode, AD.percentage, root_depth, irr
   colnames(metadata)[ncol(metadata)] <- 'fw'
   write.csv(metadata, file.path(resultsDir, scenario.name, paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_model_metadata.csv')), row.names = FALSE)
 }
-#test_function
-FAO56DualCropCalc(cropname = 'almond.mature', cropcode = almond_code, AD.percentage = 50, root_depth = '0.5m', irr.type = 'Microspray, orchards', crop.parameters.df = crop.parameters.df, model.scaffold = model.scaffold, U2.df = U2.df, P.df = P.df, ETo.df = ETo.df, RHmin.df = RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = NA, grape.zone = NA, stress.assumption = 0.5, dailyWBsave = FALSE)
-###END OF FUNCTION
-#arguments to function: cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption
-#temp
-lapply(model.result, function(x) sum(x < 0))
-write.csv(model.result, file.path(resultsDir, 'TESTS', paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
 
+#
+##test_function
+#FAO56DualCropCalc(cropname = 'almond.mature', cropcode = almond_code, AD.percentage = 50, root_depth = '0.5m', irr.type = 'Microspray, orchards', crop.parameters.df = crop.parameters.df, model.scaffold = model.scaffold, U2.df = U2.df, P.df = P.df, ETo.df = ETo.df, RHmin.df = RHmin.df, results_file = 'new', row_start = 1, RDI.min = NA, alfalfa.zone = NA, grape.zone = NA, stress.assumption = 0.5, dailyWBsave = FALSE)
+####END OF FUNCTION
+##arguments to function: cropname, cropcode, AD.percentage, root_depth, irr.type, crop.parameters.df, model.scaffold, U2.df, P.df, ETo.df, RHmin.df, results_file, row_start, RDI.min, alfalfa.zone, grape.zone, stress.assumption
+##temp
+#lapply(model.result, function(x) sum(x < 0))
+#write.csv(model.result, file.path(resultsDir, 'TESTS', paste0(cropname, root_depth, 'AD', as.character(AD.percentage), '_', as.character(model.code), '_', as.character(cokey), '_', Sys.Date(), '.csv')), row.names=FALSE)
+#
 #legend for FAO56 abbreviations
 #De,j=De,j-1 - P,j - Ij/fw + Ej/fewi + DPei,j (again, ignoring tranpiration from upper 10 cm and runoff, eqn. 21) 
 #pseudo-code outline of 'separate prediction of evaporation from soil wetted by precipitation only' following Allen et al. 2005, except ignoring runoff, essentially assuming that runoff will really only occur when soils are near field capacity, so partitioning this as 'deep percolation' is acceptable and is consciously preferred over introduced errors from the curve number approach

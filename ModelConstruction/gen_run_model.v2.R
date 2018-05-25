@@ -1,4 +1,4 @@
-options(mc.cores = 20)
+options(mc.cores = 10)
 source("FAO56_dualcropcoeff.v2.R")
 
 cropscape_legend <- read.csv(file.path(modelscaffoldDir, "cropscape_legend.txt"), stringsAsFactors = FALSE)
