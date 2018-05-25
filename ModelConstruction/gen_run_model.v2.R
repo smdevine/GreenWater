@@ -1,3 +1,4 @@
+# This script was generated from gen_run_model.v2.R, do not edit by hand.
 options(mc.cores = 10)
 source("FAO56_dualcropcoeff.v2.R")
 
