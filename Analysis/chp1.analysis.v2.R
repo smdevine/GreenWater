@@ -93,12 +93,16 @@ bindsoilresults('2.0mAD80', '2.0mPAW')
 bindsoilresults('3.0mAD30', '3.0mPAW')
 bindsoilresults('3.0mAD50', '3.0mPAW')
 bindsoilresults('3.0mAD80', '3.0mPAW')
+
 #qc check on binding
-scenario_name <- '2.0mAD50'
+scenario_name <- '1.0mAD50'
 df <- read.csv(file.path(resultsDir, 'allcrops', paste0('allcrops', scenario_name, '_FAO56results_MUaggregated.csv')), stringsAsFactors = FALSE)
 df.grapes.wine <- read.csv(file.path(resultsDir, 'grapes.wine', paste0('grapes.wine', scenario_name, '_FAO56results_MUaggregated.csv')), stringsAsFactors = FALSE)
 df.grapes.wine[which(df.grapes.wine$unique_model_code==100793 & df.grapes.wine$Model.Year==2008),]
 df[which(df$unique_model_code==100793 & df$Model.Year==2008),]
+
+#count up negative calculations
+sum(df$GW.ET.growing < 0) / sum(!is.na(df$GW.ET.growing)) #3.5% of all scenarios
 
 #look at underlying allcrops data for 2.0m x 50% AD
 var_df <- read.csv(file.path(resultsDir, 'allcrops','allcrops2.0mAD50_FAO56results_MUaggregated.csv'), stringsAsFactors = FALSE)
@@ -226,7 +230,7 @@ combine.scenarios <- function(cropname, year_start, year_end) {
     scenario.AF.summary$last.irr.doy[i] <- round(mean(df$last.irr.doy.wtd.avg), 1)
     scenario.AF.summary$green.water[i] <- sum(df$green.water.AF[start_yr:stop_yr]) #rows 2:14 are years 2005-2017
     scenario.AF.summary$blue.water[i] <- sum(df$blue.water.AF[start_yr:stop_yr])
-    scenario.AF.summary$ET.growing[i] <- sum(df$ET.growing.AF)
+    scenario.AF.summary$ET.growing[i] <- sum(df$ET.growing.AF[start_yr:stop_yr])
     scenario.AF.summary$evaporation.growing[i] <- sum(df$E.growing.AF[start_yr:stop_yr])
     scenario.AF.summary$deep.percolation.annual[i] <- sum(df$deep.perc.annual.AF[start_yr:stop_yr])
     scenario.AF.summary$crop.stress.annual[i] <- sum(df$crop.stress.annual.AF[start_yr:stop_yr])
@@ -316,6 +320,38 @@ results_0.5mAD30 <- result.summarize('allcrops0.5mAD30_FAO56results_MUaggregated
 results_1.0mAD50 <- result.summarize('allcrops1.0mAD50_FAO56results_MUaggregated.csv', 2005:2017, TRUE)
 results_2.0mAD50 <- result.summarize('allcrops2.0mAD50_FAO56results_MUaggregated.csv', 2005:2017, TRUE)
 
+#hist of 1.0mAD50 by crop
+cropnames <- unique(model_shp_1.0mAD50$C2014)
+for (i in seq_along(cropnames)) {
+  hist(x = model_shp_1.0mAD50$GW_mn[model_shp_1.0mAD50$C2014==cropnames[i]], main = paste('1.0 m root depth and 50% AD for ', cropnames[i]))
+}
+max_modified <- function(x) {
+  if(all(is.na(x))) {
+    return(NA)
+  }
+  else {max(x, na.rm = TRUE)}
+}
+area_func <- function(breaks.mm, df, by.crop=FALSE, cropname=NA) {
+  #df$GW.to.ET <- df$GW.mean / df$ET.growing
+  if (by.crop) {
+    df <- df[df$C2014==cropname,]
+  }
+  df <- df[order(df$GW_mn),]
+  df$cum.sum.acres <- cumsum(df$Acres)
+  gw.acres <- round(sapply(breaks.mm, function(x) { 
+    if (is.finite(max(df$cum.sum.acres[which(df$GW_mn < x)]))) { max(df$cum.sum.acres[which(df$GW_mn < x)])} else {0}
+  }), 2)
+  result <- data.frame(breaks = breaks.mm, gw.acres = gw.acres)
+  print(result)
+  result$gw_net_acres <- result$gw.acres - c(0, result$gw.acres[1:(length(gw.acres) - 1)])
+  print(result)
+  result
+}
+
+almonds_hist <- area_func(breaks.mm=c(50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400), df = model_shp_1.0mAD50, by.crop = TRUE, cropname='Almonds')
+
+
+
 #update model scaffold shapefile with model results and write to file for plotting
 model_shp <- shapefile(file.path(modelscaffoldDir, 'shapefiles', 'model_scaffold.3.6.18.shp'))
 names(model_shp)
@@ -336,6 +372,10 @@ shapefile(model_shp_0.5mAD30, file.path(dissertationDir, 'shapefiles', 'results_
 shapefile(model_shp_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'), overwrite=TRUE)
 shapefile(model_shp_2.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'), overwrite=TRUE)
 
+model_shp_0.5mAD30 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_0.5mAD30.shp'))
+model_shp_1.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'))
+model_shp_2.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'))
+
 #get deep (2.0mAD50) - shallow (0.5mAD30) scenario differences
 deep_vs_shallow_shp <- model_shp
 deep_vs_shallow_shp$GW.mean <- model_shp_2.0mAD50$GW.mean - model_shp_0.5mAD30$GW.mean
@@ -346,8 +386,9 @@ deep_vs_shallow_shp$irrcount <- model_shp_0.5mAD30$IrrCount.mean - model_shp_2.0
 deep_vs_shallow_shp$E.growing <- model_shp_0.5mAD30$E.growing.mean - model_shp_2.0mAD50$E.growing.mean
 deep_vs_shallow_shp$ET.growing <- model_shp_0.5mAD30$ET.growing - model_shp_2.0mAD50$ET.growing
 shapefile(deep_vs_shallow_shp, file.path(dissertationDir, 'shapefiles', 'deep_vs_shallow_diffs.shp'), overwrite=TRUE)
+deep_vs_shallow_shp <- shapefile(file.path(dissertationDir, 'shapefiles', 'deep_vs_shallow_diffs.shp'))
 
-#get shallow (0.5mAD30) vs. intermediate (1.0mAD50) diffs
+#get shallow (0.5mAD30) vs. intermediate (1.0mAD50) diffs and remove NAs
 intermed_vs_shallow_shp <- model_shp
 intermed_vs_shallow_shp$GW.mean <- model_shp_1.0mAD50$GW.mean - model_shp_0.5mAD30$GW.mean
 intermed_vs_shallow_shp$BW.mean <- model_shp_0.5mAD30$BW.mean - model_shp_1.0mAD50$BW.mean
@@ -356,13 +397,31 @@ intermed_vs_shallow_shp$irrlast.days <- model_shp_0.5mAD30$IrrLast.doy - model_s
 intermed_vs_shallow_shp$irrcount <- model_shp_0.5mAD30$IrrCount.mean - model_shp_1.0mAD50$IrrCount.mean
 intermed_vs_shallow_shp$E.growing <- model_shp_0.5mAD30$E.growing.mean - model_shp_1.0mAD50$E.growing.mean
 intermed_vs_shallow_shp$ET.growing <- model_shp_0.5mAD30$ET.growing - model_shp_1.0mAD50$ET.growing
+intermed_vs_shallow_shp <- shapefile(file.path(dissertationDir, 'shapefiles', 'intermed_vs_shallow_diffs.shp'))
+intermed_vs_shallow_shp <- intermed_vs_shallow_shp[-which(is.na(intermed_vs_shallow_shp$GW_mean)),]
 shapefile(intermed_vs_shallow_shp, file.path(dissertationDir, 'shapefiles', 'intermed_vs_shallow_diffs.shp'), overwrite=TRUE)
 
+#get deep vs. intermediate diffs (these already had NAs removed)
+deep_vs_intermediate_shp <- model_shp
+deep_vs_intermediate_shp <- deep_vs_intermediate_shp[which(deep_vs_intermediate_shp$unq_md_ %in% model_shp_1.0mAD50$unq__),] #refine the grid to match results bound with NAs removed
+deep_vs_intermediate_shp$GW.mean <- model_shp_2.0mAD50$GW_mn - model_shp_1.0mAD50$GW_mn
+deep_vs_intermediate_shp$BW.mean <- model_shp_1.0mAD50$BW_mn - model_shp_2.0mAD50$BW_mn
+deep_vs_intermediate_shp$irr1.days <- model_shp_2.0mAD50$Irr1_ - model_shp_1.0mAD50$Irr1_
+deep_vs_intermediate_shp$irrlast.days <- model_shp_1.0mAD50$IrrL_ - model_shp_2.0mAD50$IrrL_
+deep_vs_intermediate_shp$irrcount <- model_shp_1.0mAD50$IrrC_ - model_shp_2.0mAD50$IrrC_
+deep_vs_intermediate_shp$E.growing <- model_shp_1.0mAD50$E_gr_ - model_shp_2.0mAD50$E_gr_
+deep_vs_intermediate_shp$ET.growing <- model_shp_1.0mAD50$ET_growng - model_shp_2.0mAD50$ET_growng
+shapefile(deep_vs_intermediate_shp, file.path(dissertationDir, 'shapefiles', 'deep_vs_intermediate_diffs.shp'), overwrite=TRUE)
+deep_vs_intermediate_shp <- shapefile(file.path(dissertationDir, 'shapefiles', 'deep_vs_intermediate_diffs.shp'))
 
 #calculate 20% breaks for each scenario for plotting purposes
-percentiles_func <- function(percens, df, varnames) {
+percentiles_func <- function(percens, df, varnames, by.crop=FALSE, cropname=NA) {
   #df$GW.to.ET <- df$GW.mean / df$ET.growing
   result <- data.frame(breaks = percens, lapply(varnames, function(y) {
+    if (by.crop) {
+      df <- df[df$C2014==cropname,]
+    }
+    print(dim(df))
     df <- df[order(df[[y]]),]
     df$varname.perc.area <- cumsum(df$Acres) / sum(df$Acres)
     round(sapply(percens, function(x) {
@@ -373,14 +432,31 @@ percentiles_func <- function(percens, df, varnames) {
   print(result)
   result
 }
-
+vars.of.int <- names(model_shp_1.0mAD50)[28:38]
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_0.5mAD30, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_0.5mAD30_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_1.0mAD50_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_2.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_2.0mAD50_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, c('ETo_grwng', 'ETo_nnl', 'P_annul')), file.path(dissertationDir, 'tables', 'climate_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_2.0mAD50, c('X2.0mPAW.mmH2O', 'TEW', 'REW', 'surface.depth')), file.path(dissertationDir, 'tables', 'soil2.0m_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), deep_vs_intermediate_shp, c('GW.mean', 'BW.mean', 'irr1.days', 'irrlast.days', 'irrcount', 'E.growing', 'ET.growing')), file.path(dissertationDir, 'tables', 'deep.vs.intermediate_percentiles.csv'), row.names=FALSE) #these are percentiles of differences between the scenarios
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), intermed_vs_shallow_shp, c('GW_mean', 'BW_mean', 'irr1_dy', 'irrlst_', 'irrcont', 'E_grwng', 'ET_grwn')), file.path(dissertationDir, 'tables', 'shallow_to_moderate_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Almonds'), file.path(dissertationDir, 'tables', 'almonds_1.0mAD50percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Alfalfa and Alfalfa Mixtures'), file.path(dissertationDir, 'tables', 'percentiles', 'alfalfa_1.0mAD50percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Grapes'), file.path(dissertationDir, 'tables', 'percentiles', 'grapes_1.0mAD50percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Pistachios'), file.path(dissertationDir, 'tables', 'percentiles', 'pistachios_1.0mAD50percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Walnuts'), file.path(dissertationDir, 'tables', 'percentiles', 'walnuts_1.0mAD50percentiles.csv'), row.names=FALSE)
 
-#update shapefiles with soil data
+#update shapefiles with soil data and remove NAs because NAs were being symbolized as 0s in ArcMap
+#0.5m x 30% AD scenario
+model_shp_0.5mAD30 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_0.5mAD30.shp'))
+soils_0.5mAD30 <- read.csv(file.path(resultsDir, 'allcrops', 'MUaggregated_soildata', "allcrops0.5mAD30_soilsdata.csv"), stringsAsFactors = FALSE)
+colnames(soils_0.5mAD30)
+soils_0.5mAD30[,c('PRISMcellnumber', 'CIMIScellnumber', 'hectares', 'cropcode', 'mukey')] <- NULL
+names(model_shp_0.5mAD30)
+model_shp_0.5mAD30 <- merge(model_shp_0.5mAD30, soils_0.5mAD30, by.x='unq_md_', by.y='unique_model_code')
+model_shp_0.5mAD30 <- model_shp_0.5mAD30[-which(is.na(model_shp_0.5mAD30$GW_mean)),]
+shapefile(model_shp_0.5mAD30, file.path(dissertationDir, 'shapefiles', 'results_0.5mAD30.shp'), overwrite=TRUE)
+
 #1m x 50% AD scenario
 model_shp_1.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'))
 soils_1.0mAD50 <- read.csv(file.path(resultsDir, 'allcrops', 'MUaggregated_soildata', "allcrops1.0mAD50_soilsdata.csv"), stringsAsFactors = FALSE)
@@ -388,6 +464,7 @@ colnames(soils_1.0mAD50)
 soils_1.0mAD50[,c('PRISMcellnumber', 'CIMIScellnumber', 'hectares', 'cropcode', 'mukey')] <- NULL
 names(model_shp_1.0mAD50)
 model_shp_1.0mAD50 <- merge(model_shp_1.0mAD50, soils_1.0mAD50, by.x='unq_md_', by.y='unique_model_code')
+model_shp_1.0mAD50 <- model_shp_1.0mAD50[-which(is.na(model_shp_1.0mAD50$GW_mn)),]
 shapefile(model_shp_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_1.0mAD50.shp'), overwrite=TRUE)
 #2m x 50% AD scenario
 model_shp_2.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'))
@@ -396,7 +473,48 @@ colnames(soils_2.0mAD50)
 soils_2.0mAD50[,c('PRISMcellnumber', 'CIMIScellnumber', 'hectares', 'cropcode', 'mukey')] <- NULL
 names(model_shp_2.0mAD50)
 model_shp_2.0mAD50 <- merge(model_shp_2.0mAD50, soils_2.0mAD50, by.x='unq_md_', by.y='unique_model_code')
+model_shp_2.0mAD50 <- model_shp_2.0mAD50[-which(is.na(model_shp_2.0mAD50$GW_mean)),] #get rid of model NAs because ArcMap was symbolizing these as 0s
 shapefile(model_shp_2.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'), overwrite=TRUE)
+
+#shallow vs intermediate comparison
+
+
+#check some relationships between ET and P
+summary(lm(ET_nn ~ P_nnl + I(P_nnl^2) + I(P_nnl^3), model_shp_1.0mAD50))
+summary(lm(ET_nn ~ log(P_nnl) + P_nnl, model_shp_1.0mAD50))
+
+#get some area stats for different numbers of major components per map unit
+sum(model_shp_1.0mAD50$Acres[model_shp_1.0mAD50$cmps_m==1])/sum(model_shp_1.0mAD50$Acres) * 100
+sum(model_shp_1.0mAD50$Acres[model_shp_1.0mAD50$cmps_m==2])/sum(model_shp_1.0mAD50$Acres) * 100
+sum(model_shp_1.0mAD50$Acres[model_shp_1.0mAD50$cmps_m==3])/sum(model_shp_1.0mAD50$Acres) * 100
+sum((model_shp_2.0mAD50$E_gr_ * model_shp_1.0mAD50$Acres / 2.47105) / 10^8) * 13
+sum((model_shp_1.0mAD50$E_gr_ * model_shp_1.0mAD50$Acres / 2.47105) / 10^8) * 13 #for 13 years from E mm / yr
+sum((model_shp_0.5mAD30$E_gr_ * model_shp_1.0mAD50$Acres / 2.47105) / 10^8) * 13
+sum((model_shp_2.0mAD50$ET_growng * model_shp_1.0mAD50$Acres / 2.47105) / 10^8) * 13
+sum((model_shp_1.0mAD50$E_gr_ * model_shp_1.0mAD50$Acres / 2.47105) / 10^8) * 13 #for 13 years from E mm / yr
+sum((model_shp_0.5mAD30$E_gr_ * model_shp_1.0mAD50$Acres / 2.47105) / 10^8) * 13
+
+#add restrctions information to shapefile
+soil_data <- read.csv(file.path(modelscaffoldDir, 'CA_all_comps_summary_dbmodified_FINAL2018-03-08.csv'), stringsAsFactors = FALSE)
+soil_data_by.mukey <- data.frame(mukey = unique(soil_data$mukey)[order(unique(soil_data$mukey))], lithic.contact = as.character(tapply(soil_data$lithic.contact, soil_data$mukey, function(x) {if ('Yes' %in% x) {'Yes'} else {'No'}})), paralithic.contact = as.character(tapply(soil_data$paralithic.contact, soil_data$mukey, function(x) {if ('Yes' %in% x) {'Yes'} else {'No'}})), hardpans = as.character(tapply(soil_data$hardpans, soil_data$mukey, function(x) {if ('Yes' %in% x) {'Yes'} else {'No'}})))
+model_shp_1.0mAD50$mukey <- as.integer(model_shp_1.0mAD50$mukey)
+model_restrictions_shp <- merge(model_shp_1.0mAD50, soil_data_by.mukey, by='mukey')
+sum(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'])/2.47105
+sum(model_restrictions_shp$Acres[model_restrictions_shp$paralithic.contact=='Yes'])/2.47105
+sum(model_restrictions_shp$Acres[model_restrictions_shp$hardpans=='Yes'])/2.47105
+
+tapply(model_restrictions_shp$Acres[model_restrictions_shp$hardpans=='Yes'], model_restrictions_shp$C2014[model_restrictions_shp$hardpans=='Yes'], function(x) { sum(x)/2.47105 })
+
+tapply(model_restrictions_shp$Acres[model_restrictions_shp$hardpans=='Yes' & model_restrictions_shp$C2014=='Alfalfa and Alfalfa Mixtures'], model_restrictions_shp$alfl_[model_restrictions_shp$hardpans=='Yes' & model_restrictions_shp$C2014=='Alfalfa and Alfalfa Mixtures'], function(x) { sum(x)/2.47105 })
+
+tapply(model_restrictions_shp$Acres[model_restrictions_shp$hardpans=='Yes' & model_restrictions_shp$C2014=='Grapes'], model_restrictions_shp$grp_z[model_restrictions_shp$hardpans=='Yes' & model_restrictions_shp$C2014=='Grapes'], function(x) { sum(x)/2.47105 })
+
+#now lithic/paralithic contact
+tapply(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes'], model_restrictions_shp$C2014[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes'], function(x) { sum(x)/2.47105 })
+
+tapply(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes' & model_restrictions_shp$C2014=='Alfalfa and Alfalfa Mixtures'], model_restrictions_shp$alfl_[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes' & model_restrictions_shp$C2014=='Alfalfa and Alfalfa Mixtures'], function(x) { sum(x)/2.47105 })
+
+tapply(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes' & model_restrictions_shp$C2014=='Grapes'], model_restrictions_shp$grp_z[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes' & model_restrictions_shp$C2014=='Grapes'], function(x) { sum(x)/2.47105 })
 
 
 #font_import() #only needs to be done once?
