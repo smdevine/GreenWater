@@ -351,7 +351,6 @@ area_func <- function(breaks.mm, df, by.crop=FALSE, cropname=NA) {
 almonds_hist <- area_func(breaks.mm=c(50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400), df = model_shp_1.0mAD50, by.crop = TRUE, cropname='Almonds')
 
 
-
 #update model scaffold shapefile with model results and write to file for plotting
 model_shp <- shapefile(file.path(modelscaffoldDir, 'shapefiles', 'model_scaffold.3.6.18.shp'))
 names(model_shp)
@@ -414,6 +413,27 @@ deep_vs_intermediate_shp$ET.growing <- model_shp_1.0mAD50$ET_growng - model_shp_
 shapefile(deep_vs_intermediate_shp, file.path(dissertationDir, 'shapefiles', 'deep_vs_intermediate_diffs.shp'), overwrite=TRUE)
 deep_vs_intermediate_shp <- shapefile(file.path(dissertationDir, 'shapefiles', 'deep_vs_intermediate_diffs.shp'))
 
+#get annual results into a shapefile
+model_shp <- shapefile(file.path(modelscaffoldDir, 'shapefiles', 'model_scaffold.3.6.18.shp'))
+names(model_shp)
+scenario_name <- '1.0mAD50'
+df <- read.csv(file.path(resultsDir, 'allcrops', paste0('allcrops', scenario_name, '_FAO56results_MUaggregated.csv')), stringsAsFactors = FALSE)
+colnames(df)
+df_2005 <- df[which(df$Model.Year==2005),]
+
+df_deep <- read.csv(file.path(resultsDir, 'allcrops', paste0('allcrops', '2.0mAD50', '_FAO56results_MUaggregated.csv')), stringsAsFactors = FALSE)
+df_deep_2005 <- df_deep[which(df_deep$Model.Year==2005),]
+
+yr2005_shp_1.0mAD50 <- merge(model_shp, df_2005[,c(1,5:ncol(df))], by.x='unq_md_', by.y='unique_model_code')
+yr2005_shp_1.0mAD50$GW.to.ET <- yr2005_shp_1.0mAD50$GW.ET.growing / yr2005_shp_1.0mAD50$ET.growing
+yr2005_shp_1.0mAD50 <- yr2005_shp_1.0mAD50[-which(is.na(yr2005_shp_1.0mAD50$GW.ET.growing)),]
+shapefile(yr2005_shp_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'yr2005_1.0mAD50.shp'), overwrite=TRUE)
+
+yr2005_shp_2.0mAD50 <- merge(model_shp, df_deep_2005[,c(1,5:ncol(df))], by.x='unq_md_', by.y='unique_model_code')
+yr2005_shp_2.0mAD50$GW.to.ET <- yr2005_shp_2.0mAD50$GW.ET.growing / yr2005_shp_2.0mAD50$ET.growing
+yr2005_shp_2.0mAD50 <- yr2005_shp_2.0mAD50[-which(is.na(yr2005_shp_2.0mAD50$GW.ET.growing)),]
+shapefile(yr2005_shp_2.0mAD50, file.path(dissertationDir, 'shapefiles', 'yr2005_2.0mAD50.shp'))
+
 #calculate 20% breaks for each scenario for plotting purposes
 percentiles_func <- function(percens, df, varnames, by.crop=FALSE, cropname=NA) {
   #df$GW.to.ET <- df$GW.mean / df$ET.growing
@@ -433,6 +453,8 @@ percentiles_func <- function(percens, df, varnames, by.crop=FALSE, cropname=NA) 
   result
 }
 vars.of.int <- names(model_shp_1.0mAD50)[28:38]
+
+
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_0.5mAD30, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_0.5mAD30_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_1.0mAD50_percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_2.0mAD50, c('GW.mean', 'BW.mean', 'DP.max', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'scenario_2.0mAD50_percentiles.csv'), row.names=FALSE)
@@ -445,6 +467,8 @@ write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.in
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Grapes'), file.path(dissertationDir, 'tables', 'percentiles', 'grapes_1.0mAD50percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Pistachios'), file.path(dissertationDir, 'tables', 'percentiles', 'pistachios_1.0mAD50percentiles.csv'), row.names=FALSE)
 write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), model_shp_1.0mAD50, vars.of.int, TRUE, 'Walnuts'), file.path(dissertationDir, 'tables', 'percentiles', 'walnuts_1.0mAD50percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), yr2005_shp_1.0mAD50, c('GW.ET.growing', 'Irr.1.doy', 'Irr.app.total', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'percentiles', 'scenario_yr2005_1.0mAD50_percentiles.csv'), row.names=FALSE)
+write.csv(percentiles_func(c(0.2, 0.4, 0.6, 0.8), yr2005_shp_2.0mAD50, c('GW.ET.growing', 'Irr.1.doy', 'Irr.app.total', 'GW.to.ET')), file.path(dissertationDir, 'tables', 'percentiles', 'scenario_yr2005_2.0mAD50_percentiles.csv'), row.names=FALSE)
 
 #update shapefiles with soil data and remove NAs because NAs were being symbolized as 0s in ArcMap
 #0.5m x 30% AD scenario
@@ -476,8 +500,33 @@ model_shp_2.0mAD50 <- merge(model_shp_2.0mAD50, soils_2.0mAD50, by.x='unq_md_', 
 model_shp_2.0mAD50 <- model_shp_2.0mAD50[-which(is.na(model_shp_2.0mAD50$GW_mean)),] #get rid of model NAs because ArcMap was symbolizing these as 0s
 shapefile(model_shp_2.0mAD50, file.path(dissertationDir, 'shapefiles', 'results_2.0mAD50.shp'), overwrite=TRUE)
 
-#shallow vs intermediate comparison
+#sum up GW totals by DWR hydrologic region
+model_shp_1.0mAD50$GW_km3_13yrs <- 13 * model_shp_1.0mAD50$GW_mn * (model_shp_1.0mAD50$Acres / 2.47108) * 10^-8
+sum(model_shp_1.0mAD50$GW_km3_13yrs)
+DWR_regions <- shapefile(file.path('C:/Users/smdevine/Desktop/SpatialData/CWP_layered_map-GISshapefiles/GIS_Calwater_Hydro regions/calwater_22_HR.shp'))
+plot(DWR_regions)
+DWR_regions_CA_TA <- spTransform(DWR_regions, crs(model_shp_1.0mAD50))
+DWR_regions_1.0mAD50 <- as(DWR_regions_CA_TA$FIRST_HRNA, 'list')
+names(DWR_regions_1.0mAD50) <- DWR_regions_CA_TA$FIRST_HRNA
+for (i in seq_along(DWR_regions_CA_TA)) {
+  print(i)
+  DWR_regions_1.0mAD50[[i]] <- crop(model_shp_1.0mAD50, DWR_regions_CA_TA[i,]) 
+}
 
+#try this with centroids approach
+centroids_1.0mAD50 <- gCentroid(model_shp_1.0mAD50, byid=TRUE)
+centroids_1.0mAD50$DWR_region <- extract(DWR_regions_CA_TA, centroids_1.0mAD50)
+summary(as.factor(centroids_1.0mAD50$DWR_region.FIRST_HRNA))
+DWR_regions_1.0mAD50 <- model_shp_1.0mAD50
+DWR_regions_1.0mAD50$DWR_region <- centroids_1.0mAD50$DWR_region.FIRST_HRNA
+summary_by_region <- data.frame(hectares = tapply(DWR_regions_1.0mAD50$Acres, DWR_regions_1.0mAD50$DWR_region, function(x) sum(x) / 2.47108))
+DWR_regions_1.0mAD50$GW_km3 <- DWR_regions_1.0mAD50$GW_mn * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
+summary_by_region$GW_km3 <- tapply(DWR_regions_1.0mAD50$GW_km3, DWR_regions_1.0mAD50$DWR_region, sum)
+DWR_regions_1.0mAD50$BW_km3 <- DWR_regions_1.0mAD50$BW_mn * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
+summary_by_region$BW_km3 <- tapply(DWR_regions_1.0mAD50$BW_km3, DWR_regions_1.0mAD50$DWR_region, sum)
+DWR_regions_1.0mAD50$P_km3 <- DWR_regions_1.0mAD50$P_nnl * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
+summary_by_region$P_km3 <- tapply(DWR_regions_1.0mAD50$P_km3, DWR_regions_1.0mAD50$DWR_region, sum)
+DWR_regions_1.0mAD50$DP_ann_km3 <- DWR_regions_1.0mAD50$ * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
 
 #check some relationships between ET and P
 summary(lm(ET_nn ~ P_nnl + I(P_nnl^2) + I(P_nnl^3), model_shp_1.0mAD50))
