@@ -512,21 +512,61 @@ for (i in seq_along(DWR_regions_CA_TA)) {
   print(i)
   DWR_regions_1.0mAD50[[i]] <- crop(model_shp_1.0mAD50, DWR_regions_CA_TA[i,]) 
 }
+lapply(DWR_regions_1.0mAD50, function(x) sum(x['GW_km3_13yrs']))
 
 #try this with centroids approach
+#for moderate scenario first
 centroids_1.0mAD50 <- gCentroid(model_shp_1.0mAD50, byid=TRUE)
 centroids_1.0mAD50$DWR_region <- extract(DWR_regions_CA_TA, centroids_1.0mAD50)
 summary(as.factor(centroids_1.0mAD50$DWR_region.FIRST_HRNA))
 DWR_regions_1.0mAD50 <- model_shp_1.0mAD50
 DWR_regions_1.0mAD50$DWR_region <- centroids_1.0mAD50$DWR_region.FIRST_HRNA
-summary_by_region <- data.frame(hectares = tapply(DWR_regions_1.0mAD50$Acres, DWR_regions_1.0mAD50$DWR_region, function(x) sum(x) / 2.47108))
+summary_by_region_mod <- data.frame(hectares = tapply(DWR_regions_1.0mAD50$Acres, DWR_regions_1.0mAD50$DWR_region, function(x) sum(x) / 2.47108))
 DWR_regions_1.0mAD50$GW_km3 <- DWR_regions_1.0mAD50$GW_mn * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
-summary_by_region$GW_km3 <- tapply(DWR_regions_1.0mAD50$GW_km3, DWR_regions_1.0mAD50$DWR_region, sum)
+summary_by_region_mod$GW_km3 <- tapply(DWR_regions_1.0mAD50$GW_km3, DWR_regions_1.0mAD50$DWR_region, sum)
 DWR_regions_1.0mAD50$BW_km3 <- DWR_regions_1.0mAD50$BW_mn * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
-summary_by_region$BW_km3 <- tapply(DWR_regions_1.0mAD50$BW_km3, DWR_regions_1.0mAD50$DWR_region, sum)
-DWR_regions_1.0mAD50$P_km3 <- DWR_regions_1.0mAD50$P_nnl * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
-summary_by_region$P_km3 <- tapply(DWR_regions_1.0mAD50$P_km3, DWR_regions_1.0mAD50$DWR_region, sum)
-DWR_regions_1.0mAD50$DP_ann_km3 <- DWR_regions_1.0mAD50$ * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
+summary_by_region_mod$BW_km3 <- tapply(DWR_regions_1.0mAD50$BW_km3, DWR_regions_1.0mAD50$DWR_region, sum)
+summary_by_region_mod$GW_to_ET <- summary_by_region_mod$GW_km3 / (summary_by_region_mod$GW_km3 + summary_by_region_mod$BW_km3)
+summary_by_region_mod$GW_mm <- (summary_by_region_mod$GW_km3 / summary_by_region_mod$hectares) * 10^8 / 13
+summary_by_region_mod
+#DWR_regions_1.0mAD50$P_km3 <- DWR_regions_1.0mAD50$P_nnl * DWR_regions_1.0mAD50$Acres / 2.47108 * 13 * 10^-8
+#summary_by_region_mod$P_km3 <- tapply(DWR_regions_1.0mAD50$P_km3, DWR_regions_1.0mAD50$DWR_region, sum)
+write.csv(summary_by_region_mod, file.path(dissertationDir, 'tables', 'DWR.region.summaries', 'scenario_1m_50AD.DWRregions.csv'), row.names = TRUE)
+
+#and for deep scenario
+centroids_2.0mAD50 <- gCentroid(model_shp_2.0mAD50, byid=TRUE)
+centroids_2.0mAD50$DWR_region <- extract(DWR_regions_CA_TA, centroids_2.0mAD50)
+DWR_regions_2.0mAD50 <- model_shp_2.0mAD50
+DWR_regions_2.0mAD50$DWR_region <- centroids_2.0mAD50$DWR_region.FIRST_HRNA
+summary_by_region_deep <- data.frame(hectares = tapply(DWR_regions_2.0mAD50$Acres, DWR_regions_2.0mAD50$DWR_region, function(x) sum(x) / 2.47108))
+DWR_regions_2.0mAD50$GW_km3 <- DWR_regions_2.0mAD50$GW_mn * DWR_regions_2.0mAD50$Acres / 2.47108 * 13 * 10^-8
+summary_by_region_deep$GW_km3 <- tapply(DWR_regions_2.0mAD50$GW_km3, DWR_regions_2.0mAD50$DWR_region, sum)
+DWR_regions_2.0mAD50$BW_km3 <- DWR_regions_2.0mAD50$BW_mn * DWR_regions_2.0mAD50$Acres / 2.47108 * 13 * 10^-8
+summary_by_region_deep$BW_km3 <- tapply(DWR_regions_2.0mAD50$BW_km3, DWR_regions_2.0mAD50$DWR_region, sum)
+summary_by_region_deep$GW_to_ET <- summary_by_region_deep$GW_km3 / (summary_by_region_deep$GW_km3 + summary_by_region_deep$BW_km3)
+summary_by_region_deep$GW_mm <- (summary_by_region_deep$GW_km3 / summary_by_region_deep$hectares) * 10^8 / 13
+summary_by_region_deep
+#DWR_regions_2.0mAD50$P_km3 <- DWR_regions_2.0mAD50$P_nnl * DWR_regions_2.0mAD50$Acres / 2.47108 * 13 * 10^-8
+#summary_by_region_deep$P_km3 <- tapply(DWR_regions_2.0mAD50$P_km3, DWR_regions_2.0mAD50$DWR_region, sum)
+write.csv(summary_by_region_deep, file.path(dissertationDir, 'tables', 'DWR.region.summaries', 'scenario_2m_50AD.DWRregions.csv'), row.names = TRUE)
+
+#and for shallow scenario (0.5 m x 30% AD)
+model_shp_0.5mAD30 <- shapefile(file.path(dissertationDir, 'shapefiles', 'results_0.5mAD30.shp'))
+centroids_0.5mAD30 <- gCentroid(model_shp_0.5mAD30, byid=TRUE)
+centroids_0.5mAD30$DWR_region <- extract(DWR_regions_CA_TA, centroids_0.5mAD30)
+DWR_regions_0.5mAD30 <- model_shp_0.5mAD30
+DWR_regions_0.5mAD30$DWR_region <- centroids_0.5mAD30$DWR_region.FIRST_HRNA
+summary_by_region_shall <- data.frame(hectares = tapply(DWR_regions_0.5mAD30$Acres, DWR_regions_0.5mAD30$DWR_region, function(x) sum(x) / 2.47108))
+DWR_regions_0.5mAD30$GW_km3 <- DWR_regions_0.5mAD30$GW_mn * DWR_regions_0.5mAD30$Acres / 2.47108 * 13 * 10^-8
+summary_by_region_shall$GW_km3 <- tapply(DWR_regions_0.5mAD30$GW_km3, DWR_regions_0.5mAD30$DWR_region, sum)
+DWR_regions_0.5mAD30$BW_km3 <- DWR_regions_0.5mAD30$BW_mn * DWR_regions_0.5mAD30$Acres / 2.47108 * 13 * 10^-8
+summary_by_region_shall$BW_km3 <- tapply(DWR_regions_0.5mAD30$BW_km3, DWR_regions_0.5mAD30$DWR_region, sum)
+summary_by_region_shall$GW_to_ET <- summary_by_region_shall$GW_km3 / (summary_by_region_shall$GW_km3 + summary_by_region_shall$BW_km3)
+summary_by_region_shall$GW_mm <- (summary_by_region_shall$GW_km3 / summary_by_region_shall$hectares) * 10^8 / 13 #this is 13 year cumulative amount converted to avg annual mm
+summary_by_region_shall
+#DWR_regions_0.5mAD30$P_km3 <- DWR_regions_0.5mAD30$P_nnl * DWR_regions_0.5mAD30$Acres / 2.47108 * 13 * 10^-8
+#summary_by_region_shall$P_km3 <- tapply(DWR_regions_0.5mAD30$P_km3, DWR_regions_0.5mAD30$DWR_region, sum)
+write.csv(summary_by_region_shall, file.path(dissertationDir, 'tables', 'DWR.region.summaries', 'scenario_0.5m_30AD.DWRregions.csv'), row.names = TRUE)
 
 #check some relationships between ET and P
 summary(lm(ET_nn ~ P_nnl + I(P_nnl^2) + I(P_nnl^3), model_shp_1.0mAD50))
@@ -565,6 +605,8 @@ tapply(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'
 
 tapply(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes' & model_restrictions_shp$C2014=='Grapes'], model_restrictions_shp$grp_z[model_restrictions_shp$lithic.contact=='Yes'| model_restrictions_shp$paralithic.contact == 'Yes' & model_restrictions_shp$C2014=='Grapes'], function(x) { sum(x)/2.47105 })
 
+#write 1 m and 50% AD results combined with component restriction info to file
+shapefile(model_restrictions_shp, file.path(dissertationDir, 'shapefiles', 'comp_restrictions1.0mAD50results.shp'))
 
 #font_import() #only needs to be done once?
 #needs to be edited and based on percentiles and weighted means
