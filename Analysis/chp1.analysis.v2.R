@@ -608,6 +608,93 @@ tapply(model_restrictions_shp$Acres[model_restrictions_shp$lithic.contact=='Yes'
 #write 1 m and 50% AD results combined with component restriction info to file
 shapefile(model_restrictions_shp, file.path(dissertationDir, 'shapefiles', 'comp_restrictions1.0mAD50results.shp'))
 
+#read this file back and do some crop specific summaries, etc. [these already in shapfiles directory below but don't have restriction info]
+model_shp_1.0mAD50 <- shapefile(file.path(dissertationDir, 'shapefiles', 'comp_restrictions1.0mAD50results.shp'))
+almonds_1.0mAD50 <- model_shp_1.0mAD50[model_shp_1.0mAD50$crpnm=='almond.mature',]
+walnuts_1.0mAD50 <- model_shp_1.0mAD50[model_shp_1.0mAD50$crpnm=='walnut.mature',]
+
+#look at soil component names by crop
+dim(almonds_1.0mAD50)
+length(unique(almonds_1.0mAD50$cmpnm)) #480 components
+almonds_by_compname <- data.frame(acres = tapply(almonds_1.0mAD50$Acres, almonds_1.0mAD50$cmpnm, sum))
+almonds_by_compname$compname <- rownames(almonds_by_compname)
+almonds_by_compname$acres <- as.numeric(almonds_by_compname$acres)
+almonds_by_compname$GW_mean <- as.numeric(tapply(almonds_1.0mAD50$GW_mn, almonds_1.0mAD50$cmpnm, mean))
+almonds_by_compname$GW_sd <- as.numeric(tapply(almonds_1.0mAD50$GW_mn, almonds_1.0mAD50$cmpnm, sd))
+almonds_by_compname$field_num <- as.numeric(tapply(almonds_1.0mAD50$GW_mn, almonds_1.0mAD50$cmpnm, length))
+almonds_by_compname$AWS_mean <- as.numeric(tapply(almonds_1.0mAD50$X1_0mPAW_m, almonds_1.0mAD50$cmpnm, mean))
+almonds_by_compname$AWS_sd <- as.numeric(tapply(almonds_1.0mAD50$X1_0mPAW_m, almonds_1.0mAD50$cmpnm, sd))
+almonds_by_compname$P_mean <- as.numeric(tapply(almonds_1.0mAD50$P_nnl, almonds_1.0mAD50$cmpnm, mean))
+almonds_by_compname$P_sd <- as.numeric(tapply(almonds_1.0mAD50$P_nnl, almonds_1.0mAD50$cmpnm, sd))
+almonds_by_compname$TEW_mean <- as.numeric(tapply(almonds_1.0mAD50$TEW, almonds_1.0mAD50$cmpnm, mean))
+almonds_by_compname$TEW_sd <- as.numeric(tapply(almonds_1.0mAD50$TEW, almonds_1.0mAD50$cmpnm, sd))
+almonds_by_compname$BW_mean <- as.numeric(tapply(almonds_1.0mAD50$BW_mn, almonds_1.0mAD50$cmpnm, mean))
+almonds_by_compname$BW_sd <- as.numeric(tapply(almonds_1.0mAD50$BW_mn, almonds_1.0mAD50$cmpnm, sd))
+almonds_by_compname$E_mean <- as.numeric(tapply(almonds_1.0mAD50$E_gr_, almonds_1.0mAD50$cmpnm, mean))
+almonds_by_compname$E_sd <- as.numeric(tapply(almonds_1.0mAD50$E_gr_, almonds_1.0mAD50$cmpnm, sd))
+almonds_by_compname <- almonds_by_compname[order(almonds_by_compname$acres, decreasing = T),]
+write.csv(almonds_by_compname, file.path(dissertationDir, 'tables', 'by.soil.compname', 'almonds_1.0mAD50.by.compname.csv'), row.names = FALSE)
+head(almonds_by_compname, 50)
+shapefile(almonds_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'almonds_1.0mAD50.shp'), overwrite=TRUE)
+shapefile(walnuts_1.0mAD50, file.path(dissertationDir, 'shapefiles', 'walnuts_1.0mAD50.shp'), overwrite=TRUE)
+sum(almonds_1.0mAD50$Acres)/2.47108 #455,965
+names(almonds_1.0mAD50)
+summary(almonds_1.0mAD50$GW_mn)
+hist(almonds_1.0mAD50$GW_mn)
+
+#all this should just be done on unique scenarios not all fields as is below
+almonds_1.0mAD50_unq <- as.data.frame(almonds_1.0mAD50)
+almonds_1.0mAD50_unq <- almonds_1.0mAD50_unq[match(unique(almonds_1.0mAD50_unq$unq__), almonds_1.0mAD50_unq$unq__),]
+sum((almonds_1.0mAD50_unq$GW_mn - mean(almonds_1.0mAD50_unq$GW_mn))^2) #total sum of squares is 57,767,736
+sqrt(sum((almonds_1.0mAD50_unq$GW_mn - mean(almonds_1.0mAD50_unq$GW_mn))^2) / nrow(almonds_1.0mAD50_unq)) #47.97 avg. distance from mean
+summary(lm(GW_mn ~ X1_0mPAW_m, data = almonds_1.0mAD50_unq)) #r^2=0.14, RSE = 44.4
+summary(lm(GW_mn ~ P_nnl, data = almonds_1.0mAD50_unq)) #r^2=0.86, RSE = 18.0
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m, data = almonds_1.0mAD50_unq)) #r^2=0.93, RSE = 12.9
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m + ETo_grwng, data = almonds_1.0mAD50_unq)) #r^2=0.93, RSE = 12.9
+P_model <- summary(lm(GW_mn ~ P_nnl + I(P_nnl^2), data = almonds_1.0mAD50_unq)) #r^2=0.87, RSE = 17.6
+P_model
+hist(P_model$residuals)
+plot(almonds_1.0mAD50_unq$GW_mn, P_model$residuals)
+simple_model <- summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m  + TEW, data = almonds_1.0mAD50_unq)) #r^2=0.93, RSE = 12.7
+simple_model #0.37 * P + 0.446 * AWS - 0.399 * TEW - 4.3
+plot(almonds_1.0mAD50_unq$GW_mn, simple_model$residuals)
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m + ETo_grwng + TEW + REW, data = almonds_1.0mAD50_unq)) #r^2=0.93, RSE = 12.6
+summary(lm(GW_mn ~ P_nnl * X1_0mPAW_m, data = almonds_1.0mAD50_unq)) #r^2=0.94, RSE = 11.9; interactive term positive but AWS coeff neg
+summary(lm(GW_mn ~ P_nnl * X1_0mPAW_m + TEW, data = almonds_1.0mAD50_unq)) #r^2=0.94, RSE = 11.7; #this keeps the coeff signs as expected
+
+#best 3 complex models
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m + TEW + I(P_nnl^2), data = almonds_1.0mAD50_unq)) #r^2=0.95, RSE = 10.3, coeff signs as expected
+summary(lm(GW_mn ~ I(sqrt(P_nnl * X1_0mPAW_m)) + P_nnl + X1_0mPAW_m + TEW + I(P_nnl^2), data = almonds_1.0mAD50_unq)) #r^2=0.98, RSE = 6.9
+summary(lm(GW_mn ~ P_nnl * X1_0mPAW_m + TEW + I(P_nnl^2), data = almonds_1.0mAD50_unq)) ##r^2=0.97, RSE = 8.5
+complex_model <- summary(lm(GW_mn ~ I(sqrt(P_nnl * X1_0mPAW_m)) + P_nnl + X1_0mPAW_m + TEW + I(P_nnl^2), data = almonds_1.0mAD50_unq))
+plot(almonds_1.0mAD50_unq$GW_mn, complex_model$residuals)
+hist(complex_model$residuals)
+
+#check a few for walnuts
+walnuts_1.0mAD50_unq <- as.data.frame(walnuts_1.0mAD50)
+walnuts_1.0mAD50_unq <- walnuts_1.0mAD50_unq[match(unique(walnuts_1.0mAD50_unq$unq__), walnuts_1.0mAD50_unq$unq__),]
+dim(walnuts_1.0mAD50_unq)
+summary(lm(GW_mn ~ X1_0mPAW_m, data = walnuts_1.0mAD50_unq)) #r^2=0.28, RSE = 37.5
+summary(lm(GW_mn ~ P_nnl, data = walnuts_1.0mAD50_unq)) #r^2=0.73, RSE = 23.1
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m, data = walnuts_1.0mAD50_unq)) #r^2=0.90, RSE = 13.8
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m + ETo_grwng, data = walnuts_1.0mAD50_unq)) #r^2=0.913, RSE = 13.0
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m + ETo_grwng + TEW, data = walnuts_1.0mAD50_unq)) #r^2=0.915, RSE = 12.9
+P_model <- summary(lm(GW_mn ~ P_nnl + I(P_nnl^2), data = walnuts_1.0mAD50_unq)) #r^2=0.79, RSE = 20.6
+P_model
+hist(P_model$residuals)
+plot(walnuts_1.0mAD50_unq$GW_mn, P_model$residuals)
+simple_model <- summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m  + TEW, data = walnuts_1.0mAD50_unq)) #r^2=0.90, RSE = 13.5
+simple_model #P * 0.217 + AWS * 0.587 - TEW * 0.425 - 30.1
+plot(walnuts_1.0mAD50_unq$GW_mn, simple_model$residuals)
+
+#best 3 complex models
+summary(lm(GW_mn ~ P_nnl + X1_0mPAW_m + TEW + I(P_nnl^2), data = walnuts_1.0mAD50_unq)) #r^2=0.94, RSE = 10.9, coeff signs as expected
+summary(lm(GW_mn ~ I(sqrt(P_nnl * X1_0mPAW_m)) + P_nnl + X1_0mPAW_m + TEW + I(P_nnl^2), data = walnuts_1.0mAD50_unq)) #r^2=0.96, RSE = 9/0
+summary(lm(GW_mn ~ P_nnl * X1_0mPAW_m + TEW + I(P_nnl^2), data = walnuts_1.0mAD50_unq)) ##r^2=0.96, RSE = 9.4
+complex_model <- summary(lm(GW_mn ~ I(sqrt(P_nnl * X1_0mPAW_m)) + P_nnl + X1_0mPAW_m + TEW + I(P_nnl^2), data = walnuts_1.0mAD50_unq))
+plot(walnuts_1.0mAD50_unq$GW_mn, complex_model$residuals)
+hist(complex_model$residuals)
+
 #font_import() #only needs to be done once?
 #needs to be edited and based on percentiles and weighted means
 CustomBP <- function(x) {
