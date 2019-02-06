@@ -27,3 +27,6 @@ sum(model.scaffold.crop$unique_model_code==101362)
 model.scaffold.crop[model.scaffold.crop$PRISMcellnumber==446907 & model.scaffold.crop$CIMIScellnumber==155748, ]
 sum(model.scaffold$cropcode==69 & model.scaffold$PRISMcellnumber==510126 & model.scaffold$CIMIScellnumber==208777)
 model.scaffold$grape.zone[model.scaffold$cropcode==69 & model.scaffold$PRISMcellnumber==510126 & model.scaffold$CIMIScellnumber==208777]
+
+nrow(model.scaffold) - sum(!(model.scaffold$unique_model_code %in% model_shp_1.0mAD50$unq__))
+length(unique(model_shp_1.0mAD50$unq__))
