@@ -215,8 +215,8 @@ combine.scenarios <- function(cropname, year_start, year_end) {
   AF.to.km3 <- 43560 * (12 ^ 3) * (2.54 ^ 3) * (0.01 ^ 3) * (0.001 ^ 3)
   fnames_full <- list.files(path=file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'), pattern=glob2rx(pattern='*.csv'), full.names = TRUE)
   fnames <- list.files(path=file.path(resultsDir, cropname, 'allyrs_stats', 'AF.summaries'), pattern=glob2rx(pattern='*.csv'))
-  scenario.AF.summary <- as.data.frame(matrix(data=NA, nrow=length(fnames), ncol=21))
-  colnames(scenario.AF.summary) <- c('root.depth', 'allowable.depletion', 'AD.inches', 'irr.count', 'irr.1.doy', 'last.irr.doy', 'green.water', 'blue.water', 'ET.growing', 'evaporation.growing', 'deep.percolation.annual', 'crop.stress.annual', 'dormant.ET', 'precipitation', 'crop.stress.growing', 'non.irr.deep.perc', 'Irr1.to.last.deep.perc', 'fall.deep.perc', 'delta.S.model.span', 'P.balance.error', 'P.balance.error.perc')
+  scenario.AF.summary <- as.data.frame(matrix(data=NA, nrow=length(fnames), ncol=23))
+  colnames(scenario.AF.summary) <- c('root.depth', 'allowable.depletion', 'AD.inches', 'irr.count', 'irr.1.doy', 'last.irr.doy', 'green.water', 'blue.water', 'ET.growing', 'evaporation.growing', 'deep.percolation.annual', 'crop.stress.annual', 'dormant.ET', 'dormant.E.surface', 'precipitation', 'crop.stress.growing', 'deep.perc.growing', 'non.irr.deep.perc', 'Irr1.to.last.deep.perc', 'fall.deep.perc', 'delta.S.model.span', 'P.balance.error', 'P.balance.error.perc')
   for (i in seq_along(fnames)) {
     df <- read.csv(fnames_full[i], stringsAsFactors = FALSE)
     start_yr <- which(df$Model.Year==year_start)
@@ -235,8 +235,10 @@ combine.scenarios <- function(cropname, year_start, year_end) {
     scenario.AF.summary$deep.percolation.annual[i] <- sum(df$deep.perc.annual.AF[start_yr:stop_yr])
     scenario.AF.summary$crop.stress.annual[i] <- sum(df$crop.stress.annual.AF[start_yr:stop_yr])
     scenario.AF.summary$dormant.ET[i] <- sum(df$ET.winter.AF[start_yr:stop_yr])
+    scenario.AF.summary$dormant.E.surface[i] <- sum(df$E.winter.AF[start_yr:stop_yr])
     scenario.AF.summary$precipitation[i] <- sum(df$P.annual.AF[start_yr:stop_yr])
     scenario.AF.summary$crop.stress.growing[i] <- sum(df$crop.stress.growing.AF[start_yr:stop_yr])
+    scenario.AF.summary$deep.perc.growing[i] <- sum(df$deep.perc.growing.AF[start_yr:stop_yr])
     scenario.AF.summary$non.irr.deep.perc[i] <- sum(df$non.irr.deep.perc.AF[start_yr:stop_yr])
     scenario.AF.summary$Irr1.to.last.deep.perc[i] <- sum(df$Irr1.to.last.deep.perc.AF[start_yr:stop_yr])
     scenario.AF.summary$fall.deep.perc[i] <- sum(df$fall.deep.perc.AF[start_yr:stop_yr])
@@ -269,10 +271,11 @@ combine.scenarios('grapes.wine', 2005, 2017)
 combine.scenarios('allcrops', 2005, 2017)
 
 #combine variables across crops and scenarios from stats summaries in mm
+#varnames in volume summaries: root.depth	allowable.depletion	AD.inches	irr.count	irr.1.doy	last.irr.doy	green.water	blue.water	ET.growing	evaporation.growing	deep.percolation.annual	crop.stress.annual	dormant.ET	dormant.E.surface	precipitation	crop.stress.growing	deep.perc.growing	non.irr.deep.perc	Irr1.to.last.deep.perc	fall.deep.perc	delta.S.model.span	P.balance.error	P.balance.error.perc	GW_to_P	GW_to_ET
 combine.crops.by.scenario <- function(root.depth, AD, years) {
   modeled_ha_by.crop <- read.csv(file.path(dissertationDir, 'model_stats', 'modeled_ha_by.crop.csv'), stringsAsFactors = FALSE)
   cropnames <- c('almond.mature', 'alfalfa.intermountain', 'alfalfa.imperial', 'alfalfa.CV', 'walnut.mature', 'pistachios', 'grapes.table', 'grapes.wine')
-  varnames <- c('cropname', 'allowable.depletion', "irr.count", "irr.1.doy", "last.irr.doy", "green.water", "blue.water", "ET.growing", "evaporation.growing", "deep.percolation.annual", "crop.stress.annual", "dormant.ET", "precipitation", "crop.stress.growing", "non.irr.deep.perc", "Irr1.to.last.deep.perc", "fall.deep.perc", "delta.S.model.span", "P.balance.error", "P.balance.error.perc", "GW_to_P", "GW_to_ET")
+  varnames <- c('cropname', 'allowable.depletion', "irr.count", "irr.1.doy", "last.irr.doy", "green.water", "blue.water", "ET.growing", "evaporation.growing", "deep.percolation.annual", "crop.stress.annual", "dormant.ET", 'dormant.E.surface', "precipitation", "crop.stress.growing", 'deep.perc.growing', "non.irr.deep.perc", "Irr1.to.last.deep.perc", "fall.deep.perc", "delta.S.model.span", "P.balance.error", "P.balance.error.perc", "GW_to_P", "GW_to_ET")
   var.summary <- as.data.frame(matrix(data=NA, nrow=length(cropnames), ncol=length(varnames)))
   colnames(var.summary) <- varnames
   for (i in seq_along(cropnames)) {
@@ -282,11 +285,11 @@ combine.crops.by.scenario <- function(root.depth, AD, years) {
   }
     var.summary.inches <- var.summary  
     var.summary.inches$acres <- modeled_ha_by.crop$acres[match(var.summary.inches$cropname, modeled_ha_by.crop$cropname)]
-    var.summary.inches[,6:19] <- round((var.summary.inches[,6:19] / var.summary.inches$acres) * (12 / length(years)), 2) #conversion to inches yr-1
+    var.summary.inches[,6:21] <- round((var.summary.inches[,6:21] / var.summary.inches$acres) * (12 / length(years)), 2) #conversion to inches yr-1 starting with column 6, the GW result
     var.summary.inches$modeled_years <- paste0(years[1], '_', years[length(years)])
     var.summary.mm <- var.summary
     var.summary.mm$acres <- modeled_ha_by.crop$acres[match(var.summary.mm$cropname, modeled_ha_by.crop$cropname)]
-    var.summary.mm[,6:19] <- round((var.summary.mm[,6:19] / var.summary.mm$acres) * (12 * 25.4 / length(years)), 2) #conversion to mm yr-1
+    var.summary.mm[,6:21] <- round((var.summary.mm[,6:21] / var.summary.mm$acres) * (12 * 25.4 / length(years)), 2) #conversion to mm yr-1
     var.summary.mm$acres <- NULL
     var.summary.mm$hectares <- modeled_ha_by.crop$hectares[match(var.summary.mm$cropname, modeled_ha_by.crop$cropname)]
     var.summary.mm$allowable.depletion <- var.summary.mm$allowable.depletion * 25.4
