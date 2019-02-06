@@ -46,8 +46,20 @@ dwr.crops <- shapefile(file.path(CropsDir, 'i15_Crop_Mapping_2014_Final_LandIQon
 #Semimajor Axis: 6378137.0
 #Semiminor Axis: 6356752.314140356
 #Inverse Flattening: 298.257222101
+#get stats on total crops
 crs(dwr.crops)
+names(dwr.crops)
 unique(dwr.crops$Crop2014)
+sum(dwr.crops$Acres[dwr.crops$Crop2014 %in% c('Idle', 'Urban', 'Managed Wetland')]) / 2.47105 #2,566,774 ha in this dataset not currently farmed
+sum(dwr.crops$Acres[!(dwr.crops$Crop2014 %in% c('Idle', 'Urban', 'Managed Wetland'))]) / 2.47105 #(5,747,544 ha total includes 'Idle', 'Urban', 'Managed Wetland'; 3,180,770 ha without these
+perennial_names <- c('Peaches/Nectarines', 'Alfalfa and Alfalfa Mixtures', 'Almonds', 'Grapes', 'Pistachios', 'Walnuts', 'Pomegranates', 'Citrus', 'Avocadoes', 'Bush Berries', 'Cherries', 'Dates', 'Olives', 'Plums, Prunes and Apricots', 'Pears', 'Kiwis', 'Apples', 'Miscellaneous Deciduous', 'Young Perennials')
+all_perennials <- dwr.crops[dwr.crops$Crop2014 %in% perennial_names, ]
+sum(all_perennials$Acres) / 2.47105 #1,775,200 total ha
+sum(all_perennials$Acres[all_perennials$Crop2014 %in% c('Alfalfa and Alfalfa Mixtures', 'Almonds', 'Grapes', 'Pistachios', 'Walnuts')]) / 2.47105 #1,487,536 (83.7% of total perennial cropland; 47% of all CA cropland)
+sum(all_perennials$Acres[all_perennials$Crop2014=='Citrus']) / 2.47105 #120,390 ha
+tapply(all_perennials$Acres / 2.47105, all_perennials$Crop2014, sum)[order(tapply(all_perennials$Acres / 2.47105, all_perennials$Crop2014, sum))]
+tapply(all_perennials$Acres[all_perennials$Crop2014 %in% c('Alfalfa and Alfalfa Mixtures', 'Almonds', 'Grapes', 'Pistachios', 'Walnuts')], all_perennials$Crop2014[all_perennials$Crop2014 %in% c('Alfalfa and Alfalfa Mixtures', 'Almonds', 'Grapes', 'Pistachios', 'Walnuts')], sum) / 2.47105
+
 perennials.of.interest <- dwr.crops[dwr.crops$Crop2014 %in% c('Alfalfa and Alfalfa Mixtures', 'Almonds', 'Grapes', 'Pistachios', 'Walnuts'),]
 unique(perennials.of.interest$Crop2014)
 nrow(perennials.of.interest) #140,819 fields with these five crops
@@ -200,6 +212,8 @@ write.csv(data.frame(model_scaffold_final), file.path(modelscaffoldDir, 'model_s
 
 #get hectares by unique model code
 model_scaffold_final <- read.csv(file.path(modelscaffoldDir, 'model_scaffold_allfields.3.8.18.csv'), stringsAsFactors = FALSE) #323422 fields x mapunit combos
+dim(model_scaffold_final)
+colnames(model_scaffold_final)
 model_scaffold_final$hectares <- model_scaffold_final$Acres / 2.47105
 sum(model_scaffold_final$hectares) #1,486,959 hectares
 length(unique(model_scaffold_final$unique_model_code)) #98,980 unique model codes
